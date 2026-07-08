@@ -44,18 +44,6 @@ const kpiSub: React.CSSProperties = {
   fontSize: '0.62rem', color: '#4a4a60', marginTop: 5,
   fontFamily: "'Space Grotesk', sans-serif",
 };
-const panelHead: React.CSSProperties = {
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '14px 18px 0', marginBottom: 12,
-};
-const panelTitle: React.CSSProperties = {
-  fontFamily: "'Syne', sans-serif", fontWeight: 700,
-  fontSize: '0.82rem', color: '#ddd', letterSpacing: '0',
-};
-const panelAction: React.CSSProperties = {
-  fontSize: '0.65rem', color: 'var(--blue)', cursor: 'pointer',
-};
-
 function fmtMoney(n: number) {
   if (!isFinite(n)) return '$0';
   const sign = n >= 0 ? '+' : '-';
@@ -85,31 +73,6 @@ function Sparkline({ points }: { points: { date: string; cumPnl: number }[] }) {
       </defs>
       <polygon points={`0,28 ${path} 100,28`} fill="url(#sparkGrad)" />
       <polyline points={path} fill="none" stroke="var(--blue)" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function SemicircleGauge({ winPct }: { winPct: number }) {
-  const r = 24, cx = 30, cy = 30;
-  const total = Math.PI * r;
-  const winLen = (winPct / 100) * total;
-  return (
-    <svg width="60" height="34" viewBox="0 0 60 34" style={{ marginTop: 4 }}>
-      <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="var(--red)" strokeWidth="4" />
-      <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="var(--blue)" strokeWidth="4" strokeDasharray={`${winLen} ${total}`} />
-    </svg>
-  );
-}
-
-function Donut({ pct }: { pct: number }) {
-  const cx = 24, cy = 24, r = 18, c = 2 * Math.PI * r;
-  const clamped = Math.min(100, Math.max(0, pct));
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" style={{ marginTop: 4 }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--dim)" strokeWidth="4" />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth="4"
-        strokeDasharray={`${(clamped / 100) * c} ${c}`}
-        transform={`rotate(-90 ${cx} ${cy})`} strokeLinecap="round" />
     </svg>
   );
 }

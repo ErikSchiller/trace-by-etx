@@ -89,6 +89,7 @@ export default function Brokers() {
           entryReason: r.entryReason || '',
           postTradeNotes: r.postTradeNotes || '',
           screenshots: [],
+          inputMode: 'calculated',
         });
         count += 1;
       } catch { /* skip bad row */ }

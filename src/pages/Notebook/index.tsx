@@ -5,8 +5,6 @@ import { useToast } from '../../components/UI/ToastProvider';
 import { usePlan } from '../../hooks/usePlan';
 import { useUpgradeModal } from '../../store/upgradeModalStore';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
-
-const mono: React.CSSProperties = { fontFamily: "'Space Grotesk', sans-serif" };
 const syne: React.CSSProperties = { fontFamily: "'Syne', sans-serif" };
 
 export function Notebook() {

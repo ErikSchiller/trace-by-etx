@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LogoMark } from '../components/UI/LogoMark';
 import { Navbar } from '../components/Marketing/Navbar';

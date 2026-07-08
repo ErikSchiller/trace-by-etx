@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import {
   useUserTrades, getWinRate, getProfitFactor, getCumulativePnL,
-  getAvgWin, getAvgLoss, getMaxDrawdown, type Trade,
+  getMaxDrawdown, type Trade,
 } from '../../store/tradeStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { ProLock } from '../../components/UI/ProLock';
@@ -91,7 +91,6 @@ function EmptyReport() {
 
 export default function Reportes() {
   const trades = useUserTrades();
-  const beCountsAsWin = useSettingsStore(st => st.beCountsAsWin);
   const [cat, setCat] = useState<Category>('general');
   const enough = trades.length >= 5;
 
@@ -145,6 +144,7 @@ export default function Reportes() {
 
 /* ── RESUMEN GENERAL ── */
 function GeneralReport({ trades }: { trades: Trade[] }) {
+  const beCountsAsWin = useSettingsStore(st => st.beCountsAsWin);
   const s = useMemo(() => {
     const wins = trades.filter(t => t.pnl > 0).length;
     const losses = trades.filter(t => t.pnl < 0).length;

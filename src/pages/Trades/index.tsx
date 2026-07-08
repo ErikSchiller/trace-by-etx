@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   useUserTrades, useTradeStore,
   getCumulativePnL, getProfitFactor, getWinRate, getAvgWin, getAvgLoss, getEquityCurve,
-  type Trade, type Direction, type Session,
+  type Direction, type Session,
 } from '../../store/tradeStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToast } from '../../components/UI/ToastProvider';

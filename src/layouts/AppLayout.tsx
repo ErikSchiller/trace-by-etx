@@ -188,7 +188,7 @@ export function AppLayout() {
                       key={item.to} to={item.to}
                       style={({ isActive }) => ({
                         display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '7px 10px', margin: '1px 6px', fontSize: '0.78rem', fontWeight: isActive ? 600 : 500,
+                        padding: '7px 10px', margin: '1px 6px', fontSize: '0.78rem',
                         color: isActive ? 'var(--blue)' : '#4a4a60',
                         background: isActive ? 'rgba(79,143,255,0.1)' : 'transparent',
                         borderRadius: 8,

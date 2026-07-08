@@ -76,7 +76,7 @@ export function calcRealRR(t: { entryPrice: number; stopLoss: number; positionSi
 
 export const useTradeStore = create<TradeStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       trades: [],
 
       addTrade: (input) => {
