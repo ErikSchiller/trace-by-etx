@@ -1,0 +1,13 @@
+{
+  "name": "TRACE by ETX",
+  "short_name": "TRACE",
+  "description": "El journal de trading más completo en español",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#4f8fff",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
