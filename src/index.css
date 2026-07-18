@@ -2,28 +2,49 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #111113;
-  --bg2: #161618;
-  --bg3: #1a1a1c;
-  --card: #161618;
-  --border: #1e1e20;
-  --border-subtle: #1a1a1c;
+  /* Primary system — unchanged logic (blue positive, red negative, NO green) */
   --blue: #4f8fff;
+  --red: #ef4444;
+
+  /* Extended palette — accents & states */
+  --blue-secondary: #2c5bff;   /* deeper blue for pressed/active */
+  --indigo: #7861ff;           /* special badges: Pro, NEW, high-verdict */
+  --warning: #f5b942;          /* warnings only, never success */
+  --danger: #ff5c5c;           /* softer red for destructive UI */
+
+  /* Surface hierarchy */
+  --bg: #0a0a0c;               /* main background */
+  --card: #15171d;             /* card / surface */
+  --card-2: #1a1c22;           /* elevated card */
+  --border: #252936;           /* card edges */
+  --border-subtle: #1e2029;    /* internal dividers */
+
+  /* Text hierarchy */
+  --text-primary: #f7f8fa;
+  --text-secondary: #a1a1b8;   /* brand-guide value (spec's #a1ab88 was an olive typo) */
+  --text-tertiary: #6b7280;
+  --text-muted: #4a4a60;
+
+  /* Tints */
   --blue-dim: rgba(79,143,255,0.10);
   --blue-dim2: rgba(79,143,255,0.06);
-  --red: #ef4444;
   --red-dim: rgba(239,68,68,0.09);
-  --text: #e0e0e8;
-  --text-2: #888898;
-  --text-3: #4a4a60;
+  --indigo-dim: rgba(120,97,255,0.12);
+  --warning-dim: rgba(245,185,66,0.12);
+
+  /* ── Legacy aliases → map old names onto the new palette so existing
+        components keep working while we migrate hardcoded colors. ── */
+  --bg2: var(--card);
+  --bg3: var(--card-2);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --text-3: var(--text-muted);
   --text-4: #33334a;
   --text-5: #1e1e20;
-  /* Legacy aliases for backward compat with earlier components */
   --dim: var(--border);
-  --dim2: var(--bg3);
-  --muted: var(--text-3);
+  --dim2: var(--card-2);
+  --muted: var(--text-muted);
   --border2: var(--border);
-  --border-subtle: var(--border-subtle, #1a1a1c);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
