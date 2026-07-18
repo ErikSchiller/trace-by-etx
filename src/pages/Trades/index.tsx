@@ -199,21 +199,21 @@ export function Trades() {
       </div>
 
       {/* Table */}
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 9, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--dim)' }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             Mostrando {filtered.length} / {trades.length}
           </div>
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
             {trades.length === 0 ? 'Aún no tienes operaciones registradas' : 'No hay operaciones con esos filtros'}
           </div>
         ) : (
           <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
-            <thead style={{ background: 'var(--bg3)' }}>
-              <tr style={{ fontSize: '0.65rem', color: '#3a3a55', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+            <thead style={{ background: 'var(--card-2)', position: 'sticky', top: 0, zIndex: 1 }}>
+              <tr style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, borderBottom: '1px solid var(--border-subtle)' }}>
                 <th style={{ padding: '10px 14px', width: 24 }}>
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} />
                 </th>
@@ -228,15 +228,15 @@ export function Trades() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t, i) => {
+              {filtered.map((t) => {
                 const status = t.pnl > 0 ? 'WIN' : t.pnl < 0 ? 'LOSS' : 'BE';
                 const isSel = selected.has(t.id);
-                const bg = isSel ? 'rgba(79,143,255,0.06)' : (i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)');
+                const bg = isSel ? 'rgba(79,143,255,0.06)' : 'transparent';
                 return (
                   <tr
                     key={t.id}
-                    style={{ background: bg, borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
-                    onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--dim2)'; }}
+                    style={{ background: bg, borderTop: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                    onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
                     onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = bg; }}
                     onClick={() => setOpenId(t.id)}
                   >
