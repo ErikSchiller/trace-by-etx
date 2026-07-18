@@ -122,3 +122,41 @@ body {
 
 @keyframes traceFadeIn { from { opacity: 0; } to { opacity: 1; } }
 .fade-in { animation: traceFadeIn 0.3s ease; }
+
+/* ── UI library primitives ── */
+.ui-input:focus {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 3px rgba(79,143,255,0.10);
+}
+.ui-input[data-error="true"]:focus {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(255,92,92,0.10);
+}
+.ui-input::placeholder { color: var(--text-4); }
+
+/* Button hover states (variants set data-variant) */
+button[data-variant="primary"]:not(:disabled):hover {
+  background: var(--blue-secondary);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(79,143,255,0.35);
+}
+button[data-variant="secondary"]:not(:disabled):hover,
+button[data-variant="outline"]:not(:disabled):hover { border-color: var(--blue); }
+button[data-variant="ghost"]:not(:disabled):hover { background: var(--card-2); color: var(--text-primary); }
+button[data-variant="danger"]:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* Skeleton shimmer */
+.ui-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--card-2);
+}
+.ui-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  animation: traceShimmer 1.4s infinite;
+}
+@keyframes traceShimmer { 100% { transform: translateX(100%); } }

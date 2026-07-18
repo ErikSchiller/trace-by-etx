@@ -1,27 +1,51 @@
-import type { ReactNode } from 'react';
-import { clsx } from 'clsx';
+import type { ReactNode, CSSProperties } from 'react';
 
-type BadgeVariant = 'green' | 'red' | 'blue' | 'yellow' | 'gray' | 'orange';
+export type BadgeVariant =
+  | 'ganancia' | 'perdida' | 'breakEven' | 'pendiente' | 'importante' | 'neutral' | 'pro' | 'new'
+  // legacy aliases (dead component tree) — kept so the build stays green
+  | 'green' | 'red' | 'blue' | 'yellow' | 'gray' | 'orange';
 
 interface BadgeProps {
   children: ReactNode;
   variant?: BadgeVariant;
   className?: string;
+  style?: CSSProperties;
 }
 
-const variants: Record<BadgeVariant, string> = {
-  green:  'bg-[rgba(0,212,170,0.15)] text-[#00d4aa] border border-[rgba(0,212,170,0.3)]',
-  red:    'bg-[rgba(255,71,87,0.15)]  text-[#ff4757] border border-[rgba(255,71,87,0.3)]',
-  blue:   'bg-[rgba(77,171,247,0.15)] text-[#4dabf7] border border-[rgba(77,171,247,0.3)]',
-  yellow: 'bg-[rgba(255,212,59,0.15)] text-[#ffd43b] border border-[rgba(255,212,59,0.3)]',
-  orange: 'bg-[rgba(255,140,0,0.15)]  text-[#ff8c00] border border-[rgba(255,140,0,0.3)]',
-  gray:   'bg-[#1e1e2e] text-[#8888aa] border border-[#2a2a3d]',
+const STYLES: Record<BadgeVariant, CSSProperties> = {
+  ganancia:   { background: 'rgba(79,143,255,0.10)', color: 'var(--blue)' },
+  perdida:    { background: 'rgba(239,68,68,0.10)', color: 'var(--red)' },
+  breakEven:  { background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' },
+  pendiente:  { background: 'rgba(245,185,66,0.12)', color: 'var(--warning)' },
+  importante: { background: 'rgba(120,97,255,0.10)', color: 'var(--indigo)' },
+  neutral:    { background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' },
+  pro:        { background: 'rgba(120,97,255,0.10)', color: 'var(--indigo)' },
+  new:        { background: 'rgba(120,97,255,0.12)', color: 'var(--indigo)', letterSpacing: '0.08em' },
+  // legacy aliases
+  green:  { background: 'rgba(79,143,255,0.10)', color: 'var(--blue)' },
+  red:    { background: 'rgba(239,68,68,0.10)', color: 'var(--red)' },
+  blue:   { background: 'rgba(79,143,255,0.10)', color: 'var(--blue)' },
+  yellow: { background: 'rgba(245,185,66,0.12)', color: 'var(--warning)' },
+  gray:   { background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' },
+  orange: { background: 'rgba(245,185,66,0.12)', color: 'var(--warning)' },
 };
 
-export function Badge({ children, variant = 'gray', className }: BadgeProps) {
+export function Badge({ children, variant = 'neutral', className, style }: BadgeProps) {
   return (
-    <span className={clsx('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium font-mono', variants[variant], className)}>
+    <span
+      className={className}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700,
+        fontSize: '0.68rem', padding: '3px 8px', borderRadius: 6,
+        lineHeight: 1.3, whiteSpace: 'nowrap',
+        ...STYLES[variant],
+        ...style,
+      }}
+    >
       {children}
     </span>
   );
 }
+
+export default Badge;
