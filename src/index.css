@@ -77,13 +77,13 @@ body {
 .trace-app input,
 .trace-app textarea,
 .trace-app select {
-  background: #161618;
-  border: 1px solid #1e1e20;
-  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   border-radius: 8px;
-  padding: 11px 14px;
+  padding: 10px 14px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
