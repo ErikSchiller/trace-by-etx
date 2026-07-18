@@ -7,9 +7,9 @@ interface LogoMarkProps {
 }
 
 const SIZE_REM: Record<NonNullable<LogoMarkProps['size']>, string> = {
-  sm: '0.82rem',
-  md: '1.2rem',
-  lg: '1.8rem',
+  sm: '0.85rem',
+  md: '1.15rem',
+  lg: '1.75rem',
   xl: '2.4rem',
 };
 
@@ -22,7 +22,8 @@ const BOX_PX: Record<NonNullable<LogoMarkProps['size']>, number> = {
 
 /**
  * TR∧CE wordmark. The ∧ is rendered as an inline SVG sized in `em`
- * so it matches Syne's cap-height at every font-size.
+ * so it matches Syne 800's cap-height and stroke weight at every size.
+ * All em units resolve against the wordmark's own font-size.
  */
 export function LogoMark({
   size = 'md',
@@ -56,17 +57,19 @@ export function LogoMark({
     </svg>
   );
 
+  // font-size lives on the column so 0.42em / 0.72em / 0.05em all resolve
+  // against the logo size regardless of surrounding context.
   const wordmark = (
-    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+    <span style={{ display: 'inline-block', fontSize, lineHeight: 1 }}>
       <span
         style={{
           fontFamily: "'Syne', sans-serif",
           fontWeight: 800,
           color: '#fff',
-          letterSpacing: '0.06em',
-          fontSize,
+          letterSpacing: '0.02em',
           display: 'inline-flex',
           alignItems: 'baseline',
+          gap: 0,
           lineHeight: 1,
         }}
       >
@@ -79,24 +82,25 @@ export function LogoMark({
           style={{
             fontFamily: "'Space Grotesk', sans-serif",
             display: 'block',
-            color: '#33334a',
-            letterSpacing: '0.16em',
+            fontWeight: 500,
+            color: '#4a4a60',
+            letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            fontSize: `calc(${fontSize} * 0.48)`,
-            marginTop: 2,
+            fontSize: '0.42em',
+            marginTop: 3,
           }}
         >
           by etx
         </span>
       )}
-    </div>
+    </span>
   );
 
   if (!withBox) return wordmark;
 
   const box = BOX_PX[size];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
       <div
         style={{
           width: box,

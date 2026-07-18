@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { LogoMark } from '../components/UI/LogoMark';
 
 const C = {
   bg:        '#050507',
@@ -134,9 +135,8 @@ export default function OnboardingPage() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '20px 28px',
       }}>
-        <Link to="/" className="flex items-baseline gap-2">
-          <span style={{ fontFamily: fontHead, fontWeight: 800, fontSize: 22, letterSpacing: '-0.02em' }}>TRACE</span>
-          <span style={{ fontSize: 9, letterSpacing: '0.2em', color: C.dim, textTransform: 'uppercase' }}>by ETX</span>
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          <LogoMark size="md" />
         </Link>
         <button
           onClick={() => { logout(); navigate('/'); }}
