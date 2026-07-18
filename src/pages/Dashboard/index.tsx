@@ -8,6 +8,8 @@ import {
 } from '../../store/tradeStore';
 import { Watermark } from '../../components/UI/Watermark';
 import { ProLock } from '../../components/UI/ProLock';
+import { LineChart } from '../../components/Charts/LineChart';
+import { RadarChart } from '../../components/Charts/RadarChart';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
 import { usePlan } from '../../hooks/usePlan';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -19,29 +21,29 @@ import {
 
 const card: React.CSSProperties = {
   background: 'var(--card)',
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '14px 18px',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 12,
+  padding: '18px 20px',
   position: 'relative',
   transition: 'border-color 0.15s ease',
 };
 const kpiCell: React.CSSProperties = {
-  padding: '18px 20px',
-  borderRight: '1px solid var(--border)',
+  padding: '20px 24px',
+  borderRight: '1px solid var(--border-subtle)',
   position: 'relative',
 };
 const kpiLabel: React.CSSProperties = {
-  fontSize: '0.6rem', color: '#4a4a60', letterSpacing: '0.06em',
+  fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: '0.08em',
   textTransform: 'uppercase', fontFamily: "'Space Grotesk', sans-serif",
   fontWeight: 500, marginBottom: 8,
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
 };
 const kpiValue: React.CSSProperties = {
-  fontFamily: "'Syne', sans-serif", fontSize: '1.55rem', fontWeight: 700,
-  color: '#fff', letterSpacing: '-0.02em', lineHeight: 1,
+  fontFamily: "'Syne', sans-serif", fontSize: '1.5rem', fontWeight: 800,
+  color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1,
 };
 const kpiSub: React.CSSProperties = {
-  fontSize: '0.62rem', color: '#4a4a60', marginTop: 5,
+  fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 5,
   fontFamily: "'Space Grotesk', sans-serif",
 };
 function fmtMoney(n: number) {
@@ -51,84 +53,21 @@ function fmtMoney(n: number) {
 }
 
 function Sparkline({ points }: { points: { date: string; cumPnl: number }[] }) {
-  if (points.length < 2) {
-    return <div style={{ height: 28, marginTop: 6 }} />;
-  }
-  const ys = points.map(p => p.cumPnl);
-  const min = Math.min(...ys, 0);
-  const max = Math.max(...ys, 0);
-  const range = max - min || 1;
-  const path = points.map((p, i) => {
-    const x = (i / (points.length - 1)) * 100;
-    const y = 28 - ((p.cumPnl - min) / range) * 26 - 1;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
+  if (points.length < 2) return <div style={{ height: 28, marginTop: 6 }} />;
   return (
-    <svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none" style={{ marginTop: 6 }}>
-      <defs>
-        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4f8fff" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#4f8fff" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={`0,28 ${path} 100,28`} fill="url(#sparkGrad)" />
-      <polyline points={path} fill="none" stroke="var(--blue)" strokeWidth="1.5" />
-    </svg>
+    <div style={{ marginTop: 6 }}>
+      <LineChart data={points.map(p => ({ value: p.cumPnl }))} height={28} showGrid={false} showPeak={false} />
+    </div>
   );
 }
 
 function HexagonRadar({ score, breakdown }: { score: number; breakdown: number[] }) {
-  const cx = 100, cy = 100;
   const labels = ['Win %', 'Profit Factor', 'Avg Win/Loss', 'Recovery', 'Max DD', 'Consistency'];
-  const angles = labels.map((_, i) => (Math.PI / 3) * i - Math.PI / 2);
-  const ring = (rPct: number) => angles.map(a => `${cx + 70 * rPct * Math.cos(a)},${cy + 70 * rPct * Math.sin(a)}`).join(' ');
-  const data = angles.map((a, i) => [cx + 70 * breakdown[i] * Math.cos(a), cy + 70 * breakdown[i] * Math.sin(a)]);
-  const dPoly = data.map(p => p.join(',')).join(' ');
-  return (
-    <svg width="100%" height="180" viewBox="0 0 200 200">
-      {[0.33, 0.66, 1].map(p => <polygon key={p} points={ring(p)} fill="none" stroke="var(--dim)" strokeWidth="1" />)}
-      {angles.map((a, i) => <line key={i} x1={cx} y1={cy} x2={cx + 70 * Math.cos(a)} y2={cy + 70 * Math.sin(a)} stroke="var(--dim)" strokeWidth="1" />)}
-      <polygon points={dPoly} fill="rgba(79,143,255,0.18)" stroke="var(--blue)" strokeWidth="1.5" />
-      {data.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.5" fill="var(--blue)" />)}
-      {angles.map((a, i) => {
-        const lx = cx + 88 * Math.cos(a), ly = cy + 88 * Math.sin(a);
-        return <text key={i} x={lx} y={ly} fontSize="8" fill="var(--muted)" fontFamily="Inter" textAnchor="middle" dominantBaseline="middle">{labels[i]}</text>;
-      })}
-      <text x={cx} y={cy + 4} fontSize="22" fill="#fff" fontFamily="Syne" fontWeight="800" textAnchor="middle">{score}</text>
-    </svg>
-  );
+  return <RadarChart values={breakdown} labels={labels} size={180} centerLabel={score} />;
 }
 
 function PnLAreaChart({ curve }: { curve: { date: string; cumPnl: number }[] }) {
-  if (curve.length < 2) {
-    return (
-      <div style={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 11 }}>
-        Sin datos suficientes
-      </div>
-    );
-  }
-  const ys = curve.map(p => p.cumPnl);
-  const min = Math.min(...ys, 0);
-  const max = Math.max(...ys, 0);
-  const range = max - min || 1;
-  const path = curve.map((p, i) => {
-    const x = (i / (curve.length - 1)) * 320;
-    const y = 110 - ((p.cumPnl - min) / range) * 100;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  return (
-    <svg width="100%" height="130" viewBox="0 0 320 130" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4f8fff" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#4f8fff" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[30, 65, 100].map(y => <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="rgba(255,255,255,0.04)" strokeDasharray="2 4" />)}
-      <polygon points={`0,130 ${path} 320,130`} fill="url(#pnlGrad)" />
-      <polyline points={path} fill="none" stroke="var(--blue)" strokeWidth="1.5" />
-    </svg>
-  );
+  return <LineChart data={curve.map(p => ({ label: p.date, value: p.cumPnl }))} height={130} showGrid showPeak />;
 }
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -253,7 +192,7 @@ export function Dashboard() {
           borderBottom: `1px solid ${lossSeverity === 'over' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)'}`,
           padding: '10px 24px',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          color: lossSeverity === 'over' ? '#ef4444' : '#f59e0b', fontSize: 13,
+          color: lossSeverity === 'over' ? 'var(--red)' : 'var(--warning)', fontSize: 13,
         }}>
           <span>
             {lossSeverity === 'over'
@@ -269,10 +208,10 @@ export function Dashboard() {
 
       <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* KPI STRIP — single horizontal card with 5 KPIs */}
-      <div className="dash-kpi-strip" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
+      <div className="dash-kpi-strip" style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>NET PNL</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : '#fff' }}>{fmtMoney(stats.cum)}</div>
+          <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : 'var(--text-primary)' }}>{fmtMoney(stats.cum)}</div>
           <div style={kpiSub}>{trades.length} operaciones</div>
           {isFree && (
             <div style={{ marginTop: 8 }}>
@@ -284,7 +223,7 @@ export function Dashboard() {
                 <div style={{
                   width: `${Math.min(100, (thisMonthCount / 30) * 100)}%`,
                   height: '100%',
-                  background: thisMonthCount >= 30 ? '#ef4444' : thisMonthCount >= 25 ? '#f59e0b' : 'var(--blue)',
+                  background: thisMonthCount >= 30 ? 'var(--red)' : thisMonthCount >= 25 ? 'var(--warning)' : 'var(--blue)',
                   transition: 'width 0.3s',
                 }} />
               </div>
