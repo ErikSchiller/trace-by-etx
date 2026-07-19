@@ -79,6 +79,8 @@ function syncLabel(latestCreatedAt: string | null) {
 export function AppLayout() {
   const [modalOpen, setModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('trace_sidebar_collapsed') === '1');
+  const toggleCollapsed = () => setCollapsed(c => { const n = !c; localStorage.setItem('trace_sidebar_collapsed', n ? '1' : '0'); return n; });
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
@@ -154,8 +156,15 @@ export function AppLayout() {
 
   return (
     <div className="trace-app" style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.5 }}>
-      <aside style={{ width: 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 14px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)' }}><LogoMark withBox size="md" />
+      <aside style={{ width: collapsed ? 64 : 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.18s ease' }}>
+        <div style={{ padding: collapsed ? '18px 0 14px' : '18px 16px 14px', flexShrink: 0, borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between' }}>
+            {collapsed
+              ? <LogoMark size="lg" showByEtx={false} symbolOnly />
+              : <LogoMark size="md" showByEtx />}
+            {!collapsed && <CollapseButton collapsed={collapsed} onClick={toggleCollapsed} />}
+          </div>
+          {collapsed && <CollapseButton collapsed={collapsed} onClick={toggleCollapsed} />}
         </div>
         <div style={{ padding: '0 10px', margin: '10px 0 6px', flexShrink: 0 }}>
           <button
@@ -166,33 +175,40 @@ export function AppLayout() {
                 setModalOpen(true);
               }
             }}
+            title={collapsed ? 'Añadir operación' : undefined}
             style={{ width: '100%', background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 7, padding: '9px 14px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif", transition: 'all 0.15s ease' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#3d7aee'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--blue)'; e.currentTarget.style.transform = 'none'; }}
           >
-            ＋ Añadir operación
+            {collapsed ? '＋' : '＋ Añadir operación'}
           </button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {sections.map(section => (
             <div key={section.title} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: '0.56rem', color: '#33334a', letterSpacing: '0.14em', padding: '10px 14px 3px', textTransform: 'uppercase', fontWeight: 600 }}>
-                {section.title}
-              </div>
+              {!collapsed && (
+                <div style={{ fontSize: '0.56rem', color: '#33334a', letterSpacing: '0.14em', padding: '10px 14px 3px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  {section.title}
+                </div>
+              )}
+              {collapsed && <div style={{ height: 12 }} />}
               <nav style={{ display: 'flex', flexDirection: 'column', padding: '0 8px', gap: 2 }}>
                 {section.items.map(item => {
                   const ItemIcon = item.icon;
                   return (
                     <NavLink
                       key={item.to} to={item.to}
+                      title={collapsed ? item.label : undefined}
                       style={({ isActive }) => ({
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '7px 10px', margin: '1px 6px', fontSize: '0.78rem',
+                        display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
+                        justifyContent: collapsed ? 'center' : 'flex-start',
+                        padding: collapsed ? '9px 0' : '7px 10px', margin: '1px 6px', fontSize: '0.78rem',
                         color: isActive ? 'var(--blue)' : '#4a4a60',
                         background: isActive ? 'rgba(79,143,255,0.1)' : 'transparent',
                         borderRadius: 8,
-                        borderLeft: isActive ? '2px solid var(--blue)' : '2px solid transparent', paddingLeft: isActive ? 8 : 10,
+                        borderLeft: !collapsed && isActive ? '2px solid var(--blue)' : '2px solid transparent',
+                        paddingLeft: collapsed ? 0 : isActive ? 8 : 10,
                         textDecoration: 'none', fontWeight: isActive ? 600 : 400,
                         transition: 'all 0.12s ease',
                       })}
@@ -202,8 +218,8 @@ export function AppLayout() {
                           <span style={{ color: isActive ? '#4f8fff' : '#3a3a55', display: 'inline-flex', alignItems: 'center' }}>
                             <ItemIcon />
                           </span>
-                          <span style={{ flex: 1 }}>{item.label}</span>
-                          {item.badge && (
+                          {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+                          {!collapsed && item.badge && (
                             <span style={{ background: 'var(--blue-dim)', color: 'var(--blue)', fontSize: 8, padding: '2px 5px', borderRadius: 4, fontWeight: 700, letterSpacing: '0.08em' }}>
                               {item.badge}
                             </span>
@@ -219,7 +235,7 @@ export function AppLayout() {
         </div>
 
         {/* Upgrade banner for free users */}
-        {isFree && (
+        {isFree && !collapsed && (
           <div style={{
             margin: '0 8px 8px',
             background: 'linear-gradient(135deg, rgba(15,52,96,0.35), rgba(22,33,62,0.35))',
@@ -264,11 +280,13 @@ export function AppLayout() {
           )}
           <div
             onClick={() => setUserMenuOpen(o => !o)}
-            style={{ padding: '14px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+            title={collapsed ? userName : undefined}
+            style={{ padding: '14px 12px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, cursor: 'pointer' }}
           >
             <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8fff', fontSize: 12, fontWeight: 700, fontFamily: "'Syne', sans-serif", flexShrink: 0 }}>
               {initials}
             </div>
+            {!collapsed && (
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
               <div style={{ color: '#ccc', fontWeight: 600, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</span>
@@ -284,10 +302,14 @@ export function AppLayout() {
                 {userPlan}
               </div>
             </div>
+            )}
+            {!collapsed && (
             <span style={{ color: 'var(--muted)', display: 'inline-flex', transform: userMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
               <Icon.ChevronDown />
             </span>
+            )}
           </div>
+          {!collapsed && (
           <div
             onClick={() => navigate('/changelog')}
             title="Ver novedades"
@@ -295,6 +317,7 @@ export function AppLayout() {
           >
             v0.1.0 · Beta
           </div>
+          )}
         </div>
       </aside>
 
@@ -346,6 +369,24 @@ export function AppLayout() {
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SupportWidget />
     </div>
+  );
+}
+
+function CollapseButton({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+      title={collapsed ? 'Expandir' : 'Colapsar'}
+      style={{
+        width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+        background: 'transparent', border: '1px solid var(--border-subtle)',
+        color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13, lineHeight: 1,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--blue)'; e.currentTarget.style.color = 'var(--blue)'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+    >{collapsed ? '›' : '‹'}</button>
   );
 }
 

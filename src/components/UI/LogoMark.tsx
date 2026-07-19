@@ -2,6 +2,8 @@ interface LogoMarkProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   withBox?: boolean;
   showByEtx?: boolean;
+  /** Render only the ∧ symbol (no TR / CE / by ETX). */
+  symbolOnly?: boolean;
   /** Override the ∧ color (defaults to #4f8fff). */
   accent?: string;
 }
@@ -29,9 +31,29 @@ export function LogoMark({
   size = 'md',
   withBox = false,
   showByEtx = true,
+  symbolOnly = false,
   accent = '#4f8fff',
 }: LogoMarkProps) {
   const fontSize = SIZE_REM[size];
+
+  // Standalone ∧ symbol — identical geometry/stroke to the wordmark caret.
+  if (symbolOnly) {
+    return (
+      <svg
+        viewBox="0 0 28 32"
+        aria-label="TRACE"
+        style={{ width: `calc(${fontSize} * 0.72)`, height: fontSize, display: 'block', fill: 'none' }}
+      >
+        <polyline
+          points="14,2 2,30 26,30"
+          stroke={accent}
+          strokeWidth={4.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
 
   const Caret = ({ color = accent }: { color?: string }) => (
     <svg
