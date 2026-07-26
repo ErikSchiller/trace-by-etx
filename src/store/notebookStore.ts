@@ -12,6 +12,8 @@ export interface Note {
   date: string;
   tags: string[];
   linkedTradeDate?: string;
+  noteDate?: string;
+  favorite?: boolean;
   images: string[];
   createdAt: string;
   updatedAt: string;
@@ -23,13 +25,19 @@ export interface Folder {
   name: string;
   icon: string;
   order: number;
+  /** System folder (e.g. Diario Diario) — cannot be deleted. */
+  system?: boolean;
 }
+
+export const DIARIO_FOLDER_NAME = 'Diario Diario';
 
 interface NotebookStore {
   folders: Folder[];
   notes: Note[];
   ensureDefaultFolders: () => void;
+  ensureDiarioFolder: () => Folder;
   addFolder: (name: string, icon: string) => Folder;
+  updateFolder: (id: string, updates: Partial<Pick<Folder, 'name' | 'icon'>>) => void;
   deleteFolder: (id: string) => void;
   addNote: (folderId: string, title?: string, content?: string, linkedTradeDate?: string) => Note;
   updateNote: (id: string, updates: Partial<Note>) => void;
@@ -37,12 +45,13 @@ interface NotebookStore {
   clearAll: () => void;
 }
 
+export const DEFAULT_FOLDER_NAMES = ['Trade Notes', 'Sessions Recap', 'Estrategias', 'Psicología', 'Mis notas', DIARIO_FOLDER_NAME];
+
 const DEFAULT_FOLDERS = [
-  { name: 'Trade Notes',     icon: '📝' },
-  { name: 'Diario Diario',   icon: '📓' },
+  { name: 'Trade Notes',     icon: '📓' },
   { name: 'Sessions Recap',  icon: '📊' },
-  { name: 'Estrategias',     icon: '⚙' },
-  { name: 'Psicología',      icon: '🧠' },
+  { name: 'Estrategias',     icon: '🧠' },
+  { name: 'Psicología',      icon: '🎯' },
   { name: 'Mis notas',       icon: '📌' },
 ];
 
@@ -67,6 +76,15 @@ export const useNotebookStore = create<NotebookStore>()(
         set(s => ({ folders: [...s.folders, ...created] }));
       },
 
+      ensureDiarioFolder: () => {
+        const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+        const existing = get().folders.find(f => f.userId === userId && f.name === DIARIO_FOLDER_NAME);
+        if (existing) return existing;
+        const folder: Folder = { id: nanoid(), userId, name: DIARIO_FOLDER_NAME, icon: '📓', order: -1, system: true };
+        set(s => ({ folders: [...s.folders, folder] }));
+        return folder;
+      },
+
       addFolder: (name, icon) => {
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';
         const folder: Folder = {
@@ -78,6 +96,10 @@ export const useNotebookStore = create<NotebookStore>()(
         };
         set(s => ({ folders: [...s.folders, folder] }));
         return folder;
+      },
+
+      updateFolder: (id, updates) => {
+        set(s => ({ folders: s.folders.map(f => f.id === id ? { ...f, ...updates } : f) }));
       },
 
       deleteFolder: (id) => {
