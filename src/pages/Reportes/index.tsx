@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import {
-  useUserTrades, getWinRate, getProfitFactor, getCumulativePnL,
+  useFilteredTrades, getWinRate, getProfitFactor, getCumulativePnL,
   getMaxDrawdown, type Trade,
 } from '../../store/tradeStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -90,7 +90,7 @@ function EmptyReport() {
 }
 
 export default function Reportes() {
-  const trades = useUserTrades();
+  const trades = useFilteredTrades();
   const [cat, setCat] = useState<Category>('general');
   const enough = trades.length >= 5;
 

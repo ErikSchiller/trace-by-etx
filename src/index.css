@@ -164,5 +164,8 @@ button[data-variant="danger"]:not(:disabled):hover { filter: brightness(1.08); t
 .diario-trow:hover { background: var(--card-2); }
 
 .nb-editor:empty::before { content: attr(data-placeholder); color: var(--text-muted); pointer-events: none; }
+.nb-folder-more { opacity: 0; transition: opacity 0.12s; }
+.nb-folder:hover .nb-folder-more { opacity: 1; }
+.nb-folder:hover .nb-folder-count { opacity: 0; }
 .nb-editor:focus { outline: none; }
 .nb-editor a { color: var(--blue); }

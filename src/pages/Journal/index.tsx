@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useUserTrades, groupTradesByDate, type Trade } from '../../store/tradeStore';
+import { useFilteredTrades, groupTradesByDate, type Trade } from '../../store/tradeStore';
 import { useNotebookStore, useUserNotes, type Note } from '../../store/notebookStore';
 import { HeatmapCalendar, type HeatCell } from '../../components/Charts/HeatmapCalendar';
 import { LineChart } from '../../components/Charts/LineChart';
@@ -37,7 +37,7 @@ function dayStats(trades: Trade[]) {
 }
 
 export function Journal() {
-  const trades = useUserTrades();
+  const trades = useFilteredTrades();
   const notes = useUserNotes();
   const ensureDiarioFolder = useNotebookStore(s => s.ensureDiarioFolder);
   const addNote = useNotebookStore(s => s.addNote);

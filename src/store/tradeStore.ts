@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
+import { useFilterStore, type TradeFilters } from './filterStore';
+import { useDateRangeStore, resolveRange } from './dateRangeStore';
 
 export type Direction = 'long' | 'short';
 export type Session = 'london' | 'new_york' | 'asia' | 'premarket';
@@ -154,6 +157,44 @@ export function useUserTrades(): Trade[] {
   return trades
     .filter(t => t.userId === userId)
     .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+}
+
+/** Apply the global filters + date range to a list of trades. */
+export function filterTrades(trades: Trade[], f: TradeFilters, range: { from: string; to: string } | null): Trade[] {
+  return trades.filter(t => {
+    if (f.assets.length && !f.assets.includes(t.asset)) return false;
+    if (f.directions.length && !f.directions.includes(t.direction)) return false;
+    if (f.sessions.length && !f.sessions.includes(t.session)) return false;
+    if (f.setups.length && !f.setups.includes(t.setup)) return false;
+    if (f.statuses.length) {
+      const st = t.pnl > 0 ? 'win' : t.pnl < 0 ? 'loss' : 'be';
+      if (!f.statuses.includes(st)) return false;
+    }
+    if (f.accountId && t.accountId !== f.accountId) return false;
+    if (range && (t.date < range.from || t.date > range.to)) return false;
+    return true;
+  });
+}
+
+/**
+ * User trades with the global Filtros + Fechas applied. Display pages
+ * (Dashboard, Diario, Operaciones, Reportes) use this so filters are global.
+ */
+export function useFilteredTrades(): Trade[] {
+  const trades = useUserTrades();
+  const assets = useFilterStore(s => s.assets);
+  const directions = useFilterStore(s => s.directions);
+  const sessions = useFilterStore(s => s.sessions);
+  const setups = useFilterStore(s => s.setups);
+  const statuses = useFilterStore(s => s.statuses);
+  const accountId = useFilterStore(s => s.accountId);
+  const preset = useDateRangeStore(s => s.preset);
+  const from = useDateRangeStore(s => s.from);
+  const to = useDateRangeStore(s => s.to);
+  return useMemo(() => {
+    const range = resolveRange({ preset, from, to });
+    return filterTrades(trades, { assets, directions, sessions, setups, statuses, accountId }, range);
+  }, [trades, assets, directions, sessions, setups, statuses, accountId, preset, from, to]);
 }
 
 export function getTradesByDate(trades: Trade[], date: string) {

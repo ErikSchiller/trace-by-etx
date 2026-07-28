@@ -7,10 +7,10 @@ import { useToast } from '../../components/UI/ToastProvider';
 import { usePlan } from '../../hooks/usePlan';
 import { useUpgradeModal } from '../../store/upgradeModalStore';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
+import { EmojiPicker } from '../../components/UI/EmojiPicker';
 
 const syne: React.CSSProperties = { fontFamily: "'Syne', sans-serif" };
 const body: React.CSSProperties = { fontFamily: "'Space Grotesk', sans-serif" };
-const EMOJIS = ['📓', '📊', '🧠', '🎯', '📌', '📝', '💡', '⚙️', '📈', '📉', '🔥', '⭐', '🗂️', '💰', '🧭', '🎓'];
 
 function isProtected(f: Folder) { return !!f.system || DEFAULT_FOLDER_NAMES.includes(f.name); }
 function stripHtml(html: string) { return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim(); }
@@ -48,6 +48,8 @@ export function Notebook() {
 
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderIcon, setNewFolderIcon] = useState('🗂️');
+  const [newFolderPicker, setNewFolderPicker] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ folderId: string; x: number; y: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -110,12 +112,12 @@ export function Notebook() {
   const folderLimitReached = isAtFolderLimit(userFolderCount);
   const startCreateFolder = () => {
     if (folderLimitReached) return;
-    setCreatingFolder(true); setNewFolderName('');
+    setCreatingFolder(true); setNewFolderName(''); setNewFolderIcon('🗂️'); setNewFolderPicker(false);
   };
   const commitCreateFolder = () => {
     const name = newFolderName.trim();
-    if (name) { const f = addFolder(name, '🗂️'); setActiveFolderId(f.id); push({ kind: 'success', text: 'Carpeta creada' }); }
-    setCreatingFolder(false); setNewFolderName('');
+    if (name) { const f = addFolder(name, newFolderIcon); setActiveFolderId(f.id); push({ kind: 'success', text: 'Carpeta creada' }); }
+    setCreatingFolder(false); setNewFolderName(''); setNewFolderPicker(false);
   };
   const doDeleteFolder = () => {
     if (!confirmFolderId) return;
@@ -157,9 +159,9 @@ export function Notebook() {
   const activeFolder = folders.find(f => f.id === activeFolderId);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '200px 280px 1fr', height: '100%' }} onClick={() => { setCtxMenu(null); setNoteMenuOpen(false); }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 280px 1fr', height: '100%', minHeight: 0, overflow: 'hidden' }} onClick={() => { setCtxMenu(null); setNoteMenuOpen(false); }}>
       {/* ── LEFT: folders ── */}
-      <div style={{ background: 'var(--card)', borderRight: '1px solid var(--border-subtle)', padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto' }}>
+      <div style={{ background: 'var(--card)', borderRight: '1px solid var(--border-subtle)', padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto', minHeight: 0 }}>
         <div style={{ position: 'relative' }}>
           <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, opacity: 0.6 }}>🔍</span>
           <input
@@ -182,14 +184,14 @@ export function Notebook() {
               <input
                 key={f.id} autoFocus value={renameValue}
                 onChange={e => setRenameValue(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { updateFolder(f.id, { name: renameValue.trim() || f.name }); setRenamingId(null); } if (e.key === 'Escape') setRenamingId(null); }}
+                onKeyDown={e => { if (e.key === 'Enter') { updateFolder(f.id, { name: renameValue.trim() || f.name }); setRenamingId(null); push({ kind: 'success', text: 'Carpeta renombrada' }); } if (e.key === 'Escape') setRenamingId(null); }}
                 onBlur={() => setRenamingId(null)}
                 style={{ ...body, background: 'var(--card-2)', border: '1px solid var(--blue)', borderRadius: 7, padding: '7px 10px', fontSize: '0.82rem', color: 'var(--text-primary)', outline: 'none', margin: '1px 0' }}
               />
             );
           }
           return (
-            <div key={f.id} style={{ position: 'relative' }}>
+            <div key={f.id} className="nb-folder" style={{ position: 'relative' }}>
               <button
                 onClick={() => { setActiveFolderId(f.id); setFavOnly(false); setSearch(''); }}
                 onContextMenu={e => { e.preventDefault(); setCtxMenu({ folderId: f.id, x: e.clientX, y: e.clientY }); }}
@@ -206,14 +208,16 @@ export function Notebook() {
               >
                 <span style={{ fontSize: 14 }}>{f.icon}</span>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                <span style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '1px 6px', fontSize: '0.62rem', color: 'var(--text-tertiary)' }}>{noteCount(f.id)}</span>
+                <span className="nb-folder-count" style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '1px 6px', fontSize: '0.62rem', color: 'var(--text-tertiary)' }}>{noteCount(f.id)}</span>
               </button>
+              <button
+                className="nb-folder-more"
+                aria-label="Opciones de carpeta"
+                onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setCtxMenu({ folderId: f.id, x: Math.min(r.left, window.innerWidth - 180), y: r.bottom + 4 }); }}
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 20, height: 20, borderRadius: 5, background: 'var(--card-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              >⋯</button>
               {iconPickerId === f.id && (
-                <div style={{ position: 'absolute', top: 38, left: 0, zIndex: 40, background: 'var(--card-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 8, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
-                  {EMOJIS.map(em => (
-                    <button key={em} onClick={() => { updateFolder(f.id, { icon: em }); setIconPickerId(null); }} style={{ background: 'transparent', border: 'none', fontSize: 16, cursor: 'pointer', padding: 4, borderRadius: 6 }}>{em}</button>
-                  ))}
-                </div>
+                <EmojiPicker onSelect={em => updateFolder(f.id, { icon: em })} onClose={() => setIconPickerId(null)} />
               )}
             </div>
           );
@@ -221,14 +225,26 @@ export function Notebook() {
 
         {/* create folder */}
         {creatingFolder ? (
-          <input
-            autoFocus value={newFolderName}
-            onChange={e => setNewFolderName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') commitCreateFolder(); if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); } }}
-            onBlur={commitCreateFolder}
-            placeholder="Nombre de la carpeta..."
-            style={{ ...body, marginTop: 8, background: 'var(--card-2)', border: '1px solid var(--blue)', borderRadius: 7, padding: '8px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', outline: 'none' }}
-          />
+          <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
+            <button
+              onClick={() => setNewFolderPicker(v => !v)}
+              style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 6, background: 'var(--card-2)', border: '1px solid var(--border-subtle)', cursor: 'pointer', fontSize: 15, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+            >{newFolderIcon}<span style={{ fontSize: 8, marginLeft: 1, color: 'var(--text-muted)' }}>▾</span></button>
+            <input
+              autoFocus value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitCreateFolder(); if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); setNewFolderPicker(false); } }}
+              placeholder="Nombre de la carpeta..."
+              style={{ ...body, flex: 1, minWidth: 0, background: 'var(--card-2)', border: '1px solid var(--blue)', borderRadius: 7, padding: '8px 10px', fontSize: '0.78rem', color: 'var(--text-primary)', outline: 'none' }}
+            />
+            <button
+              onClick={commitCreateFolder}
+              style={{ ...body, flexShrink: 0, background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 10px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
+            >Crear</button>
+            {newFolderPicker && (
+              <EmojiPicker onSelect={em => setNewFolderIcon(em)} onClose={() => setNewFolderPicker(false)} />
+            )}
+          </div>
         ) : folderLimitReached && isFree ? (
           <div style={{ marginTop: 12, background: 'rgba(79,143,255,0.06)', border: '1px solid rgba(79,143,255,0.12)', borderRadius: 8, padding: 10, fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
             Has alcanzado el límite del plan Gratis
@@ -245,7 +261,7 @@ export function Notebook() {
       </div>
 
       {/* ── MIDDLE: notes list ── */}
-      <div style={{ background: 'var(--card)', borderRight: '1px solid var(--border-subtle)', padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+      <div style={{ background: 'var(--card)', borderRight: '1px solid var(--border-subtle)', padding: '18px 14px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', minHeight: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div style={{ ...syne, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
             <span>{searching ? '🔍' : activeFolder?.icon}</span>
@@ -297,11 +313,13 @@ export function Notebook() {
       </div>
 
       {/* ── RIGHT: editor ── */}
-      <div style={{ background: 'var(--bg)', padding: '24px 32px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: 'var(--bg)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         {!activeNote ? (
           <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 60, margin: 'auto' }}>Selecciona o crea una nota</div>
         ) : (
           <>
+            {/* fixed header */}
+            <div style={{ flexShrink: 0, padding: '24px 32px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <input
                 ref={titleRef} defaultValue={activeNote.title} onInput={onTitleInput}
@@ -351,17 +369,20 @@ export function Notebook() {
               <TB onClick={() => exec('formatBlock', 'pre')}>{'</>'}</TB>
               <TB onClick={() => { const url = prompt('URL del enlace'); if (url) exec('createLink', url); }}>🔗</TB>
             </div>
+            </div>
 
-            {/* content */}
-            <div
-              ref={editorRef} contentEditable suppressContentEditableWarning onInput={onContentInput}
-              data-placeholder="Empieza a escribir..."
-              className="nb-editor"
-              style={{ flex: 1, minHeight: 240, padding: '16px 0', fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text)', outline: 'none', ...body }}
-            />
+            {/* scrollable content */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '16px 32px' }}>
+              <div
+                ref={editorRef} contentEditable suppressContentEditableWarning onInput={onContentInput}
+                data-placeholder="Empieza a escribir..."
+                className="nb-editor"
+                style={{ minHeight: '100%', fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text)', outline: 'none', ...body }}
+              />
+            </div>
 
-            {/* tags */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', paddingTop: 12, borderTop: '1px solid var(--border-subtle)', marginTop: 12 }}>
+            {/* tags footer */}
+            <div style={{ flexShrink: 0, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', borderTop: '1px solid var(--border-subtle)', padding: '12px 32px' }}>
               {activeNote.tags.map(tag => (
                 <span key={tag} style={{ ...body, background: 'rgba(79,143,255,0.08)', color: 'var(--blue)', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 12, padding: '3px 10px', fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   {tag}
@@ -394,8 +415,8 @@ export function Notebook() {
 
       <ConfirmDialog
         open={!!confirmFolderId}
-        title={`¿Eliminar carpeta y sus ${confirmFolderId ? noteCount(confirmFolderId) : 0} notas?`}
-        description='Las notas se moverán a "Mis notas".'
+        title="¿Eliminar carpeta?"
+        description={confirmFolderId ? `Se eliminará "${folders.find(f => f.id === confirmFolderId)?.name ?? ''}" y sus ${noteCount(confirmFolderId)} notas se moverán a "Mis notas".` : ''}
         confirmText="Eliminar" destructive
         onConfirm={doDeleteFolder} onCancel={() => setConfirmFolderId(null)}
       />

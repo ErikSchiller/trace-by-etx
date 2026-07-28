@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  useUserTrades,
+  useFilteredTrades,
   getCumulativePnL, getWinRate, getProfitFactor, getDayWinRate,
   getAvgWin, getAvgLoss, getEquityCurve, getRecentTrades, getTraceScore,
   getMonthlyPnL,
@@ -74,7 +74,7 @@ const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Jul
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const trades = useUserTrades();
+  const trades = useFilteredTrades();
   const empty = trades.length === 0;
   const beCountsAsWin = useSettingsStore(s => s.beCountsAsWin);
 

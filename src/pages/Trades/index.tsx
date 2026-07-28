@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  useUserTrades, useTradeStore,
+  useFilteredTrades, useTradeStore,
   getCumulativePnL, getProfitFactor, getWinRate, getAvgWin, getAvgLoss, getEquityCurve,
   type Direction, type Session,
 } from '../../store/tradeStore';
@@ -63,7 +63,7 @@ function RRBar({ rr, win }: { rr: number; win: boolean }) {
 }
 
 export function Trades() {
-  const trades = useUserTrades();
+  const trades = useFilteredTrades();
   const deleteMany = useTradeStore(s => s.deleteMany);
   const { push } = useToast();
 

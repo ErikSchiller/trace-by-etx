@@ -10,6 +10,12 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useUpgradeModal } from '../store/upgradeModalStore';
 import { ShortcutsHelp } from '../components/UI/ShortcutsHelp';
 import { SupportWidget } from '../components/UI/SupportWidget';
+import { FilterModal } from '../components/Modals/FilterModal';
+import { DateRangeModal } from '../components/Modals/DateRangeModal';
+import { ConfirmDialog } from '../components/UI/ConfirmDialog';
+import { useFilterStore, activeFilterCount } from '../store/filterStore';
+import { useDateRangeStore, PRESET_LABEL } from '../store/dateRangeStore';
+import { SOCIAL } from '../config/social';
 
 const Icon = {
   Dashboard: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/></svg>),
@@ -81,6 +87,13 @@ export function AppLayout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('trace_sidebar_collapsed') === '1');
   const toggleCollapsed = () => setCollapsed(c => { const n = !c; localStorage.setItem('trace_sidebar_collapsed', n ? '1' : '0'); return n; });
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
+  const [topMenuOpen, setTopMenuOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const filters = useFilterStore();
+  const filterCount = activeFilterCount(filters);
+  const datePreset = useDateRangeStore(s => s.preset);
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
@@ -126,7 +139,7 @@ export function AppLayout() {
       return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setHelpOpen(false); return; }
+      if (e.key === 'Escape') { setHelpOpen(false); setTopMenuOpen(false); return; }
       if (isTyping(e.target)) return;
       if (e.key === '?') { e.preventDefault(); setHelpOpen(h => !h); return; }
       const mod = e.ctrlKey || e.metaKey;
@@ -329,33 +342,68 @@ export function AppLayout() {
             <div style={{ fontSize: '0.68rem', color: '#33334a' }}>{syncLabel(latestCreatedAt)}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; }}
-            >Filtros</button>
-            <button style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; }}
-            >Fechas</button>
             <button
-              onClick={() => setUserMenuOpen(o => !o)}
-              style={{
-                background: '#1e1e28', border: '1px solid #2a2a35', color: '#fff',
-                fontSize: '0.72rem', padding: '4px 10px 4px 4px', borderRadius: 999,
-                cursor: 'pointer', fontWeight: 600,
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                fontFamily: "'Space Grotesk', sans-serif",
-              }}
-            >
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%',
-                background: 'rgba(79,143,255,0.2)', color: '#4f8fff',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.62rem', fontWeight: 700, fontFamily: "'Syne', sans-serif",
-              }}>{initials}</span>
-              <span style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
-              <Icon.ChevronDown />
-            </button>
+              onClick={() => setFilterOpen(true)}
+              style={{ position: 'relative', background: filterCount ? 'rgba(79,143,255,0.1)' : 'transparent', border: `1px solid ${filterCount ? 'rgba(79,143,255,0.3)' : 'rgba(255,255,255,0.08)'}`, color: filterCount ? 'var(--blue)' : '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
+              onMouseEnter={e => { if (!filterCount) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; } }}
+              onMouseLeave={e => { if (!filterCount) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; } }}
+            >Filtros{filterCount > 0 && <span style={{ marginLeft: 6, background: 'var(--blue)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, borderRadius: 8, padding: '1px 6px' }}>{filterCount}</span>}</button>
+            <button
+              onClick={() => setDateOpen(true)}
+              style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: datePreset !== 'all' ? 'var(--blue)' : '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease', borderBottom: datePreset !== 'all' ? '2px solid var(--blue)' : '1px solid rgba(255,255,255,0.08)' }}
+              onMouseEnter={e => { if (datePreset === 'all') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; } }}
+              onMouseLeave={e => { if (datePreset === 'all') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; } }}
+            >{datePreset !== 'all' ? `Fechas: ${PRESET_LABEL[datePreset]}` : 'Fechas'}</button>
+
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setTopMenuOpen(o => !o)}
+                style={{
+                  background: '#1e1e28', border: '1px solid #2a2a35', color: '#fff',
+                  fontSize: '0.72rem', padding: '4px 10px 4px 4px', borderRadius: 999,
+                  cursor: 'pointer', fontWeight: 600,
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  fontFamily: "'Space Grotesk', sans-serif",
+                }}
+              >
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(79,143,255,0.2)', color: '#4f8fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.62rem', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{initials}</span>
+                <span style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
+                <Icon.ChevronDown />
+              </button>
+              {topMenuOpen && (
+                <>
+                  <div onClick={() => setTopMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 91, background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 8, minWidth: 240, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 6 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8fff', fontSize: 13, fontWeight: 700, fontFamily: "'Syne', sans-serif", flexShrink: 0 }}>{initials}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
+                          <span style={{ flexShrink: 0, background: isPro ? 'rgba(79,143,255,0.12)' : 'rgba(255,255,255,0.06)', color: isPro ? 'var(--blue)' : 'var(--text-secondary)', fontSize: 9, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>{isPro ? 'Pro ✓' : 'Gratis'}</span>
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+                      </div>
+                    </div>
+                    <UserRow icon="👤" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Mi perfil</UserRow>
+                    <UserRow icon="🎨" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Apariencia</UserRow>
+                    <UserRow icon="⚡" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Plan y facturación</UserRow>
+                    <UserRow icon="📊" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Datos y exportación</UserRow>
+                    <UserRow icon="⚙️" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Ajustes</UserRow>
+                    <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 0' }} />
+                    {isFree && (
+                      <>
+                        <UserRow icon="✨" accent onClick={() => { setTopMenuOpen(false); openUpgrade(); }}>Actualizar a Pro</UserRow>
+                        <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 0' }} />
+                      </>
+                    )}
+                    <UserRow icon="📚" onClick={() => { setTopMenuOpen(false); navigate('/faq'); }}>Ayuda y soporte</UserRow>
+                    <UserRow icon="💬" onClick={() => { setTopMenuOpen(false); window.open(SOCIAL.discord, '_blank', 'noopener'); }}>Discord</UserRow>
+                    <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 0' }} />
+                    <UserRow icon="🚪" danger onClick={() => { setTopMenuOpen(false); setConfirmLogout(true); }}>Cerrar sesión</UserRow>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
         )}
@@ -366,9 +414,39 @@ export function AppLayout() {
       </div>
 
       <AddTradeModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <FilterModal open={filterOpen} onClose={() => setFilterOpen(false)} />
+      <DateRangeModal open={dateOpen} onClose={() => setDateOpen(false)} />
+      <ConfirmDialog
+        open={confirmLogout}
+        title="¿Cerrar sesión?"
+        description="Volverás a la pantalla de inicio de sesión."
+        confirmText="Cerrar sesión"
+        destructive
+        onConfirm={() => { setConfirmLogout(false); logout(); window.location.href = '/login'; }}
+        onCancel={() => setConfirmLogout(false)}
+      />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SupportWidget />
     </div>
+  );
+}
+
+function UserRow({ children, icon, onClick, danger, accent }: { children: React.ReactNode; icon: string; onClick: () => void; danger?: boolean; accent?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer',
+        padding: '8px 12px', fontSize: '0.8rem', fontFamily: "'Space Grotesk', sans-serif",
+        color: danger ? 'var(--danger)' : accent ? 'var(--blue)' : '#c8c8d8', textAlign: 'left',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = danger ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.04)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+    >
+      <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{icon}</span>
+      {children}
+    </button>
   );
 }
 
