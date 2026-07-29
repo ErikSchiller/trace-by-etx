@@ -1,70 +1,55 @@
 import { useMemo, useRef, useState } from 'react';
 import { Download, Upload, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { useSettingsStore, type Currency, TIMEZONES } from '../../store/settingsStore';
+import { useSettingsStore, type Currency, type Settings, TIMEZONES } from '../../store/settingsStore';
 import { useTradeStore, useUserTrades } from '../../store/tradeStore';
 import { useNotebookStore } from '../../store/notebookStore';
 import { useToast } from '../../components/UI/ToastProvider';
 import { useUpgradeModal } from '../../store/upgradeModalStore';
 import { usePlan } from '../../hooks/usePlan';
 import { ProLock } from '../../components/UI/ProLock';
-import { exportToCSV, exportToJSON, parseCSV, applyAccentColor } from '../../utils/export';
-import { LogoMark } from '../../components/UI/LogoMark';
+import { Button } from '../../components/UI/Button';
+import { Toggle } from '../../components/UI/Toggle';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
+import { exportToCSV, exportToJSON, parseCSV, applyAccentColor } from '../../utils/export';
 
-type SectionKey = 'profile' | 'appearance' | 'trading' | 'plan' | 'data';
+const fontHead = "'Syne', sans-serif";
+const fontBody = "'Space Grotesk', sans-serif";
 
-const SECTIONS: { id: SectionKey; label: string }[] = [
-  { id: 'profile',    label: 'Mi perfil' },
-  { id: 'appearance', label: 'Apariencia' },
-  { id: 'trading',    label: 'Trading' },
-  { id: 'plan',       label: 'Plan y facturación' },
-  { id: 'data',       label: 'Datos y exportación' },
+type SectionKey = 'profile' | 'appearance' | 'trading' | 'plan' | 'notifications' | 'language' | 'security' | 'data' | 'danger';
+const SECTIONS: { id: SectionKey; label: string; icon: string }[] = [
+  { id: 'profile', label: 'Mi perfil', icon: '👤' },
+  { id: 'appearance', label: 'Apariencia', icon: '🎨' },
+  { id: 'trading', label: 'Trading', icon: '📈' },
+  { id: 'plan', label: 'Plan y facturación', icon: '💳' },
+  { id: 'notifications', label: 'Notificaciones', icon: '🔔' },
+  { id: 'language', label: 'Idioma y región', icon: '🌐' },
+  { id: 'security', label: 'Seguridad', icon: '🔐' },
+  { id: 'data', label: 'Datos y exportación', icon: '📊' },
+  { id: 'danger', label: 'Zona de peligro', icon: '⚠️' },
 ];
 
-const ACCENT_COLORS = ['#4f8fff', '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#ffffff'];
+const ACCENT_COLORS = ['#4f8fff', '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#06b6d4', '#ffffff'];
 
-const cardStyle: React.CSSProperties = {
-  background: '#161618', border: '1px solid #1e1e20', borderRadius: 10,
-  padding: '20px 24px', marginBottom: 16, position: 'relative',
-};
-const sectionTitle: React.CSSProperties = {
-  fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.88rem', color: '#fff',
-};
-const divider: React.CSSProperties = { height: 1, background: '#1e1e20', margin: '12px 0' };
-const label: React.CSSProperties = {
-  fontSize: '0.62rem', color: '#4a4a60', textTransform: 'uppercase',
-  letterSpacing: '0.08em', fontWeight: 600, marginBottom: 6, display: 'block',
-};
-const subText: React.CSSProperties = { fontSize: 11, color: '#33334a', marginTop: 4 };
-const primaryBtn: React.CSSProperties = {
-  background: '#4f8fff', color: '#fff', border: 'none',
-  borderRadius: 7, padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-  fontFamily: "'Space Grotesk', sans-serif",
-};
-const ghostBtn: React.CSSProperties = {
-  background: 'transparent', border: '1px solid #1e1e20', color: '#888898',
-  borderRadius: 7, padding: '8px 14px', fontSize: 13, cursor: 'pointer',
-  fontFamily: "'Space Grotesk', sans-serif",
-};
-const dangerBtn: React.CSSProperties = {
-  background: 'transparent', color: '#ef4444',
-  border: '1px solid rgba(239,68,68,0.3)',
-  borderRadius: 7, padding: '8px 14px', fontSize: 13, cursor: 'pointer',
-  fontFamily: "'Space Grotesk', sans-serif",
+const inp: React.CSSProperties = {
+  fontFamily: fontBody, background: 'var(--card-2)', border: '1px solid var(--border-subtle)', borderRadius: 8,
+  padding: '9px 12px', color: 'var(--text-primary)', fontSize: '0.85rem', outline: 'none', width: '100%', boxSizing: 'border-box',
 };
 
 function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  if (!parts[0]) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const p = name.trim().split(/\s+/);
+  if (!p[0]) return '?';
+  return p.length === 1 ? p[0].slice(0, 2).toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
+function fmtDate(iso?: string) { return iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'; }
 
-function fmtDate(iso?: string) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-}
+/** Fields committed via the floating save bar (form-like). */
+type Draft = {
+  name: string;
+  accountSize: number; dailyLossLimit: number; defaultCommission: number; defaultMultiplier: number;
+  currency: Currency; timezone: string; defaultInputMode: 'direct' | 'calculated';
+  numberFormat: 'es' | 'us'; dateFormat: 'dmy' | 'mdy' | 'ymd';
+};
 
 export default function Settings() {
   const [section, setSection] = useState<SectionKey>('profile');
@@ -80,463 +65,400 @@ export default function Settings() {
   const openUpgrade = useUpgradeModal(s => s.open);
   const { isPro, isFree } = usePlan();
 
-  const [name, setName] = useState(user?.name ?? '');
-  const [billingPreview, setBillingPreview] = useState<'monthly' | 'annual'>('annual');
+  const baseDraft: Draft = useMemo(() => ({
+    name: user?.name ?? '',
+    accountSize: settings.accountSize, dailyLossLimit: settings.dailyLossLimit,
+    defaultCommission: settings.defaultCommission, defaultMultiplier: settings.defaultMultiplier,
+    currency: settings.currency, timezone: settings.timezone, defaultInputMode: settings.defaultInputMode,
+    numberFormat: settings.numberFormat, dateFormat: settings.dateFormat,
+  }), [user?.name, settings.accountSize, settings.dailyLossLimit, settings.defaultCommission, settings.defaultMultiplier, settings.currency, settings.timezone, settings.defaultInputMode, settings.numberFormat, settings.dateFormat]);
 
-  const thisMonthCount = useMemo(() => {
-    const now = new Date();
-    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return trades.filter(t => t.date.startsWith(key)).length;
-  }, [trades]);
+  const [draft, setDraft] = useState<Draft>(baseDraft);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseDraft);
+  const setD = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft(d => ({ ...d, [k]: v }));
 
-  const usagePct = Math.min(100, (thisMonthCount / 30) * 100);
-  const usageColor = usagePct >= 100 ? '#ef4444' : usagePct >= 80 ? '#f59e0b' : '#4f8fff';
-
-  const onSaveProfile = () => {
-    updateUser({ name: name.trim() });
-    push({ kind: 'success', text: 'Perfil actualizado' });
+  const saveDraft = () => {
+    if (draft.name.trim() && draft.name !== user?.name) updateUser({ name: draft.name.trim() });
+    const s: Partial<Settings> = {
+      accountSize: draft.accountSize, dailyLossLimit: draft.dailyLossLimit, defaultCommission: draft.defaultCommission,
+      defaultMultiplier: draft.defaultMultiplier, currency: draft.currency, timezone: draft.timezone,
+      defaultInputMode: draft.defaultInputMode, numberFormat: draft.numberFormat, dateFormat: draft.dateFormat,
+    };
+    settings.updateSettings(s);
+    push({ kind: 'success', text: 'Cambios guardados' });
   };
 
-  const onPickColor = (hex: string) => {
-    settings.updateSettings({ accentColor: hex });
-    applyAccentColor(hex);
-    push({ kind: 'success', text: 'Color actualizado' });
-  };
+  const onPickColor = (hex: string) => { settings.updateSettings({ accentColor: hex }); applyAccentColor(hex); };
 
-  const onAddSetup = (val: string) => {
-    if (!val.trim()) return;
-    settings.addSetup(val);
-  };
-
-  const onExportCSV = () => {
-    exportToCSV(trades);
-    push({ kind: 'success', text: 'CSV exportado' });
-  };
-  const onExportJSON = () => {
-    exportToJSON({ trades, notes: allNotes, settings: { ...settings } });
-    push({ kind: 'success', text: 'JSON exportado' });
-  };
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const onImportCSV = async (files: FileList | null) => {
     if (!files?.[0]) return;
     const parsed = await parseCSV(files[0]);
     push({ kind: 'success', text: `${parsed.length} operaciones leídas del CSV` });
   };
+
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDeleteAcct, setConfirmDeleteAcct] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const onClearAll = () => setConfirmClear(true);
-  const doClearAll = () => {
-    clearTrades();
-    clearNotes();
-    push({ kind: 'success', text: 'Todos los datos han sido eliminados' });
-    setConfirmClear(false);
-  };
-  const onCancelPlan = () => setConfirmCancel(true);
-  const doCancelPlan = () => {
-    downgrade();
-    push({ kind: 'success', text: 'Plan cancelado' });
-    setConfirmCancel(false);
-  };
+  const [dangerText, setDangerText] = useState('');
+  const [emailText, setEmailText] = useState('');
 
   if (!user) return null;
-  const initials = getInitials(user.name);
+  const initials = getInitials(draft.name || user.name);
+  const now = new Date();
+  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const thisMonthCount = trades.filter(t => t.date.startsWith(monthPrefix)).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      {/* Header band with gradient */}
-      <div style={{
-        height: 110, padding: '0 32px',
-        background: 'linear-gradient(135deg, #1a1a2e, #16213e 50%, #0f3460)',
-        display: 'flex', alignItems: 'center', gap: 16,
-      }}>
-        <LogoMark size="md" showByEtx={false} />
-        <div style={{ width: 1, height: 26, background: 'rgba(255,255,255,0.1)' }} />
-        <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.5rem', color: '#fff' }}>
-          Ajustes
+    <div style={{ display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      {/* LEFT NAV */}
+      <nav style={{ width: 220, flexShrink: 0, background: '#0d0d0f', borderRight: '1px solid var(--border-subtle)', padding: '24px 12px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, padding: '0 12px 12px' }}>Ajustes</div>
+        {SECTIONS.map(s => {
+          const active = section === s.id;
+          return (
+            <button key={s.id} onClick={() => setSection(s.id)}
+              style={{
+                fontFamily: fontBody, display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                padding: active ? '8px 12px 8px 10px' : '8px 12px', borderRadius: 6, marginBottom: 2, fontSize: '0.82rem', cursor: 'pointer',
+                border: 'none', borderLeft: active ? '2px solid var(--blue)' : '2px solid transparent',
+                background: active ? 'rgba(79,143,255,0.08)' : 'transparent', color: active ? 'var(--blue)' : '#c8c8d8',
+              }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#c8c8d8'; } }}>
+              <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{s.icon}</span>
+              <span style={{ flex: 1 }}>{s.label}</span>
+            </button>
+          );
+        })}
+        <div style={{ marginTop: 'auto', padding: '16px 12px 0', fontSize: '0.65rem', color: 'var(--text-muted)', lineHeight: 1.8 }}>
+          <div>TRACE v0.1.0</div>
+          <a href="/changelog" style={{ color: 'var(--blue)', textDecoration: 'none' }}>Últimos cambios →</a>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, color: '#fff' }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{user.name}</span>
-          <span style={{
-            background: isPro ? 'rgba(79,143,255,0.2)' : 'rgba(255,255,255,0.08)',
-            color: isPro ? '#6b9fff' : 'rgba(255,255,255,0.6)',
-            fontSize: 11, padding: '3px 10px', borderRadius: 12, fontWeight: 600,
-          }}>{isPro ? 'Plan Pro' : 'Plan Gratis'}</span>
-        </div>
-      </div>
+      </nav>
 
-      {/* Body — nav + content */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <nav style={{
-          width: 200, flexShrink: 0, background: '#161618',
-          borderRight: '1px solid #1e1e20', padding: '16px 8px',
-        }}>
-          {SECTIONS.map(s => {
-            const active = section === s.id;
-            return (
-              <button
-                key={s.id} onClick={() => setSection(s.id)}
-                style={{
-                  width: '100%', textAlign: 'left',
-                  background: active ? 'rgba(79,143,255,0.1)' : 'transparent',
-                  color: active ? '#4f8fff' : '#4a4a60',
-                  border: 'none',
-                  borderLeft: active ? '2px solid #4f8fff' : '2px solid transparent',
-                  padding: '8px 12px', fontSize: 13,
-                  fontWeight: active ? 600 : 500, cursor: 'pointer',
-                  borderRadius: 6, margin: '1px 0',
-                  fontFamily: "'Space Grotesk', sans-serif",
-                }}
-              >{s.label}</button>
-            );
-          })}
-        </nav>
-
-        <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
-          {section === 'profile' && (
-            <div style={cardStyle}>
-              <div style={sectionTitle}>Mi perfil</div>
-              <div style={divider} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div>
-                  <label style={label}>Nombre completo</label>
-                  <input value={name} onChange={e => setName(e.target.value)} />
-                </div>
-                <div>
-                  <label style={label}>Email</label>
-                  <input value={user.email} readOnly style={{ background: 'rgba(255,255,255,0.02)', color: '#4a4a60' }} />
-                </div>
-                <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: '50%',
-                    background: 'rgba(79,143,255,0.15)', border: '2px solid rgba(79,143,255,0.2)',
-                    color: '#4f8fff', fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '1.1rem',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{initials}</div>
-                  <div style={{ ...subText, textAlign: 'center', marginTop: 6 }}>
-                    Las iniciales se generan automáticamente
+      {/* RIGHT CONTENT */}
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          <div style={{ maxWidth: 720, padding: '40px 48px' }}>
+            {section === 'profile' && (
+              <Section title="Mi perfil" subtitle="Gestiona tu información personal.">
+                <Row label="Foto de perfil" desc="Se muestra en el sidebar y al exportar reportes.">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: fontHead, fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>{initials}</div>
+                    <Button variant="ghost" size="sm" onClick={() => push({ kind: 'info', text: 'Subida de foto próximamente' })}>Cambiar</Button>
                   </div>
-                </div>
-                <button onClick={onSaveProfile} style={{ ...primaryBtn, alignSelf: 'flex-start' }}>
-                  Guardar cambios
-                </button>
-              </div>
-            </div>
-          )}
-
-          {section === 'appearance' && (
-            <div style={cardStyle}>
-              <div style={sectionTitle}>Apariencia</div>
-              <div style={divider} />
-              <ProLock feature="Color personalizable" description="Personaliza el color de acento de la app">
-                <div>
-                  <label style={label}>Color de acento</label>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-                    {ACCENT_COLORS.map(hex => {
-                      const sel = settings.accentColor.toLowerCase() === hex.toLowerCase();
-                      return (
-                        <button
-                          key={hex} onClick={() => onPickColor(hex)}
-                          style={{
-                            width: 32, height: 32, borderRadius: '50%',
-                            background: hex, border: 'none', cursor: 'pointer',
-                            outline: sel ? '2px solid #fff' : 'none',
-                            outlineOffset: sel ? 2 : 0,
-                            boxShadow: sel ? `0 0 0 4px ${hex}40` : 'none',
-                          }}
-                        />
-                      );
-                    })}
+                </Row>
+                <Row label="Nombre" desc="Cómo apareces en TRACE.">
+                  <input value={draft.name} onChange={e => setD('name', e.target.value)} style={inp} />
+                </Row>
+                <Row label="Email" desc="Se usa para iniciar sesión.">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <input value={user.email} readOnly style={{ ...inp, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)' }} />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--blue)', cursor: 'pointer' }} onClick={() => push({ kind: 'info', text: 'Cambio de email próximamente con Supabase' })}>Cambiar</span>
                   </div>
-                  <label style={label}>Color personalizado</label>
-                  <input
-                    type="color"
-                    value={settings.accentColor}
-                    onChange={e => onPickColor(e.target.value)}
-                    style={{ width: 60, height: 36, border: '1px solid #1e1e20', borderRadius: 7, background: 'transparent', cursor: 'pointer', padding: 2 }}
-                  />
-                  <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: settings.accentColor }} />
-                    <span style={{ fontSize: 13, color: '#888898' }}>Color actual: {settings.accentColor}</span>
-                  </div>
-                </div>
-              </ProLock>
-            </div>
-          )}
-
-          {section === 'trading' && (
-            <div style={cardStyle}>
-              <div style={sectionTitle}>Configuración de trading</div>
-              <div style={divider} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={label}>Tamaño de cuenta</label>
-                  <input type="number" value={settings.accountSize} onChange={e => settings.updateSettings({ accountSize: parseFloat(e.target.value) || 0 })} />
-                  <div style={subText}>Usado para calcular % rendimiento y drawdown</div>
-                </div>
-                <div>
-                  <label style={label}>Límite de pérdida diaria</label>
-                  <input type="number" value={settings.dailyLossLimit} onChange={e => settings.updateSettings({ dailyLossLimit: parseFloat(e.target.value) || 0 })} />
-                  <div style={subText}>Alerta al alcanzar este límite</div>
-                </div>
-                <div>
-                  <label style={label}>Comisión por defecto</label>
-                  <input type="number" value={settings.defaultCommission} onChange={e => settings.updateSettings({ defaultCommission: parseFloat(e.target.value) || 0 })} />
-                  <div style={subText}>Se auto-rellena al añadir operaciones</div>
-                </div>
-                <div>
-                  <label style={label}>Multiplicador por defecto</label>
-                  <input type="number" value={settings.defaultMultiplier} onChange={e => settings.updateSettings({ defaultMultiplier: parseFloat(e.target.value) || 1 })} />
-                </div>
-                <div>
-                  <label style={label}>Moneda</label>
-                  <select value={settings.currency} onChange={e => settings.updateSettings({ currency: e.target.value as Currency })}>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="GBP">GBP (£)</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={label}>Zona horaria</label>
-                  <select value={settings.timezone} onChange={e => settings.updateSettings({ timezone: e.target.value })}>
+                </Row>
+                <Row label="Zona horaria" desc="Afecta a fechas y horas mostradas." last>
+                  <select value={draft.timezone} onChange={e => setD('timezone', e.target.value)} style={inp}>
                     {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
                   </select>
-                  <div style={subText}>Usada para mostrar fechas y horas</div>
-                </div>
-              </div>
+                </Row>
+              </Section>
+            )}
 
-              <div style={{ marginTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingTop: 16, borderTop: '1px solid #1e1e20' }}>
-                <div>
-                  <label style={{ ...label, marginBottom: 4 }}>Break even cuenta como ganado</label>
-                  <div style={subText}>Las operaciones con PnL = 0 sumarán como ganadas en tu win rate</div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={settings.beCountsAsWin}
-                  onClick={() => settings.updateSettings({ beCountsAsWin: !settings.beCountsAsWin })}
-                  style={{
-                    flexShrink: 0, width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
-                    background: settings.beCountsAsWin ? '#4f8fff' : '#2a2a35',
-                    position: 'relative', transition: 'background 0.15s',
-                  }}
-                >
-                  <span style={{
-                    position: 'absolute', top: 3, left: settings.beCountsAsWin ? 21 : 3,
-                    width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.15s',
-                  }} />
-                </button>
-              </div>
-
-              <div style={{ marginTop: 20 }}>
-                <label style={label}>Mis setups / estrategias</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                  {settings.setups.map(s => (
-                    <span key={s} style={{
-                      background: 'rgba(79,143,255,0.08)', color: '#4f8fff',
-                      border: '1px solid rgba(79,143,255,0.2)', borderRadius: 12,
-                      padding: '4px 10px', fontSize: 12, display: 'inline-flex', gap: 6, alignItems: 'center',
-                    }}>
-                      {s}
-                      <button
-                        onClick={() => settings.removeSetup(s)}
-                        style={{ background: 'transparent', border: 'none', color: '#3a3a55', cursor: 'pointer', fontSize: 11 }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-                        onMouseLeave={e => (e.currentTarget.style.color = '#3a3a55')}
-                      >✕</button>
-                    </span>
-                  ))}
-                </div>
-                <AddSetupRow onAdd={onAddSetup} />
-              </div>
-            </div>
-          )}
-
-          {section === 'plan' && (
-            <div style={cardStyle}>
-              <div style={sectionTitle}>Plan y facturación</div>
-              <div style={divider} />
-              {isFree ? (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{
-                      background: 'rgba(255,255,255,0.06)', color: '#888898',
-                      padding: '4px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-                    }}>Plan Gratis</span>
-                    <button onClick={() => openUpgrade()} style={primaryBtn}>Actualizar a Pro →</button>
-                  </div>
-
-                  <div style={{ marginTop: 20 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, color: '#888898' }}>Operaciones este mes</span>
-                      <span style={{ fontSize: 12, color: '#888898' }}>{thisMonthCount} / 30</span>
-                    </div>
-                    <div style={{ height: 6, background: '#1e1e20', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${usagePct}%`, height: '100%', background: usageColor, transition: 'width 0.3s' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: 20, background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 8, padding: '12px 16px' }}>
-                    <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ color: '#4a4a60' }}>
-                          <th style={{ textAlign: 'left', padding: '4px 0' }}></th>
-                          <th style={{ padding: '4px 0', textAlign: 'center' }}>Gratis</th>
-                          <th style={{ padding: '4px 0', textAlign: 'center', color: '#4f8fff' }}>Pro</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ['Operaciones/mes', '30', 'Ilimitadas'],
-                          ['Analíticas', 'Básicas', 'Completas'],
-                          ['Brokers', '✗', '✓'],
-                          ['Color personalizable', '✗', '✓'],
-                          ['Múltiples cuentas', '✗', '✓'],
-                          ['Exportación', '✗', '✓'],
-                          ['IA (próx.)', '✗', 'Incluida'],
-                        ].map(([feat, f, p]) => (
-                          <tr key={feat} style={{ borderTop: '1px solid #1e1e20' }}>
-                            <td style={{ padding: '6px 0', color: '#888898' }}>{feat}</td>
-                            <td style={{ padding: '6px 0', textAlign: 'center', color: '#4a4a60' }}>{f}</td>
-                            <td style={{ padding: '6px 0', textAlign: 'center', color: '#4f8fff' }}>{p}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                      display: 'inline-flex', background: '#161618', border: '1px solid #1e1e20',
-                      borderRadius: 20, padding: 3, gap: 2,
-                    }}>
-                      {(['monthly', 'annual'] as const).map(c => {
-                        const active = billingPreview === c;
-                        return (
-                          <button key={c} onClick={() => setBillingPreview(c)} style={{
-                            background: active ? '#1e1e28' : 'transparent',
-                            border: active ? '1px solid #2a2a35' : '1px solid transparent',
-                            color: active ? '#fff' : '#4a4a60',
-                            borderRadius: 16, padding: '4px 12px',
-                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            fontFamily: "'Space Grotesk', sans-serif",
-                          }}>{c === 'monthly' ? 'Mensual' : 'Anual'}</button>
-                        );
+            {section === 'appearance' && (
+              <Section title="Apariencia" subtitle="Personaliza cómo se ve TRACE.">
+                <ProLock feature="Apariencia" description="Personaliza colores y densidad">
+                  <Row label="Color principal" desc="Se aplica a botones, gráficos y resaltados.">
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {ACCENT_COLORS.map(hex => {
+                        const sel = settings.accentColor.toLowerCase() === hex.toLowerCase();
+                        return <button key={hex} onClick={() => onPickColor(hex)} style={{ width: 32, height: 32, borderRadius: '50%', background: hex, border: 'none', cursor: 'pointer', outline: sel ? '2px solid #fff' : 'none', outlineOffset: 2, boxShadow: sel ? `0 0 0 4px ${hex}40` : 'none' }} />;
                       })}
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        🎨<input type="color" value={settings.accentColor} onChange={e => onPickColor(e.target.value)} style={{ width: 24, height: 24, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} />
+                      </label>
                     </div>
-                    {billingPreview === 'annual' && (
-                      <span style={{ background: 'rgba(79,143,255,0.1)', color: '#4f8fff', fontSize: 11, padding: '2px 7px', borderRadius: 8, fontWeight: 600 }}>
-                        Ahorra 34%
+                  </Row>
+                  <Row label="Modo compacto" desc="Reduce espaciado en tablas y listas.">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.compactMode} onChange={v => settings.updateSettings({ compactMode: v })} /></div>
+                  </Row>
+                  <Row label="Densidad" desc="Nivel de padding global.">
+                    <Segmented options={[['comfortable', 'Cómoda'], ['standard', 'Estándar'], ['compact', 'Compacta']]} value={settings.density} onChange={v => settings.updateSettings({ density: v as Settings['density'] })} />
+                  </Row>
+                  <Row label="Números destacados" desc="Usar tipografía Syne en KPIs." last>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.syneNumbers} onChange={v => settings.updateSettings({ syneNumbers: v })} /></div>
+                  </Row>
+                </ProLock>
+              </Section>
+            )}
+
+            {section === 'trading' && (
+              <Section title="Trading" subtitle="Valores por defecto para tus operaciones.">
+                <Row label="Tamaño de cuenta" desc="Usado para calcular % rendimiento y drawdown.">
+                  <PrefixInput prefix={settings.currencySymbol} value={draft.accountSize} onChange={v => setD('accountSize', v)} />
+                </Row>
+                <Row label="Límite de pérdida diaria" desc="Alerta cuando llegues al límite.">
+                  <PrefixInput prefix={settings.currencySymbol} value={draft.dailyLossLimit} onChange={v => setD('dailyLossLimit', v)} />
+                </Row>
+                <Row label="Comisión por defecto" desc="Se pre-rellena en el modal de operación.">
+                  <input type="number" value={draft.defaultCommission} onChange={e => setD('defaultCommission', parseFloat(e.target.value) || 0)} style={inp} />
+                </Row>
+                <Row label="Multiplicador" desc="Contract multiplier estándar.">
+                  <input type="number" value={draft.defaultMultiplier} onChange={e => setD('defaultMultiplier', parseFloat(e.target.value) || 1)} style={inp} />
+                </Row>
+                <Row label="Moneda" desc="Para todos los importes.">
+                  <select value={draft.currency} onChange={e => setD('currency', e.target.value as Currency)} style={inp}>
+                    <option value="EUR">EUR (€)</option><option value="USD">USD ($)</option><option value="GBP">GBP (£)</option>
+                  </select>
+                </Row>
+                <Row label="Modo de entrada" desc="PnL directo (rápido) o Cálculo automático (detallado)." last>
+                  <Segmented options={[['direct', 'PnL directo'], ['calculated', 'Cálculo']]} value={draft.defaultInputMode} onChange={v => setD('defaultInputMode', v as 'direct' | 'calculated')} />
+                </Row>
+                <div style={{ marginTop: 24 }}>
+                  <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 12 }}>Setups y estrategias</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    {settings.setups.map(s => (
+                      <span key={s} style={{ background: 'rgba(79,143,255,0.08)', color: 'var(--blue)', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 12, padding: '4px 10px', fontSize: 12, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                        {s}<button onClick={() => settings.removeSetup(s)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11 }}>✕</button>
                       </span>
-                    )}
+                    ))}
                   </div>
-
-                  <div style={{ marginTop: 12, fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '2rem', color: '#fff' }}>
-                    €{billingPreview === 'annual' ? 19 : 29}<span style={{ fontSize: 14, color: '#4a4a60', fontWeight: 400, fontFamily: "'Space Grotesk'" }}>/mes</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#4a4a60' }}>
-                    {billingPreview === 'annual' ? 'facturado €228/año' : 'sin compromiso anual'}
-                  </div>
-
-                  <button onClick={() => openUpgrade()} style={{ ...primaryBtn, width: '100%', padding: 12, marginTop: 16 }}>
-                    Actualizar a Pro →
-                  </button>
-                </>
-              ) : (
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(15,52,96,0.2), rgba(22,33,62,0.2))',
-                  border: '1px solid rgba(79,143,255,0.2)', borderRadius: 9, padding: 18,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{
-                      background: 'rgba(79,143,255,0.2)', color: '#6b9fff',
-                      padding: '4px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-                    }}>Plan Pro</span>
-                    <button disabled style={{ ...ghostBtn, opacity: 0.5, cursor: 'not-allowed' }} title="Próximamente — gestión via Stripe">
-                      Gestionar suscripción
-                    </button>
-                  </div>
-                  <div style={{ marginTop: 14, fontSize: 14, color: '#fff' }}>
-                    Tu plan renueva el <strong>{fmtDate(user.planExpiresAt)}</strong>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#888898', marginTop: 4 }}>
-                    Facturación {user.billingCycle === 'annual' ? 'anual' : 'mensual'}
-                  </div>
-                  <button onClick={onCancelPlan} style={{ ...dangerBtn, background: 'transparent', border: 'none', padding: 0, marginTop: 14, textDecoration: 'underline', fontSize: 12 }}>
-                    Cancelar plan
-                  </button>
+                  <AddSetupRow onAdd={v => settings.addSetup(v)} />
                 </div>
-              )}
-            </div>
-          )}
+              </Section>
+            )}
 
-          {section === 'data' && (
-            <div style={cardStyle}>
-              <div style={sectionTitle}>Datos y exportación</div>
-              <div style={divider} />
-              <ProLock feature="Exportación de datos" description="Exporta tus operaciones y notas">
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button onClick={onExportCSV} style={{ ...primaryBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Download size={14} /> Exportar operaciones (CSV)
-                  </button>
-                  <button onClick={onExportJSON} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Download size={14} /> Exportar todo (JSON)
-                  </button>
+            {section === 'plan' && (
+              <Section title="Plan y facturación" subtitle="Gestiona tu suscripción.">
+                <div style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '20px 24px' }}>
+                  {isFree ? (
+                    <>
+                      <span style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', padding: '4px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>Plan Gratis</span>
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}><span>Operaciones este mes</span><span>{thisMonthCount} / 30</span></div>
+                        <div style={{ height: 6, background: 'var(--border-subtle)', borderRadius: 3, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, (thisMonthCount / 30) * 100)}%`, height: '100%', background: 'var(--blue)' }} /></div>
+                      </div>
+                      <div style={{ marginTop: 18, fontFamily: fontHead, fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Actualiza a Pro para desbloquear todo</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                        {['Ops ilimitadas', 'Brokers', 'Analíticas', 'Exportación'].map(f => <span key={f} style={{ background: 'rgba(120,97,255,0.1)', color: 'var(--indigo)', borderRadius: 8, padding: '3px 10px', fontSize: '0.7rem', fontWeight: 600 }}>{f}</span>)}
+                      </div>
+                      <div style={{ marginTop: 18 }}><Button variant="primary" onClick={() => openUpgrade()}>Ver planes →</Button></div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ background: 'rgba(120,97,255,0.12)', color: 'var(--indigo)', padding: '4px 12px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>Plan Pro</span>
+                        <Button variant="ghost" size="sm" onClick={() => push({ kind: 'info', text: 'Portal de Stripe próximamente' })}>Gestionar suscripción</Button>
+                      </div>
+                      <div style={{ marginTop: 14, fontSize: 14, color: 'var(--text-primary)' }}>Se renueva el <strong>{fmtDate(user.planExpiresAt)}</strong></div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Facturación {user.billingCycle === 'annual' ? 'anual' : 'mensual'} · •••• 4242 (Visa)</div>
+                      <button onClick={() => setConfirmCancel(true)} style={{ background: 'transparent', border: 'none', padding: 0, marginTop: 14, textDecoration: 'underline', fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancelar plan</button>
+                    </>
+                  )}
                 </div>
-
-                <div style={{ marginTop: 20 }}>
-                  <label style={label}>Importar operaciones desde CSV</label>
-                  <input type="file" accept=".csv" ref={fileInputRef} onChange={e => onImportCSV(e.target.files)} />
-                  <div style={subText}>El CSV debe tener las columnas exportadas por TRACE.</div>
-                </div>
-
-                <div style={{ marginTop: 20, border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: 16 }}>
-                  <div style={{ color: '#ef4444', fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Zona de peligro</div>
-                  <div style={{ fontSize: 12, color: '#888898', marginBottom: 12 }}>
-                    Eliminará todas las operaciones y notas. Esta acción no se puede deshacer.
+                {isPro && (
+                  <div style={{ marginTop: 24 }}>
+                    <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 12 }}>Historial de facturación</div>
+                    <div style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Aún no tienes facturas</div>
                   </div>
-                  <button onClick={onClearAll} style={{ ...dangerBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Trash2 size={13} /> Borrar todos los datos
-                  </button>
+                )}
+              </Section>
+            )}
+
+            {section === 'notifications' && (
+              <Section title="Notificaciones" subtitle="Decide qué avisos quieres recibir.">
+                <Row label="Alertas de riesgo" desc="Avisos cuando te acerques a tu daily loss limit.">
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.notifyRisk} onChange={v => settings.updateSettings({ notifyRisk: v })} /></div>
+                </Row>
+                <Row label="Notificaciones de racha" desc="Celebra cuando alcances hitos de tu Progress Tracker.">
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.notifyStreak} onChange={v => settings.updateSettings({ notifyStreak: v })} /></div>
+                </Row>
+                <Row label="Resumen semanal" desc="Recibe cada domingo un resumen de tu semana por email.">
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.notifyWeekly} onChange={v => settings.updateSettings({ notifyWeekly: v })} /></div>
+                </Row>
+                <Row label="Alertas de mercado" desc="Notificaciones de eventos económicos." last>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+                    <span style={{ background: 'rgba(245,185,66,0.12)', color: 'var(--warning)', fontSize: '0.65rem', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>Próximamente</span>
+                    <Toggle checked={false} onChange={() => {}} disabled />
+                  </div>
+                </Row>
+              </Section>
+            )}
+
+            {section === 'language' && (
+              <Section title="Idioma y región" subtitle="Formato de idioma, números y fechas.">
+                <Row label="Idioma" desc="Idioma de la interfaz.">
+                  <select style={inp} defaultValue="es" onChange={() => push({ kind: 'info', text: 'Más idiomas próximamente' })}>
+                    <option value="es">Español</option><option value="en" disabled>Inglés (próximamente)</option>
+                  </select>
+                </Row>
+                <Row label="Formato de números" desc="Cómo se muestran cantidades.">
+                  <select value={draft.numberFormat} onChange={e => setD('numberFormat', e.target.value as 'es' | 'us')} style={inp}>
+                    <option value="es">1.234,56 (España)</option><option value="us">1,234.56 (US)</option>
+                  </select>
+                </Row>
+                <Row label="Formato de fecha" desc="Cómo se muestran las fechas." last>
+                  <select value={draft.dateFormat} onChange={e => setD('dateFormat', e.target.value as Draft['dateFormat'])} style={inp}>
+                    <option value="dmy">DD/MM/AAAA</option><option value="mdy">MM/DD/YYYY</option><option value="ymd">AAAA-MM-DD</option>
+                  </select>
+                </Row>
+              </Section>
+            )}
+
+            {section === 'security' && (
+              <Section title="Seguridad" subtitle="Protege el acceso a tu cuenta.">
+                <Row label="Cambiar contraseña" desc="Actualiza tu contraseña regularmente.">
+                  <Button variant="ghost" size="sm" onClick={() => push({ kind: 'info', text: 'Próximamente con Supabase' })}>Cambiar contraseña</Button>
+                </Row>
+                <Row label="Sesiones activas" desc="Dispositivos donde tienes sesión iniciada.">
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Solo este dispositivo</span>
+                </Row>
+                <Row label="Autenticación en dos pasos" desc="Añade una capa extra de seguridad." last>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+                    <span style={{ background: 'rgba(245,185,66,0.12)', color: 'var(--warning)', fontSize: '0.65rem', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>Próximamente</span>
+                  </div>
+                </Row>
+              </Section>
+            )}
+
+            {section === 'data' && (
+              <Section title="Datos y exportación" subtitle="Exporta o importa tus datos.">
+                <ProLock feature="Exportación de datos" description="Exporta tus operaciones y notas">
+                  <Row label="Exportar operaciones" desc="Descarga todas tus operaciones en CSV.">
+                    <Button variant="primary" size="sm" iconLeft={<Download size={14} />} onClick={() => { exportToCSV(trades); push({ kind: 'success', text: 'CSV exportado' }); }}>Descargar CSV</Button>
+                  </Row>
+                  <Row label="Exportar backup completo" desc="Todo tu diario + notas + configuración en JSON.">
+                    <Button variant="ghost" size="sm" iconLeft={<Download size={14} />} onClick={() => { exportToJSON({ trades, notes: allNotes, settings: { ...settings } }); push({ kind: 'success', text: 'JSON exportado' }); }}>Descargar JSON</Button>
+                  </Row>
+                  <Row label="Importar CSV" desc="Añade operaciones desde un archivo CSV." last>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                      <Button variant="ghost" size="sm" iconLeft={<Upload size={14} />} onClick={() => fileRef.current?.click()}>Elegir archivo</Button>
+                      <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={e => onImportCSV(e.target.files)} />
+                      <span style={{ fontSize: '0.68rem', color: 'var(--blue)', cursor: 'pointer' }} onClick={() => { exportToCSV([]); push({ kind: 'info', text: 'Plantilla descargada' }); }}>Descargar plantilla →</span>
+                    </div>
+                  </Row>
+                </ProLock>
+              </Section>
+            )}
+
+            {section === 'danger' && (
+              <Section title="Zona de peligro" subtitle="Acciones irreversibles. Procede con cuidado.">
+                <div style={{ border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '4px 24px' }}>
+                  <Row label="Borrar todos los datos" desc="Elimina tus operaciones, notas y configuración. Tu cuenta permanece activa.">
+                    <Button variant="ghost" size="sm" onClick={() => { setDangerText(''); setConfirmClear(true); }} style={{ color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.3)' }}><Trash2 size={13} /> Borrar datos</Button>
+                  </Row>
+                  <Row label="Eliminar cuenta" desc="Elimina tu cuenta y todos sus datos permanentemente." last>
+                    <Button variant="danger" size="sm" onClick={() => { setEmailText(''); setConfirmDeleteAcct(true); }}>Eliminar cuenta</Button>
+                  </Row>
                 </div>
-              </ProLock>
-            </div>
-          )}
+              </Section>
+            )}
+          </div>
         </div>
+
+        {/* Floating save bar */}
+        {dirty && (
+          <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, background: 'rgba(21,23,29,0.92)', backdropFilter: 'blur(8px)', borderTop: '1px solid var(--border-subtle)', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Tienes cambios sin guardar</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="ghost" size="sm" onClick={() => setDraft(baseDraft)}>Descartar</Button>
+              <Button variant="primary" size="sm" onClick={saveDraft}>Guardar</Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <ConfirmDialog
-        open={confirmClear}
-        title="¿Borrar todos los datos?"
-        description="Esta acción eliminará todas tus operaciones y notas. No se puede deshacer."
-        confirmText="Borrar todo"
-        destructive
-        onConfirm={doClearAll}
-        onCancel={() => setConfirmClear(false)}
+      {/* Typed-confirm: borrar datos */}
+      <TypedConfirm
+        open={confirmClear} title="¿Borrar todos los datos?" desc="Esta acción no se puede deshacer. Escribe «borrar todo» para confirmar."
+        expected="borrar todo" value={dangerText} onChange={setDangerText}
+        confirmText="Borrar datos" onCancel={() => setConfirmClear(false)}
+        onConfirm={() => { clearTrades(); clearNotes(); push({ kind: 'success', text: 'Datos eliminados' }); setConfirmClear(false); }}
       />
-      <ConfirmDialog
-        open={confirmCancel}
-        title="¿Cancelar plan Pro?"
-        description="Volverás al plan Gratis y perderás acceso a las funciones premium al final del periodo."
-        confirmText="Cancelar plan"
-        destructive
-        onConfirm={doCancelPlan}
-        onCancel={() => setConfirmCancel(false)}
+      {/* Typed-confirm: eliminar cuenta */}
+      <TypedConfirm
+        open={confirmDeleteAcct} title="¿Eliminar cuenta?" desc={`Escribe tu email (${user.email}) para confirmar la eliminación permanente.`}
+        expected={user.email} value={emailText} onChange={setEmailText}
+        confirmText="Eliminar cuenta" onCancel={() => setConfirmDeleteAcct(false)}
+        onConfirm={() => { push({ kind: 'info', text: 'Eliminación de cuenta próximamente con Supabase' }); setConfirmDeleteAcct(false); }}
       />
+      <ConfirmDialog open={confirmCancel} title="¿Cancelar plan Pro?" description="Volverás al plan Gratis al final del periodo." confirmText="Cancelar plan" destructive
+        onConfirm={() => { downgrade(); push({ kind: 'success', text: 'Plan cancelado' }); setConfirmCancel(false); }} onCancel={() => setConfirmCancel(false)} />
     </div>
   );
 }
 
-function AddSetupRow({ onAdd }: { onAdd: (name: string) => void }) {
+function Section({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ paddingBottom: 20, borderBottom: '1px solid var(--border-subtle)', marginBottom: 24 }}>
+        <h1 style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.15rem', color: 'var(--text-primary)', margin: 0 }}>{title}</h1>
+        <div style={{ fontFamily: fontBody, fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>{subtitle}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, desc, children, last }: { label: string; desc: string; children: React.ReactNode; last?: boolean }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 40, alignItems: 'center', padding: '20px 0', borderBottom: last ? 'none' : '1px solid var(--border-subtle)' }}>
+      <div>
+        <div style={{ fontFamily: fontBody, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)' }}>{label}</div>
+        <div style={{ fontFamily: fontBody, fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.5 }}>{desc}</div>
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function PrefixInput({ prefix, value, onChange }: { prefix: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{prefix}</span>
+      <input type="number" value={value} onChange={e => onChange(parseFloat(e.target.value) || 0)} style={{ ...inp, paddingLeft: 26 }} />
+    </div>
+  );
+}
+
+function Segmented<T extends string>({ options, value, onChange }: { options: [T, string][]; value: T; onChange: (v: T) => void }) {
+  return (
+    <div style={{ display: 'inline-flex', background: 'var(--card-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 3, gap: 2, width: '100%' }}>
+      {options.map(([v, l]) => {
+        const active = v === value;
+        return <button key={v} onClick={() => onChange(v)} style={{ flex: 1, fontFamily: fontBody, fontSize: '0.76rem', fontWeight: 600, padding: '6px 8px', borderRadius: 6, cursor: 'pointer', border: 'none', background: active ? 'var(--blue)' : 'transparent', color: active ? '#fff' : 'var(--text-secondary)' }}>{l}</button>;
+      })}
+    </div>
+  );
+}
+
+function AddSetupRow({ onAdd }: { onAdd: (v: string) => void }) {
   const [v, setV] = useState('');
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
-      <input value={v} onChange={e => setV(e.target.value)} placeholder="Nueva estrategia..." style={{ flex: 1 }} />
-      <button
-        onClick={() => { onAdd(v); setV(''); }}
-        style={{ background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-      >Añadir</button>
+    <div style={{ display: 'flex', gap: 6, maxWidth: 360 }}>
+      <input value={v} onChange={e => setV(e.target.value)} placeholder="Nueva estrategia..." style={{ ...inp, flex: 1 }} />
+      <Button variant="primary" size="sm" onClick={() => { if (v.trim()) { onAdd(v.trim()); setV(''); } }}>Añadir</Button>
     </div>
   );
 }
 
-// Required to use Upload icon import without warning when no inline use needed
-void Upload;
+function TypedConfirm({ open, title, desc, expected, value, onChange, confirmText, onConfirm, onCancel }: {
+  open: boolean; title: string; desc: string; expected: string; value: string; onChange: (v: string) => void; confirmText: string; onConfirm: () => void; onCancel: () => void;
+}) {
+  if (!open) return null;
+  const ok = value.trim().toLowerCase() === expected.trim().toLowerCase();
+  return (
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, fontFamily: fontBody, boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.05rem', color: 'var(--danger)', marginBottom: 8 }}>{title}</div>
+        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 }}>{desc}</div>
+        <input autoFocus value={value} onChange={e => onChange(e.target.value)} style={{ ...inp, marginBottom: 16 }} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button variant="ghost" size="sm" onClick={onCancel}>Cancelar</Button>
+          <Button variant="danger" size="sm" disabled={!ok} onClick={onConfirm}>{confirmText}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}

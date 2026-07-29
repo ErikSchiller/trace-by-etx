@@ -335,7 +335,7 @@ export function AppLayout() {
       </aside>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {location.pathname !== '/settings' && (
+        {(
         <header style={{ height: 50, flexShrink: 0, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#fff', letterSpacing: '-0.01em' }}>{pageTitle}</div>

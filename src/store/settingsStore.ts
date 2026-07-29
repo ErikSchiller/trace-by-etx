@@ -15,6 +15,19 @@ export interface Settings {
   timezone: string;
   /** When true, break-even trades (PnL = 0) count as wins for the win rate. */
   beCountsAsWin: boolean;
+  // Appearance
+  compactMode: boolean;
+  density: 'comfortable' | 'standard' | 'compact';
+  syneNumbers: boolean;
+  // Trading
+  defaultInputMode: 'direct' | 'calculated';
+  // Notifications
+  notifyRisk: boolean;
+  notifyStreak: boolean;
+  notifyWeekly: boolean;
+  // Language & region
+  numberFormat: 'es' | 'us';
+  dateFormat: 'dmy' | 'mdy' | 'ymd';
 }
 
 interface SettingsStore extends Settings {
@@ -39,6 +52,15 @@ const defaults: Settings = {
   accentColor: '#4f8fff',
   timezone: 'Europe/Madrid',
   beCountsAsWin: true,
+  compactMode: false,
+  density: 'standard',
+  syneNumbers: true,
+  defaultInputMode: 'direct',
+  notifyRisk: true,
+  notifyStreak: true,
+  notifyWeekly: false,
+  numberFormat: 'es',
+  dateFormat: 'dmy',
 };
 
 export const TIMEZONES = [
