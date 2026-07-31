@@ -6,6 +6,16 @@ import { useAuthStore } from './authStore';
 import { useFilterStore, type TradeFilters } from './filterStore';
 import { useDateRangeStore, resolveRange } from './dateRangeStore';
 
+/**
+ * Cascade-delete notes linked to trades, decoupled from notebookStore to avoid a
+ * cross-store import (which would code-split notebookStore and break prod init order).
+ * notebookStore registers the handler on window when it initialises.
+ */
+function deleteLinkedTradeNotes(ids: string[]) {
+  const w = window as unknown as { __traceNoteCascade?: (ids: string[]) => void };
+  w.__traceNoteCascade?.(ids);
+}
+
 export type Direction = 'long' | 'short';
 export type Session = 'london' | 'new_york' | 'asia' | 'premarket';
 export type ExitType = 'sl_hit' | 'tp_hit' | 'manual';
@@ -132,11 +142,11 @@ export const useTradeStore = create<TradeStore>()(
 
       deleteTrade: (id) => {
         set(s => ({ trades: s.trades.filter(t => t.id !== id) }));
-        import('./notebookStore').then(m => m.useNotebookStore.getState().deleteNotesByTrade(id));
+        deleteLinkedTradeNotes([id]);
       },
       deleteMany: (ids) => {
         set(s => ({ trades: s.trades.filter(t => !ids.includes(t.id)) }));
-        import('./notebookStore').then(m => { const del = m.useNotebookStore.getState().deleteNotesByTrade; ids.forEach(del); });
+        deleteLinkedTradeNotes(ids);
       },
       clearAll: () => {
         const userId = useAuthStore.getState().user?.id;

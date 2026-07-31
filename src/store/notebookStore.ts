@@ -196,6 +196,15 @@ export const useNotebookStore = create<NotebookStore>()(
   )
 );
 
+// Register the trade → note cascade handler (called by tradeStore on trade deletion,
+// decoupled via window to avoid a cross-store import that breaks prod bundling).
+if (typeof window !== 'undefined') {
+  (window as unknown as { __traceNoteCascade?: (ids: string[]) => void }).__traceNoteCascade = (ids) => {
+    const del = useNotebookStore.getState().deleteNotesByTrade;
+    ids.forEach(del);
+  };
+}
+
 export function useUserFolders() {
   const userId = useAuthStore(s => s.user?.id);
   const folders = useNotebookStore(s => s.folders);
