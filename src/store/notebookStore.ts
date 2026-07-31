@@ -12,6 +12,7 @@ export interface Note {
   date: string;
   tags: string[];
   linkedTradeDate?: string;
+  linkedTradeId?: string;
   noteDate?: string;
   favorite?: boolean;
   images: string[];
@@ -27,6 +28,8 @@ export interface Folder {
   order: number;
   /** System folder (e.g. Diario Diario) — cannot be deleted. */
   system?: boolean;
+  /** Seeded default folder — cannot be deleted. */
+  isDefault?: boolean;
 }
 
 export const DIARIO_FOLDER_NAME = 'Diario Diario';
@@ -36,12 +39,17 @@ interface NotebookStore {
   notes: Note[];
   ensureDefaultFolders: () => void;
   ensureDiarioFolder: () => Folder;
+  ensureTradeNotesFolder: () => Folder;
   addFolder: (name: string, icon: string) => Folder;
   updateFolder: (id: string, updates: Partial<Pick<Folder, 'name' | 'icon'>>) => void;
+  reorderFolders: (orderedIds: string[]) => void;
   deleteFolder: (id: string) => void;
   addNote: (folderId: string, title?: string, content?: string, linkedTradeDate?: string) => Note;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
+  /** Create or update the auto-generated note linked to a trade. */
+  upsertTradeNote: (tradeId: string, title: string, content: string) => void;
+  deleteNotesByTrade: (tradeId: string) => void;
   clearAll: () => void;
 }
 
@@ -72,6 +80,7 @@ export const useNotebookStore = create<NotebookStore>()(
           name: f.name,
           icon: f.icon,
           order: i,
+          isDefault: true,
         }));
         set(s => ({ folders: [...s.folders, ...created] }));
       },
@@ -85,14 +94,24 @@ export const useNotebookStore = create<NotebookStore>()(
         return folder;
       },
 
+      ensureTradeNotesFolder: () => {
+        const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+        const existing = get().folders.find(f => f.userId === userId && f.name === 'Trade Notes');
+        if (existing) return existing;
+        const folder: Folder = { id: nanoid(), userId, name: 'Trade Notes', icon: '📓', order: 0, isDefault: true };
+        set(s => ({ folders: [...s.folders, folder] }));
+        return folder;
+      },
+
       addFolder: (name, icon) => {
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+        const maxOrder = get().folders.filter(f => f.userId === userId).reduce((m, f) => Math.max(m, f.order), -1);
         const folder: Folder = {
           id: nanoid(),
           userId,
           name,
           icon,
-          order: get().folders.length,
+          order: maxOrder + 1,
         };
         set(s => ({ folders: [...s.folders, folder] }));
         return folder;
@@ -100,6 +119,11 @@ export const useNotebookStore = create<NotebookStore>()(
 
       updateFolder: (id, updates) => {
         set(s => ({ folders: s.folders.map(f => f.id === id ? { ...f, ...updates } : f) }));
+      },
+
+      reorderFolders: (orderedIds) => {
+        const pos = new Map(orderedIds.map((id, i) => [id, i]));
+        set(s => ({ folders: s.folders.map(f => pos.has(f.id) ? { ...f, order: pos.get(f.id)! } : f) }));
       },
 
       deleteFolder: (id) => {
@@ -139,6 +163,25 @@ export const useNotebookStore = create<NotebookStore>()(
       },
 
       deleteNote: (id) => set(s => ({ notes: s.notes.filter(n => n.id !== id) })),
+
+      upsertTradeNote: (tradeId, title, content) => {
+        const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+        const existing = get().notes.find(n => n.userId === userId && n.linkedTradeId === tradeId);
+        if (existing) {
+          get().updateNote(existing.id, { title, content });
+          return;
+        }
+        const folder = get().ensureTradeNotesFolder();
+        const now = new Date().toISOString();
+        const note: Note = {
+          id: nanoid(), userId, folderId: folder.id, title, content,
+          date: now.slice(0, 10), tags: ['auto-generado'], linkedTradeId: tradeId,
+          images: [], createdAt: now, updatedAt: now,
+        };
+        set(s => ({ notes: [...s.notes, note] }));
+      },
+
+      deleteNotesByTrade: (tradeId) => set(s => ({ notes: s.notes.filter(n => n.linkedTradeId !== tradeId) })),
 
       clearAll: () => {
         const userId = useAuthStore.getState().user?.id;

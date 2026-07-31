@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
+import { useTradeStore } from './tradeStore';
 
 export type Phase = 'eval_p1' | 'eval_p2' | 'funded' | 'passed_pending' | 'blown' | 'expired';
 export type DrawdownType = 'trailing' | 'static';
@@ -135,6 +136,12 @@ export function accountNetResult(a: PropFirmAccount): number {
 export function accountRoi(a: PropFirmAccount): number {
   const cost = accountTotalCost(a);
   return cost === 0 ? 0 : (accountNetResult(a) / cost) * 100;
+}
+
+/** Sum of PnL of all trades linked to an account (its live equity delta). */
+export function getAccountEquity(accountId: string): number {
+  const trades = useTradeStore.getState().trades as { accountId?: string; pnl: number }[];
+  return trades.filter(t => t.accountId === accountId).reduce((s, t) => s + t.pnl, 0);
 }
 
 /* ============ React selectors ============ */

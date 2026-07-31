@@ -21,6 +21,8 @@ export interface User {
   createdAt: string;
   onboardingComplete: boolean;
   profile?: UserProfile;
+  /** Avatar as a data URL (or remote URL). */
+  avatar?: string;
 }
 
 interface StoredUser extends User {
@@ -35,6 +37,7 @@ interface AuthState {
   logout: () => void;
   setOnboardingComplete: (profile: UserProfile) => void;
   updateUser: (updates: Partial<User>) => void;
+  updateAvatar: (dataUrl: string | undefined) => void;
   upgradeToPro: (cycle: 'monthly' | 'annual') => void;
   downgradeToFree: () => void;
 }
@@ -123,6 +126,10 @@ export const useAuthStore = create<AuthState>()(
           saveUsers(users);
         }
         set({ user: updated });
+      },
+
+      updateAvatar: (dataUrl) => {
+        get().updateUser({ avatar: dataUrl });
       },
 
       upgradeToPro: (cycle) => {

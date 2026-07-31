@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   useNotebookStore, useUserFolders, useUserNotes,
   DEFAULT_FOLDER_NAMES, type Folder, type Note,
@@ -12,7 +15,7 @@ import { EmojiPicker } from '../../components/UI/EmojiPicker';
 const syne: React.CSSProperties = { fontFamily: "'Syne', sans-serif" };
 const body: React.CSSProperties = { fontFamily: "'Space Grotesk', sans-serif" };
 
-function isProtected(f: Folder) { return !!f.system || DEFAULT_FOLDER_NAMES.includes(f.name); }
+function isProtected(f: Folder) { return !!f.system || !!f.isDefault || DEFAULT_FOLDER_NAMES.includes(f.name); }
 function stripHtml(html: string) { return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim(); }
 function relTime(iso: string) {
   const d = new Date(iso); const m = Math.floor((Date.now() - d.getTime()) / 60000);
@@ -30,12 +33,21 @@ export function Notebook() {
   const addFolder = useNotebookStore(s => s.addFolder);
   const updateFolder = useNotebookStore(s => s.updateFolder);
   const deleteFolder = useNotebookStore(s => s.deleteFolder);
+  const reorderFolders = useNotebookStore(s => s.reorderFolders);
   const addNote = useNotebookStore(s => s.addNote);
   const updateNote = useNotebookStore(s => s.updateNote);
   const deleteNote = useNotebookStore(s => s.deleteNote);
   const { push } = useToast();
   const { isAtFolderLimit, isFree } = usePlan();
   const openUpgrade = useUpgradeModal(s => s.open);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const ids = folders.map(f => f.id);
+    reorderFolders(arrayMove(ids, ids.indexOf(active.id as string), ids.indexOf(over.id as string)));
+  };
 
   useEffect(() => { ensureDefaults(); }, [ensureDefaults]);
 
@@ -177,51 +189,29 @@ export function Notebook() {
 
         <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 600, padding: '14px 8px 8px' }}>Carpetas</div>
 
-        {folders.map(f => {
-          const active = f.id === activeFolderId && !searching;
-          if (renamingId === f.id) {
-            return (
-              <input
-                key={f.id} autoFocus value={renameValue}
-                onChange={e => setRenameValue(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { updateFolder(f.id, { name: renameValue.trim() || f.name }); setRenamingId(null); push({ kind: 'success', text: 'Carpeta renombrada' }); } if (e.key === 'Escape') setRenamingId(null); }}
-                onBlur={() => setRenamingId(null)}
-                style={{ ...body, background: 'var(--card-2)', border: '1px solid var(--blue)', borderRadius: 7, padding: '7px 10px', fontSize: '0.82rem', color: 'var(--text-primary)', outline: 'none', margin: '1px 0' }}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={folders.map(f => f.id)} strategy={verticalListSortingStrategy}>
+            {folders.map(f => (
+              <SortableFolderRow
+                key={f.id}
+                folder={f}
+                active={f.id === activeFolderId && !searching}
+                count={noteCount(f.id)}
+                renaming={renamingId === f.id}
+                renameValue={renameValue}
+                setRenameValue={setRenameValue}
+                onRenameCommit={() => { updateFolder(f.id, { name: renameValue.trim() || f.name }); setRenamingId(null); push({ kind: 'success', text: 'Carpeta renombrada' }); }}
+                onRenameCancel={() => setRenamingId(null)}
+                onSelect={() => { setActiveFolderId(f.id); setFavOnly(false); setSearch(''); }}
+                onContextMenu={(x, y) => setCtxMenu({ folderId: f.id, x, y })}
+                onMore={(r) => setCtxMenu({ folderId: f.id, x: Math.min(r.left, window.innerWidth - 180), y: r.bottom + 4 })}
+                iconPickerOpen={iconPickerId === f.id}
+                onIconSelect={em => updateFolder(f.id, { icon: em })}
+                onIconClose={() => setIconPickerId(null)}
               />
-            );
-          }
-          return (
-            <div key={f.id} className="nb-folder" style={{ position: 'relative' }}>
-              <button
-                onClick={() => { setActiveFolderId(f.id); setFavOnly(false); setSearch(''); }}
-                onContextMenu={e => { e.preventDefault(); setCtxMenu({ folderId: f.id, x: e.clientX, y: e.clientY }); }}
-                style={{
-                  ...body, width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                  background: active ? 'rgba(79,143,255,0.1)' : 'transparent',
-                  color: active ? 'var(--blue)' : '#c8c8d8',
-                  border: 'none', borderLeft: active ? '2px solid var(--blue)' : '2px solid transparent',
-                  padding: active ? '8px 10px 8px 8px' : '8px 10px', borderRadius: 7, marginBottom: 2,
-                  fontSize: '0.82rem', cursor: 'pointer', textAlign: 'left',
-                }}
-                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-              >
-                <span style={{ fontSize: 14 }}>{f.icon}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                <span className="nb-folder-count" style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '1px 6px', fontSize: '0.62rem', color: 'var(--text-tertiary)' }}>{noteCount(f.id)}</span>
-              </button>
-              <button
-                className="nb-folder-more"
-                aria-label="Opciones de carpeta"
-                onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setCtxMenu({ folderId: f.id, x: Math.min(r.left, window.innerWidth - 180), y: r.bottom + 4 }); }}
-                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 20, height: 20, borderRadius: 5, background: 'var(--card-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-              >⋯</button>
-              {iconPickerId === f.id && (
-                <EmojiPicker onSelect={em => updateFolder(f.id, { icon: em })} onClose={() => setIconPickerId(null)} />
-              )}
-            </div>
-          );
-        })}
+            ))}
+          </SortableContext>
+        </DndContext>
 
         {/* create folder */}
         {creatingFolder ? (
@@ -426,6 +416,56 @@ export function Notebook() {
         confirmText="Eliminar" destructive
         onConfirm={doDeleteNote} onCancel={() => setConfirmNoteId(null)}
       />
+    </div>
+  );
+}
+
+interface SortableFolderRowProps {
+  folder: Folder; active: boolean; count: number;
+  renaming: boolean; renameValue: string; setRenameValue: (v: string) => void;
+  onRenameCommit: () => void; onRenameCancel: () => void;
+  onSelect: () => void; onContextMenu: (x: number, y: number) => void; onMore: (r: DOMRect) => void;
+  iconPickerOpen: boolean; onIconSelect: (em: string) => void; onIconClose: () => void;
+}
+
+function SortableFolderRow(p: SortableFolderRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.folder.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform), transition,
+    opacity: isDragging ? 0.4 : 1, position: 'relative', zIndex: isDragging ? 5 : undefined,
+  };
+  if (p.renaming) {
+    return (
+      <div ref={setNodeRef} style={style}>
+        <input autoFocus value={p.renameValue} onChange={e => p.setRenameValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') p.onRenameCommit(); if (e.key === 'Escape') p.onRenameCancel(); }}
+          onBlur={p.onRenameCancel}
+          style={{ ...body, width: '100%', boxSizing: 'border-box', background: 'var(--card-2)', border: '1px solid var(--blue)', borderRadius: 7, padding: '7px 10px', fontSize: '0.82rem', color: 'var(--text-primary)', outline: 'none', margin: '1px 0' }} />
+      </div>
+    );
+  }
+  const active = p.active;
+  return (
+    <div ref={setNodeRef} style={style} className="nb-folder">
+      <span className="nb-drag-handle" {...attributes} {...listeners} aria-label="Reordenar" title="Arrastra para reordenar"
+        style={{ position: 'absolute', left: -10, top: '50%', transform: 'translateY(-50%)', width: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', cursor: 'grab', fontSize: 10, touchAction: 'none', letterSpacing: '-2px' }}>⋮⋮</span>
+      <button onClick={p.onSelect} onContextMenu={e => { e.preventDefault(); p.onContextMenu(e.clientX, e.clientY); }}
+        style={{
+          ...body, width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          background: active ? 'rgba(79,143,255,0.1)' : 'transparent', color: active ? 'var(--blue)' : '#c8c8d8',
+          border: 'none', borderLeft: active ? '2px solid var(--blue)' : '2px solid transparent',
+          padding: active ? '8px 10px 8px 8px' : '8px 10px', borderRadius: 7, marginBottom: 2, fontSize: '0.82rem', cursor: 'pointer', textAlign: 'left',
+        }}
+        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
+        <span style={{ fontSize: 14 }}>{p.folder.icon}</span>
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.folder.name}</span>
+        <span className="nb-folder-count" style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '1px 6px', fontSize: '0.62rem', color: 'var(--text-tertiary)' }}>{p.count}</span>
+      </button>
+      <button className="nb-folder-more" aria-label="Opciones de carpeta"
+        onClick={e => { e.stopPropagation(); p.onMore(e.currentTarget.getBoundingClientRect()); }}
+        style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 20, height: 20, borderRadius: 5, background: 'var(--card-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>⋯</button>
+      {p.iconPickerOpen && <EmojiPicker onSelect={p.onIconSelect} onClose={p.onIconClose} />}
     </div>
   );
 }

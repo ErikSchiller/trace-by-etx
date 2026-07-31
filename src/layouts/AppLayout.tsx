@@ -15,7 +15,9 @@ import { DateRangeModal } from '../components/Modals/DateRangeModal';
 import { ConfirmDialog } from '../components/UI/ConfirmDialog';
 import { useFilterStore, activeFilterCount } from '../store/filterStore';
 import { useDateRangeStore, PRESET_LABEL } from '../store/dateRangeStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { SOCIAL } from '../config/social';
+import { useTranslation } from '../i18n/i18n';
 
 const Icon = {
   Dashboard: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/></svg>),
@@ -32,25 +34,25 @@ const Icon = {
   ChevronDown: () => (<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><polyline points="3,4.5 6,8 9,4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>),
 };
 
-interface NavItem { to: string; label: string; icon: React.ComponentType; badge?: string }
+interface NavItem { to: string; label: string; tKey: string; icon: React.ComponentType; badge?: string }
 
-const sections: { title: string; items: NavItem[] }[] = [
-  { title: 'PRINCIPAL', items: [
-    { to: '/dashboard', label: 'Dashboard',     icon: Icon.Dashboard },
-    { to: '/journal',   label: 'Diario Diario', icon: Icon.Journal },
-    { to: '/trades',    label: 'Operaciones',   icon: Icon.Trades },
-    { to: '/notebook',  label: 'Notebook',      icon: Icon.Notebook },
+const sections: { title: string; tKey: string; items: NavItem[] }[] = [
+  { title: 'PRINCIPAL', tKey: 'section.principal', items: [
+    { to: '/dashboard', label: 'Dashboard',     tKey: 'nav.dashboard', icon: Icon.Dashboard },
+    { to: '/journal',   label: 'Diario Diario', tKey: 'nav.journal',   icon: Icon.Journal },
+    { to: '/trades',    label: 'Operaciones',   tKey: 'nav.trades',    icon: Icon.Trades },
+    { to: '/notebook',  label: 'Notebook',      tKey: 'nav.notebook',  icon: Icon.Notebook },
   ]},
-  { title: 'ANÁLISIS', items: [
-    { to: '/reports',     label: 'Reportes',         icon: Icon.Reports, badge: 'NEW' },
-    { to: '/progress',    label: 'Progress Tracker', icon: Icon.Progress },
-    { to: '/replay',      label: 'Trade Replay',     icon: Icon.Replay },
-    { to: '/simulator',   label: 'Simulador',        icon: Icon.Simulator, badge: 'NEW' },
-    { to: '/prop-firms',  label: 'Prop Firms',       icon: Icon.PropFirms, badge: 'NEW' },
+  { title: 'ANÁLISIS', tKey: 'section.analisis', items: [
+    { to: '/reports',     label: 'Reportes',         tKey: 'nav.reports',   icon: Icon.Reports, badge: 'NEW' },
+    { to: '/progress',    label: 'Progress Tracker', tKey: 'nav.progress',  icon: Icon.Progress },
+    { to: '/replay',      label: 'Trade Replay',     tKey: 'nav.replay',    icon: Icon.Replay },
+    { to: '/simulator',   label: 'Simulador',        tKey: 'nav.simulator', icon: Icon.Simulator, badge: 'NEW' },
+    { to: '/prop-firms',  label: 'Prop Firms',       tKey: 'nav.propFirms', icon: Icon.PropFirms, badge: 'NEW' },
   ]},
-  { title: 'CONFIG', items: [
-    { to: '/brokers',  label: 'Brokers', icon: Icon.Brokers },
-    { to: '/settings', label: 'Ajustes', icon: Icon.Settings },
+  { title: 'CONFIG', tKey: 'section.config', items: [
+    { to: '/brokers',  label: 'Brokers', tKey: 'nav.brokers',  icon: Icon.Brokers },
+    { to: '/settings', label: 'Ajustes', tKey: 'nav.settings', icon: Icon.Settings },
   ]},
 ];
 
@@ -99,6 +101,8 @@ export function AppLayout() {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
   const trades = useUserTrades();
+  const { t } = useTranslation();
+  useSettingsStore(s => s.language); // re-render sidebar when language changes
   const { push } = useToast();
   const { isPro, isFree, isAtTradeLimit } = usePlan();
   const openUpgrade = useUpgradeModal(s => s.open);
@@ -116,6 +120,16 @@ export function AppLayout() {
   const userName = user?.name ?? 'Usuario';
   const userPlan = PLAN_LABEL[user?.plan ?? 'free'];
   const initials = getInitials(userName);
+  const avatar = user?.avatar;
+
+  // Apply appearance preferences globally (scales rem-based UI, persists across reloads)
+  const compactMode = useSettingsStore(s => s.compactMode);
+  const density = useSettingsStore(s => s.density);
+  useEffect(() => {
+    const el = document.documentElement;
+    el.classList.toggle('compact-mode', compactMode);
+    el.dataset.density = density;
+  }, [compactMode, density]);
 
   const latestCreatedAt = useMemo(() => trades[0]?.createdAt ?? null, [trades]);
   const [, setTick] = useState(0);
@@ -193,7 +207,7 @@ export function AppLayout() {
             onMouseEnter={e => { e.currentTarget.style.background = '#3d7aee'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--blue)'; e.currentTarget.style.transform = 'none'; }}
           >
-            {collapsed ? '＋' : '＋ Añadir operación'}
+            {collapsed ? '＋' : `＋ ${t('addTrade')}`}
           </button>
         </div>
 
@@ -202,7 +216,7 @@ export function AppLayout() {
             <div key={section.title} style={{ display: 'flex', flexDirection: 'column' }}>
               {!collapsed && (
                 <div style={{ fontSize: '0.56rem', color: '#33334a', letterSpacing: '0.14em', padding: '10px 14px 3px', textTransform: 'uppercase', fontWeight: 600 }}>
-                  {section.title}
+                  {t(section.tKey)}
                 </div>
               )}
               {collapsed && <div style={{ height: 12 }} />}
@@ -212,7 +226,7 @@ export function AppLayout() {
                   return (
                     <NavLink
                       key={item.to} to={item.to}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? t(item.tKey) : undefined}
                       style={({ isActive }) => ({
                         display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
                         justifyContent: collapsed ? 'center' : 'flex-start',
@@ -231,7 +245,7 @@ export function AppLayout() {
                           <span style={{ color: isActive ? '#4f8fff' : '#3a3a55', display: 'inline-flex', alignItems: 'center' }}>
                             <ItemIcon />
                           </span>
-                          {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+                          {!collapsed && <span style={{ flex: 1 }}>{t(item.tKey)}</span>}
                           {!collapsed && item.badge && (
                             <span style={{ background: 'var(--blue-dim)', color: 'var(--blue)', fontSize: 8, padding: '2px 5px', borderRadius: 4, fontWeight: 700, letterSpacing: '0.08em' }}>
                               {item.badge}
@@ -296,9 +310,7 @@ export function AppLayout() {
             title={collapsed ? userName : undefined}
             style={{ padding: '14px 12px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, cursor: 'pointer' }}
           >
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8fff', fontSize: 12, fontWeight: 700, fontFamily: "'Syne', sans-serif", flexShrink: 0 }}>
-              {initials}
-            </div>
+            <Avatar size={28} avatar={avatar} initials={initials} fontSize={12} />
             {!collapsed && (
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
               <div style={{ color: '#ccc', fontWeight: 600, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -366,7 +378,7 @@ export function AppLayout() {
                   fontFamily: "'Space Grotesk', sans-serif",
                 }}
               >
-                <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(79,143,255,0.2)', color: '#4f8fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.62rem', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{initials}</span>
+                <Avatar size={22} avatar={avatar} initials={initials} fontSize={10} />
                 <span style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
                 <Icon.ChevronDown />
               </button>
@@ -375,7 +387,7 @@ export function AppLayout() {
                   <div onClick={() => setTopMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
                   <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 91, background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 8, minWidth: 240, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 6 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8fff', fontSize: 13, fontWeight: 700, fontFamily: "'Syne', sans-serif", flexShrink: 0 }}>{initials}</div>
+                      <Avatar size={36} avatar={avatar} initials={initials} fontSize={13} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
@@ -447,6 +459,15 @@ function UserRow({ children, icon, onClick, danger, accent }: { children: React.
       <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{icon}</span>
       {children}
     </button>
+  );
+}
+
+function Avatar({ size, avatar, initials, fontSize }: { size: number; avatar?: string; initials: string; fontSize: number }) {
+  if (avatar) {
+    return <img src={avatar} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(79,143,255,0.2)' }} />;
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f8fff', fontSize, fontWeight: 700, fontFamily: "'Syne', sans-serif", flexShrink: 0 }}>{initials}</div>
   );
 }
 

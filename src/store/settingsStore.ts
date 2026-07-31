@@ -26,6 +26,7 @@ export interface Settings {
   notifyStreak: boolean;
   notifyWeekly: boolean;
   // Language & region
+  language: 'es' | 'en';
   numberFormat: 'es' | 'us';
   dateFormat: 'dmy' | 'mdy' | 'ymd';
 }
@@ -59,6 +60,7 @@ const defaults: Settings = {
   notifyRisk: true,
   notifyStreak: true,
   notifyWeekly: false,
+  language: 'es',
   numberFormat: 'es',
   dateFormat: 'dmy',
 };

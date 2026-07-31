@@ -12,6 +12,27 @@ import { Button } from '../../components/UI/Button';
 import { Toggle } from '../../components/UI/Toggle';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { exportToCSV, exportToJSON, parseCSV, applyAccentColor } from '../../utils/export';
+import i18n, { useTranslation } from '../../i18n/i18n';
+
+/** Resize an image data URL to a square 200x200 JPEG. */
+function resizeAvatar(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 200;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(dataUrl); return; }
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -55,6 +76,7 @@ export default function Settings() {
   const [section, setSection] = useState<SectionKey>('profile');
   const user = useAuthStore(s => s.user);
   const updateUser = useAuthStore(s => s.updateUser);
+  const updateAvatar = useAuthStore(s => s.updateAvatar);
   const downgrade = useAuthStore(s => s.downgradeToFree);
   const settings = useSettingsStore();
   const trades = useUserTrades();
@@ -64,6 +86,7 @@ export default function Settings() {
   const { push } = useToast();
   const openUpgrade = useUpgradeModal(s => s.open);
   const { isPro, isFree } = usePlan();
+  const { t } = useTranslation();
 
   const baseDraft: Draft = useMemo(() => ({
     name: user?.name ?? '',
@@ -91,10 +114,27 @@ export default function Settings() {
   const onPickColor = (hex: string) => { settings.updateSettings({ accentColor: hex }); applyAccentColor(hex); };
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
   const onImportCSV = async (files: FileList | null) => {
     if (!files?.[0]) return;
     const parsed = await parseCSV(files[0]);
     push({ kind: 'success', text: `${parsed.length} operaciones leídas del CSV` });
+  };
+  const onAvatarFile = (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const resized = await resizeAvatar(reader.result as string);
+      updateAvatar(resized);
+      push({ kind: 'success', text: 'Foto actualizada' });
+    };
+    reader.readAsDataURL(file);
+  };
+  const changeLanguage = (lang: 'es' | 'en') => {
+    settings.updateSettings({ language: lang });
+    i18n.changeLanguage(lang);
+    push({ kind: 'success', text: i18n.t('toast.languageUpdated') });
   };
 
   const [confirmClear, setConfirmClear] = useState(false);
@@ -127,7 +167,7 @@ export default function Settings() {
               onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
               onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#c8c8d8'; } }}>
               <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{s.icon}</span>
-              <span style={{ flex: 1 }}>{s.label}</span>
+              <span style={{ flex: 1 }}>{t(`settings.${s.id}`)}</span>
             </button>
           );
         })}
@@ -145,8 +185,14 @@ export default function Settings() {
               <Section title="Mi perfil" subtitle="Gestiona tu información personal.">
                 <Row label="Foto de perfil" desc="Se muestra en el sidebar y al exportar reportes.">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: fontHead, fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>{initials}</div>
-                    <Button variant="ghost" size="sm" onClick={() => push({ kind: 'info', text: 'Subida de foto próximamente' })}>Cambiar</Button>
+                    {user.avatar
+                      ? <img src={user.avatar} alt="" style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(79,143,255,0.2)', flexShrink: 0 }} />
+                      : <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(79,143,255,0.15)', border: '1px solid rgba(79,143,255,0.2)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: fontHead, fontWeight: 700, fontSize: '1rem', flexShrink: 0 }}>{initials}</div>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                      <Button variant="ghost" size="sm" onClick={() => avatarRef.current?.click()}>Subir imagen</Button>
+                      <input ref={avatarRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onAvatarFile(e.target.files)} />
+                      {user.avatar && <span style={{ fontSize: '0.68rem', color: 'var(--danger)', cursor: 'pointer' }} onClick={() => { updateAvatar(undefined); push({ kind: 'success', text: 'Foto eliminada' }); }}>Eliminar</span>}
+                    </div>
                   </div>
                 </Row>
                 <Row label="Nombre" desc="Cómo apareces en TRACE.">
@@ -289,8 +335,10 @@ export default function Settings() {
             {section === 'language' && (
               <Section title="Idioma y región" subtitle="Formato de idioma, números y fechas.">
                 <Row label="Idioma" desc="Idioma de la interfaz.">
-                  <select style={inp} defaultValue="es" onChange={() => push({ kind: 'info', text: 'Más idiomas próximamente' })}>
-                    <option value="es">Español</option><option value="en" disabled>Inglés (próximamente)</option>
+                  <select style={inp} value={settings.language} onChange={e => changeLanguage(e.target.value as 'es' | 'en')}>
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                    <option value="" disabled>Otros idiomas próximamente</option>
                   </select>
                 </Row>
                 <Row label="Formato de números" desc="Cómo se muestran cantidades.">

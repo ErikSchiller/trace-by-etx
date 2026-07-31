@@ -43,6 +43,8 @@ export interface Trade {
   inputMode: InputMode;
   /** Optional link to a prop firm account (propFirmStore). */
   accountId?: string;
+  /** Free-text note written when adding the trade (max 500 chars). */
+  quickNote?: string;
 }
 
 export type NewTradeInput = Omit<Trade, 'id' | 'userId' | 'pnl' | 'grossPnl' | 'plannedRR' | 'realRR' | 'createdAt'> & {
@@ -128,8 +130,14 @@ export const useTradeStore = create<TradeStore>()(
         }));
       },
 
-      deleteTrade: (id) => set(s => ({ trades: s.trades.filter(t => t.id !== id) })),
-      deleteMany: (ids) => set(s => ({ trades: s.trades.filter(t => !ids.includes(t.id)) })),
+      deleteTrade: (id) => {
+        set(s => ({ trades: s.trades.filter(t => t.id !== id) }));
+        import('./notebookStore').then(m => m.useNotebookStore.getState().deleteNotesByTrade(id));
+      },
+      deleteMany: (ids) => {
+        set(s => ({ trades: s.trades.filter(t => !ids.includes(t.id)) }));
+        import('./notebookStore').then(m => { const del = m.useNotebookStore.getState().deleteNotesByTrade; ids.forEach(del); });
+      },
       clearAll: () => {
         const userId = useAuthStore.getState().user?.id;
         if (!userId) return;
