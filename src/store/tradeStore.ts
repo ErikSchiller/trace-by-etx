@@ -55,6 +55,10 @@ export interface Trade {
   accountId?: string;
   /** Free-text note written when adding the trade (max 500 chars). */
   quickNote?: string;
+  /** Links trades logged together across multiple accounts (same entry). */
+  groupId?: string;
+  /** Convenience flag — the trade was logged as part of a multi-account group. */
+  isMultiAccount?: boolean;
 }
 
 export type NewTradeInput = Omit<Trade, 'id' | 'userId' | 'pnl' | 'grossPnl' | 'plannedRR' | 'realRR' | 'createdAt'> & {
@@ -66,8 +70,12 @@ interface TradeStore {
   trades: Trade[];
   addTrade: (input: NewTradeInput) => Trade;
   updateTrade: (id: string, updates: Partial<Trade>) => void;
+  /** Apply the same updates to every trade in a group (each keeps its own accountId). */
+  updateGroup: (groupId: string, updates: Partial<Trade>) => void;
   deleteTrade: (id: string) => void;
   deleteMany: (ids: string[]) => void;
+  /** Delete every trade in a group (and their linked notes). */
+  deleteGroup: (groupId: string) => void;
   clearAll: () => void;
 }
 
@@ -140,6 +148,25 @@ export const useTradeStore = create<TradeStore>()(
         }));
       },
 
+      updateGroup: (groupId, updates) => {
+        // Never let group updates change per-account identity fields.
+        const { accountId: _a, groupId: _g, id: _i, userId: _u, ...safe } = updates as Partial<Trade>;
+        void _a; void _g; void _i; void _u;
+        set(s => ({
+          trades: s.trades.map(t => {
+            if (t.groupId !== groupId) return t;
+            const merged = { ...t, ...safe };
+            if (merged.inputMode === 'direct') {
+              const pnl = updates.pnl !== undefined ? updates.pnl : merged.pnl;
+              return { ...merged, pnl, grossPnl: pnl + (merged.commission || 0), plannedRR: 0, realRR: 0 };
+            }
+            const grossPnl = calcGrossPnl(merged);
+            const pnl = grossPnl - (merged.commission || 0);
+            return { ...merged, grossPnl, pnl, plannedRR: calcPlannedRR(merged), realRR: calcRealRR({ ...merged, pnl }) };
+          }),
+        }));
+      },
+
       deleteTrade: (id) => {
         set(s => ({ trades: s.trades.filter(t => t.id !== id) }));
         deleteLinkedTradeNotes([id]);
@@ -147,6 +174,14 @@ export const useTradeStore = create<TradeStore>()(
       deleteMany: (ids) => {
         set(s => ({ trades: s.trades.filter(t => !ids.includes(t.id)) }));
         deleteLinkedTradeNotes(ids);
+      },
+      deleteGroup: (groupId) => {
+        let removed: string[] = [];
+        set(s => {
+          removed = s.trades.filter(t => t.groupId === groupId).map(t => t.id);
+          return { trades: s.trades.filter(t => t.groupId !== groupId) };
+        });
+        deleteLinkedTradeNotes(removed);
       },
       clearAll: () => {
         const userId = useAuthStore.getState().user?.id;

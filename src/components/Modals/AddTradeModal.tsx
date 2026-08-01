@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   useTradeStore, useUserTrades,
   calcGrossPnl,
@@ -77,6 +76,7 @@ const css = `
 export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props) {
   const addTrade = useTradeStore(s => s.addTrade);
   const updateTrade = useTradeStore(s => s.updateTrade);
+  const updateGroup = useTradeStore(s => s.updateGroup);
   const allTrades = useUserTrades();
   const editTrade = mode === 'edit' && tradeId ? allTrades.find(t => t.id === tradeId) : undefined;
   const { push } = useToast();
@@ -87,7 +87,6 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const { isFree } = usePlan();
   const allAccounts = useUserAccounts();
   const activeAccounts = useMemo(() => getActiveAccounts(allAccounts), [allAccounts]);
-  const navigate = useNavigate();
   const upsertTradeNote = useNotebookStore(s => s.upsertTradeNote);
   const deleteNotesByTrade = useNotebookStore(s => s.deleteNotesByTrade);
 
@@ -105,8 +104,13 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const [date, setDate] = useState(todayDate());
   const [time, setTime] = useState(nowTime());
   const [session, setSession] = useState<Session>('new_york');
-  const [accountId, setAccountId] = useState('');
+  const [accountIds, setAccountIds] = useState<string[]>([]);
+  const [editScope, setEditScope] = useState<'one' | 'group'>('one');
   const [quickNote, setQuickNote] = useState('');
+  const groupMembers = useMemo(
+    () => (editTrade?.groupId ? allTrades.filter(t => t.groupId === editTrade.groupId) : []),
+    [editTrade?.groupId, allTrades],
+  );
   const [emotionalState, setEmotionalState] = useState<EmotionalState>(3);
   const [isPlanBased, setIsPlanBased] = useState(true);
   const [errorTags, setErrorTags] = useState<string[]>([]);
@@ -135,7 +139,8 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       setDate(editTrade.date);
       setTime(editTrade.time);
       setSession(editTrade.session);
-      setAccountId(editTrade.accountId ?? '');
+      setAccountIds(editTrade.accountId ? [editTrade.accountId] : []);
+      setEditScope('one');
       setQuickNote(editTrade.quickNote ?? '');
       setEmotionalState(editTrade.emotionalState);
       setIsPlanBased(editTrade.isPlanBased);
@@ -143,7 +148,9 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       setScreenshots(editTrade.screenshots);
     } else if (activeAccounts.length === 1) {
       // Auto-select the only active account.
-      setAccountId(activeAccounts[0].id);
+      setAccountIds([activeAccounts[0].id]);
+    } else {
+      setAccountIds([]);
     }
     setTimeout(() => assetRef.current?.focus(), 60);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,9 +209,10 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     setSaving(true);
 
     const cm = parseFloat(commission) || 0;
+    const assetUp = asset.trim().toUpperCase();
     const common = {
       date, time,
-      asset: asset.trim().toUpperCase(),
+      asset: assetUp,
       direction,
       commission: cm,
       session, emotionalState, isPlanBased, errorTags, screenshots,
@@ -214,50 +222,44 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       entryReason: editTrade?.entryReason ?? '',
       postTradeNotes: editTrade?.postTradeNotes ?? '',
       inputMode,
-      accountId: accountId || undefined,
       quickNote: quickNote.trim() ? quickNote.trim().slice(0, 500) : undefined,
     };
+    const modeFields = inputMode === 'direct'
+      ? { pnl: directPnl, entryPrice: 0, exitPrice: 0, positionSize: 1, multiplier: 1 }
+      : { entryPrice: parseFloat(entryPrice), exitPrice: parseFloat(exitPrice), positionSize: parseFloat(positionSize), multiplier: parseFloat(multiplier) || 1 };
 
     // Keep the auto-linked Trade Notes note in sync with the quickNote.
     const syncNote = (tradeId: string) => {
       const note = quickNote.trim();
-      if (note) upsertTradeNote(tradeId, `${asset.trim().toUpperCase()} · ${date}`, note.slice(0, 500));
+      if (note) upsertTradeNote(tradeId, `${assetUp} · ${date}`, note.slice(0, 500));
       else deleteNotesByTrade(tradeId);
     };
 
     if (editTrade) {
-      if (inputMode === 'direct') {
-        updateTrade(editTrade.id, { ...common, pnl: directPnl, entryPrice: 0, exitPrice: 0, positionSize: 1, multiplier: 1 });
+      const upd = { ...common, ...modeFields };
+      if (editScope === 'group' && editTrade.groupId) {
+        updateGroup(editTrade.groupId, upd);
+        groupMembers.forEach(m => syncNote(m.id));
       } else {
-        updateTrade(editTrade.id, {
-          ...common,
-          entryPrice: parseFloat(entryPrice), exitPrice: parseFloat(exitPrice),
-          positionSize: parseFloat(positionSize), multiplier: parseFloat(multiplier) || 1,
-        });
+        updateTrade(editTrade.id, { ...upd, accountId: accountIds[0] || undefined });
+        syncNote(editTrade.id);
       }
-      syncNote(editTrade.id);
-      push({ kind: 'success', text: 'Operación actualizada' });
+      push({ kind: 'success', text: editScope === 'group' && editTrade.groupId ? `Grupo actualizado (${groupMembers.length} operaciones)` : 'Operación actualizada' });
       setSaving(false);
       onClose();
       return;
     }
 
-    let created;
-    if (inputMode === 'direct') {
-      created = addTrade({
-        ...common,
-        entryPrice: 0, exitPrice: 0, positionSize: 1, multiplier: 1,
-        directPnl,
-      });
-    } else {
-      created = addTrade({
-        ...common,
-        entryPrice: parseFloat(entryPrice), exitPrice: parseFloat(exitPrice),
-        positionSize: parseFloat(positionSize), multiplier: parseFloat(multiplier) || 1,
-      });
-    }
-    syncNote(created.id);
-    push({ kind: 'success', text: 'Operación guardada' });
+    // Create — one trade per selected account (shared groupId when > 1).
+    const selected = accountIds;
+    const groupId = selected.length > 1 ? crypto.randomUUID() : undefined;
+    const isMultiAccount = selected.length > 1;
+    const targets: (string | undefined)[] = selected.length === 0 ? [undefined] : selected;
+    const createdTrades = targets.map(acc =>
+      addTrade({ ...common, ...modeFields, accountId: acc, groupId, isMultiAccount, directPnl: inputMode === 'direct' ? directPnl : undefined })
+    );
+    syncNote(createdTrades[0].id);
+    push({ kind: 'success', text: selected.length > 1 ? `Operación guardada en ${selected.length} cuentas ✓` : 'Operación guardada' });
 
     // After-save warnings
     setTimeout(() => {
@@ -277,7 +279,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     setPositionSize('1'); setCommission(String(defaultCommission ?? 0));
     setMultiplier(String(defaultMultiplier ?? 1));
     setErrorTags([]); setScreenshots([]); setEmotionalState(3); setIsPlanBased(true);
-    setAccountId(''); setQuickNote('');
+    setAccountIds([]); setQuickNote('');
     setSaving(false);
     onClose();
   };
@@ -331,6 +333,23 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
             })}
           </div>
         </div>
+
+        {/* Grouped-trade edit banner */}
+        {editTrade?.groupId && groupMembers.length > 1 && (
+          <div style={{ margin: '12px 22px 0', background: 'rgba(79,143,255,0.08)', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: '0.78rem', color: '#c8d4e8' }}>
+            <div style={{ marginBottom: 8 }}>🔗 Esta operación está agrupada con {groupMembers.length - 1} más (misma entrada en distintas cuentas).</div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              {([['one', 'Editar solo esta operación'], ['group', 'Editar todas las del grupo']] as const).map(([scope, lbl]) => (
+                <label key={scope} onClick={() => setEditScope(scope)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.74rem', color: editScope === scope ? '#4f8fff' : '#888898' }}>
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', border: `1px solid ${editScope === scope ? '#4f8fff' : '#33334a'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {editScope === scope && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4f8fff' }} />}
+                  </span>
+                  {lbl}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: 20, padding: '18px 22px 22px' }}>
@@ -454,23 +473,37 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
           <div className="modal-right" style={{ background: '#0d0d0f', borderRadius: 10, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {activeAccounts.length > 0 && (
               <div>
-                <label style={{ ...label, fontSize: '0.58rem' }}>Cuenta</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {accountId && (() => {
-                    const a = activeAccounts.find(x => x.id === accountId);
-                    return a ? <span style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0, background: firmColor(a.firm), color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>{a.firm.slice(0, 2).toUpperCase()}</span> : null;
-                  })()}
-                  <select
-                    value={accountId}
-                    onChange={e => { const v = e.target.value; if (v === '__add__') { onClose(); navigate('/prop-firms'); return; } setAccountId(v); }}
-                    style={{ flex: 1, minWidth: 0, background: '#1a1c22', border: '1px solid #1e1e20', borderRadius: 7, padding: '8px 10px', color: '#e0e0e8', fontFamily: fontBody, fontSize: '0.78rem', outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="">Sin cuenta asignada</option>
-                    {activeAccounts.map(a => (
-                      <option key={a.id} value={a.id}>{a.firm} ${Math.round(a.accountSize / 1000)}K · {PHASE_SHORT[a.phase] ?? a.phase}</option>
-                    ))}
-                    <option value="__add__">+ Añadir nueva cuenta</option>
-                  </select>
+                <label style={{ ...label, fontSize: '0.58rem' }}>Cuentas (selecciona una o varias)</label>
+                <div style={{ background: '#1a1c22', border: '1px solid #1e1e20', borderRadius: 8, padding: 6, display: 'flex', flexWrap: 'wrap', gap: 4, minHeight: 40 }}>
+                  {activeAccounts.map(a => {
+                    const sel = accountIds.includes(a.id);
+                    return (
+                      <button
+                        key={a.id} type="button"
+                        onClick={() => setAccountIds(ids => ids.includes(a.id) ? ids.filter(x => x !== a.id) : [...ids, a.id])}
+                        style={{
+                          padding: '5px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
+                          fontSize: '0.72rem', cursor: 'pointer', transition: 'all 0.12s', fontFamily: fontBody,
+                          background: sel ? 'rgba(79,143,255,0.12)' : 'transparent',
+                          color: sel ? '#4f8fff' : '#6b7280',
+                          border: `1px solid ${sel ? 'rgba(79,143,255,0.3)' : 'transparent'}`,
+                        }}
+                      >
+                        {sel && <span style={{ fontSize: 9 }}>✓</span>}
+                        <span style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, background: firmColor(a.firm), color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700 }}>{a.firm.slice(0, 2).toUpperCase()}</span>
+                        {a.firm} {Math.round(a.accountSize / 1000)}K
+                        <span style={{ fontSize: '0.55rem', opacity: 0.85 }}>{PHASE_SHORT[a.phase] ?? a.phase}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
+                  <span style={{ fontSize: '0.68rem', color: '#4a4a60' }}>{accountIds.length} cuenta{accountIds.length === 1 ? '' : 's'} seleccionada{accountIds.length === 1 ? '' : 's'}</span>
+                  <span style={{ fontSize: '0.68rem' }}>
+                    <span onClick={() => setAccountIds(activeAccounts.map(a => a.id))} style={{ color: '#4f8fff', cursor: 'pointer' }}>Seleccionar todas</span>
+                    <span style={{ color: '#33334a', margin: '0 6px' }}>|</span>
+                    <span onClick={() => setAccountIds([])} style={{ color: '#4f8fff', cursor: 'pointer' }}>Ninguna</span>
+                  </span>
                 </div>
               </div>
             )}

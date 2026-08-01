@@ -219,7 +219,7 @@ export function Journal() {
                             <div key={t.id} onClick={() => setDetailId(t.id)} className="diario-trow"
                               style={{ display: 'grid', gridTemplateColumns: '52px 1fr 64px 90px 1fr 64px', gap: 8, alignItems: 'center', padding: '8px 12px', fontSize: '0.78rem', cursor: 'pointer', borderTop: i > 0 ? '1px solid var(--border-subtle)' : 'none', ...body }}>
                               <span style={{ color: 'var(--text-muted)' }}>{t.time}</span>
-                              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{t.asset}</span>
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{t.asset}{t.groupId && <span title="Copiada en varias cuentas" style={{ fontSize: 9, cursor: 'help' }}>🔗</span>}</span>
                               <Badge variant={t.direction === 'long' ? 'ganancia' : 'perdida'}>{t.direction === 'long' ? 'LONG' : 'SHORT'}</Badge>
                               <span style={{ color: t.pnl >= 0 ? 'var(--blue)' : 'var(--red)', fontWeight: 600, textAlign: 'right' }}>{fmtMoney(t.pnl)}</span>
                               <span style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.setup || '—'}</span>

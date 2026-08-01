@@ -244,7 +244,12 @@ export function Trades() {
                       <input type="checkbox" checked={isSel} onChange={() => toggleSel(t.id)} />
                     </td>
                     <td style={{ padding: '10px 14px', ...mono, color: 'var(--text)' }}>{t.date} {t.time}</td>
-                    <td style={{ padding: '10px 14px', color: '#fff', fontWeight: 600 }}>{t.asset}</td>
+                    <td style={{ padding: '10px 14px', color: '#fff', fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {t.asset}
+                        {t.groupId && <span title="Operación copiada en varias cuentas" style={{ fontSize: 9, color: 'var(--blue)', background: 'rgba(79,143,255,0.12)', borderRadius: 4, padding: '1px 5px', fontWeight: 700, cursor: 'help' }}>🔗</span>}
+                      </span>
+                    </td>
                     <td style={{ padding: '10px 14px', color: t.direction === 'long' ? 'var(--blue)' : 'var(--red)', fontWeight: 600 }}>
                       {t.direction.toUpperCase()}
                     </td>
