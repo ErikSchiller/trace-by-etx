@@ -16,7 +16,7 @@ const FREE_FEATURES: [string, boolean][] = [
   ['Prop Firm Hub', false],
   ['Simulador Monte Carlo', false],
 ];
-const PRO_FEATURES: [string, 'yes' | 'soon'][] = [
+const PRO_FEATURES: [string, 'yes' | 'soon' | 'ai'][] = [
   ['Operaciones ilimitadas', 'yes'],
   ['Analíticas avanzadas completas', 'yes'],
   ['Conexión con brokers', 'yes'],
@@ -27,7 +27,7 @@ const PRO_FEATURES: [string, 'yes' | 'soon'][] = [
   ['Prop Firm Hub completo', 'yes'],
   ['Simulador Monte Carlo', 'yes'],
   ['Heatmap de mejores horarios', 'yes'],
-  ['IA integrada (próximamente)', 'soon'],
+  ['TRACE IA — incluida cuando salga (Q1)', 'ai'],
   ['Soporte prioritario', 'yes'],
 ];
 const COMPARISON: [string, string, string][] = [
@@ -48,6 +48,7 @@ const FAQ = [
   { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Sí, puedes actualizar a Pro o cancelar tu suscripción en cualquier momento desde tus ajustes.' },
   { q: '¿Qué pasa si cancelo mi plan Pro?', a: 'Mantendrás acceso Pro hasta el final del periodo facturado. Después volverás automáticamente al plan Gratis. Tus datos no se pierden.' },
   { q: '¿Hay periodo de prueba gratis para Pro?', a: 'El plan Gratis es para siempre, sin tarjeta. Cuando estés listo para más, puedes actualizar a Pro.' },
+  { q: '¿Cuándo llegará TRACE IA?', a: 'TRACE IA es nuestra prioridad más grande post-lanzamiento. Está planificada para el primer trimestre. Incluirá coach virtual, auto-review diaria y detección de patrones. Se incluirá sin coste extra en el Plan Pro — si te suscribes ahora, la tendrás en cuanto salga.' },
   { q: '¿Cómo se factura el plan anual?', a: 'Se cobra una sola vez al año (€228) al activar la suscripción. Es el equivalente a €19/mes pero con un 34% de descuento.' },
   { q: '¿Qué métodos de pago aceptan?', a: 'Aceptamos todas las tarjetas principales (Visa, Mastercard, Amex) y métodos locales europeos a través de Stripe.' },
   { q: '¿Mis datos están seguros?', a: 'Sí. Tus datos se almacenan cifrados, nunca compartimos información con terceros, y puedes exportarlos o eliminarlos cuando quieras.' },
@@ -117,8 +118,10 @@ export default function Pricing() {
             <Link to="/register?plan=pro" style={{ display: 'block', textAlign: 'center', background: C.blue, color: '#fff', borderRadius: 9, padding: '11px', fontSize: '0.88rem', fontWeight: 600, textDecoration: 'none', marginBottom: 20 }}>Actualizar a Pro →</Link>
             <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {PRO_FEATURES.map(([f, kind], i) => (
-                <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.84rem', color: C.text }}>
-                  <span style={{ color: kind === 'soon' ? C.amber : C.blue }}>{kind === 'soon' ? '⏱' : '✓'}</span>{f}
+                <li key={i}
+                  title={kind === 'ai' ? 'Coach virtual, auto-review diaria, insights inteligentes y más. Se incluirá sin coste extra para todos los planes Pro.' : undefined}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.84rem', color: kind === 'ai' ? 'rgba(120,97,255,0.9)' : C.text, cursor: kind === 'ai' ? 'help' : 'default' }}>
+                  <span style={{ color: kind === 'soon' ? C.amber : kind === 'ai' ? '#7861ff' : C.blue }}>{kind === 'soon' ? '⏱' : kind === 'ai' ? '🧠' : '✓'}</span>{f}
                 </li>
               ))}
             </ul>

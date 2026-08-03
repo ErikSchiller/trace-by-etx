@@ -81,6 +81,26 @@ export default function Funciones() {
         </div>
       </div>
 
+      {/* TRACE IA — coming soon */}
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 24px 0' }}>
+        <div style={{ position: 'relative', background: C.card, border: '1px solid rgba(120,97,255,0.2)', borderRadius: 14, padding: '28px 24px' }}>
+          <span style={{ position: 'absolute', top: 18, right: 18, background: 'rgba(120,97,255,0.12)', color: '#7861ff', fontSize: 9, padding: '3px 9px', borderRadius: 5, fontWeight: 700, letterSpacing: '0.06em' }}>PRÓXIMAMENTE</span>
+          <div style={{ fontSize: 26, marginBottom: 12 }}>🧠</div>
+          <h3 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.2rem', color: '#fff', marginBottom: 10 }}>Un mentor que conoce tu journal</h3>
+          <p style={{ fontSize: '0.85rem', color: C.text2, lineHeight: 1.55, marginBottom: 16, maxWidth: 620 }}>
+            TRACE IA analiza tu historial completo para responder tus preguntas, revisar tu rendimiento y detectar patrones que se te escapan.
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }} className="lp-func-grid">
+            {['Coach virtual "Pregúntale a TRACE"', 'Auto-review diaria de tu sesión', 'Insights personalizados en el dashboard', 'Análisis post-trade inmediato', 'Reportes semanales narrados', 'Detección temprana de tilt'].map(b => (
+              <li key={b} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '0.8rem', color: C.text }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#7861ff', marginTop: 6, flexShrink: 0 }} />{b}
+              </li>
+            ))}
+          </ul>
+          <Link to="/roadmap#ia" style={{ fontSize: '0.82rem', color: '#7861ff', fontWeight: 600, textDecoration: 'none' }}>Ver roadmap →</Link>
+        </div>
+      </div>
+
       {/* Prop firm features */}
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '64px 24px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>

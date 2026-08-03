@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { LogoMark } from '../components/UI/LogoMark';
+import { joinAiWaitlist } from '../config/tracer-ai-content';
 
 const C = {
   bg:        '#050507',
@@ -68,6 +69,7 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const setOnboardingComplete = useAuthStore(s => s.setOnboardingComplete);
   const logout = useAuthStore(s => s.logout);
+  const userEmail = useAuthStore(s => s.user?.email);
   const [step, setStep] = useState(1);
   const [fade, setFade] = useState(true);
 
@@ -76,6 +78,7 @@ export default function OnboardingPage() {
   const [challenge, setChallenge] = useState<string | null>(null);
   const [goal, setGoal] = useState<string | null>(null);
   const [propFirms, setPropFirms] = useState<string[]>([]);
+  const [aiInterest, setAiInterest] = useState<'high' | 'medium' | 'none' | null>(null);
 
   useEffect(() => {
     document.body.style.background = C.bg;
@@ -90,14 +93,17 @@ export default function OnboardingPage() {
     }, 250);
   };
 
-  const finish = () => {
+  const finish = (ai?: 'high' | 'medium' | 'none' | null) => {
+    const interest = ai ?? aiInterest;
     setOnboardingComplete({
       experience: experience || '',
       markets,
       challenge: challenge || '',
       goal: goal || '',
       propFirms,
+      ...(interest ? { aiInterest: interest } : {}),
     });
+    if ((interest === 'high' || interest === 'medium') && userEmail) joinAiWaitlist(userEmail);
     navigate('/dashboard');
   };
 
@@ -108,7 +114,7 @@ export default function OnboardingPage() {
     setPropFirms(curr => curr.includes(f) ? curr.filter(x => x !== f) : [...curr, f]);
   };
 
-  const TOTAL_STEPS = 6;
+  const TOTAL_STEPS = 7;
   const progressPct = ((step - 1) / (TOTAL_STEPS - 1)) * 100;
   const showProgress = step > 1;
 
@@ -213,8 +219,17 @@ export default function OnboardingPage() {
               options={GOAL}
               selected={goal}
               onSelect={setGoal}
-              onContinue={finish}
-              ctaLabel="Ir a mi dashboard"
+              onContinue={goNext}
+              ctaLabel="Continuar"
+            />
+          )}
+
+          {step === 7 && (
+            <AiInterestStep
+              selected={aiInterest}
+              onSelect={setAiInterest}
+              onContinue={() => finish()}
+              onSkip={() => finish('none')}
             />
           )}
         </div>
@@ -341,6 +356,30 @@ function OptionCard({
         {desc}
       </div>
     </button>
+  );
+}
+
+function AiInterestStep({ selected, onSelect, onContinue, onSkip }: {
+  selected: 'high' | 'medium' | 'none' | null;
+  onSelect: (v: 'high' | 'medium' | 'none') => void;
+  onContinue: () => void; onSkip: () => void;
+}) {
+  const opts = [
+    { v: 'high' as const, title: '🎯 Sí, muy interesado', desc: 'Notifícame cuando salga' },
+    { v: 'medium' as const, title: '🤔 Me interesa, pero sin prisa', desc: 'Cuéntame cuando esté lista' },
+    { v: 'none' as const, title: '❌ No me interesa por ahora', desc: '' },
+  ];
+  return (
+    <>
+      <StepHeader title="¿Te interesa TRACE IA?" subtitle="Estamos preparando un coach virtual que analizará tu journal para darte insights personalizados. Llegará el primer trimestre." />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {opts.map(o => <OptionCard key={o.v} title={o.title} desc={o.desc} selected={selected === o.v} onClick={() => onSelect(o.v)} />)}
+      </div>
+      <ContinueButton disabled={!selected} onClick={onContinue} label="Ir a mi dashboard" />
+      <div style={{ textAlign: 'center', marginTop: 12 }}>
+        <button onClick={onSkip} style={{ background: 'transparent', border: 'none', color: C.muted, fontSize: 13, cursor: 'pointer', fontFamily: fontBody }}>Prefiero decidirlo después</button>
+      </div>
+    </>
   );
 }
 

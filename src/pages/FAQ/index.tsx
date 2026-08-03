@@ -10,6 +10,10 @@ const CATEGORIES: { id: string; label: string; qa: { q: string; a: string }[] }[
       { q: '¿Qué es TRACE?', a: 'TRACE es el journal de trading más completo en español. Te ayuda a registrar tus operaciones, analizar patrones y mejorar como trader.' },
       { q: '¿Para quién es TRACE?', a: 'Para traders intradía de futuros, acciones, forex y cripto que quieran llevar un registro serio de sus operaciones.' },
       { q: '¿En qué se diferencia de TradeZella o Edgewonk?', a: 'TRACE está hecho 100% en español, tiene un sistema único de TRACE Score, y está diseñado por un trader que opera prop firms a diario.' },
+      { q: '¿Qué es TRACE IA?', a: 'TRACE IA es un conjunto de funcionalidades inteligentes que analizan tu journal para darte insights personalizados. Incluye un coach virtual con el que puedes chatear sobre tu propio historial, auto-review diaria de tu sesión, detección de patrones de comportamiento, y reportes semanales narrados.' },
+      { q: '¿Cuándo llegará TRACE IA?', a: 'Está planificada para el primer trimestre. Cuando esté lista, todos los suscriptores Pro la tendrán incluida sin coste extra. No prometemos fechas exactas — cuando esté lista para dar valor real, sale.' },
+      { q: '¿TRACE IA me va a dar señales o predicciones de mercado?', a: 'No. TRACE IA analiza TUS trades y patrones — no predice el mercado ni da señales de compra/venta. Somos un journal inteligente, no una casa de señales.' },
+      { q: '¿Mis datos se comparten con proveedores de IA?', a: 'Cuando uses TRACE IA, las consultas se procesan a través de APIs de modelos de lenguaje (probablemente Anthropic o OpenAI). Solo se envían los datos necesarios para la consulta específica — nunca todo tu historial de golpe. Ninguna otra parte accede a tus operaciones, y los proveedores no entrenan con tus datos.' },
     ],
   },
   {

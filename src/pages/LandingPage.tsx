@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LogoMark } from '../components/UI/LogoMark';
 import { Navbar } from '../components/Marketing/Navbar';
 import { Footer } from '../components/Marketing/Footer';
 import { CookiesBanner } from '../components/CookiesBanner';
+import { AiWaitlistModal } from '../components/UI/AiWaitlistModal';
 
 const C = {
   bg:      '#0a0a0c',
@@ -12,6 +13,7 @@ const C = {
   border:  '#1e1e20',
   borderSub: '#1a1a1c',
   blue:    '#4f8fff',
+  indigo:  '#7861ff',
   red:     '#ef4444',
   text:    '#e0e0e8',
   text2:   '#888898',
@@ -23,6 +25,7 @@ const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
 
 export default function LandingPage() {
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   useEffect(() => {
     document.documentElement.style.scrollBehavior = 'smooth';
     return () => { document.documentElement.style.scrollBehavior = ''; };
@@ -34,6 +37,7 @@ export default function LandingPage() {
       <StatsStrip />
       <BrokersStrip />
       <ProductsHub id="score" />
+      <AITeaserSection onWaitlist={() => setWaitlistOpen(true)} />
       <FeatureCard id="diario" />
       <NumberedSection
         num="1"
@@ -75,7 +79,65 @@ export default function LandingPage() {
       <FooterCTA />
       <Footer />
       <CookiesBanner />
+      <AiWaitlistModal open={waitlistOpen} onClose={() => setWaitlistOpen(false)} />
     </div>
+  );
+}
+
+/* ============ AI TEASER ============ */
+function AITeaserSection({ onWaitlist }: { onWaitlist: () => void }) {
+  return (
+    <section style={{ position: 'relative', maxWidth: 1180, margin: '0 auto', padding: '60px 40px 40px' }}>
+      <div style={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', width: 700, height: 400, background: 'radial-gradient(circle, rgba(120,97,255,0.05), transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', textAlign: 'center' }}>
+        <div style={{ fontSize: '0.72rem', color: C.indigo, fontWeight: 600, letterSpacing: '0.08em', marginBottom: 14 }}>● Próximamente</div>
+        <h2 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '2.4rem', letterSpacing: '-0.03em', color: '#fff', lineHeight: 1.1 }}>
+          Un coach que conoce <span style={{ color: C.indigo }}>cada uno de tus trades.</span>
+        </h2>
+        <p style={{ fontSize: '1rem', color: C.text2, maxWidth: 580, margin: '16px auto 0', lineHeight: 1.6 }}>
+          TRACE IA analizará tu journal completo para responder tus preguntas, detectar patrones que se te escapan y revisar cada sesión contigo. Como tener un mentor a tiempo completo.
+        </p>
+      </div>
+
+      {/* Mock chat */}
+      <div style={{ maxWidth: 720, margin: '40px auto 0', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(120,97,255,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 28 32" style={{ width: 12, height: 14 }}><polyline points="14,2 2,30 26,30" stroke={C.indigo} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+          </span>
+          <span style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>TRACE IA</span>
+          <span style={{ background: 'rgba(120,97,255,0.12)', color: C.indigo, fontSize: '0.6rem', padding: '2px 8px', borderRadius: 5, fontWeight: 700, letterSpacing: '0.05em' }}>PRÓXIMAMENTE</span>
+        </div>
+        <div style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', maxWidth: '75%', padding: '10px 14px', borderRadius: '12px 12px 4px 12px', fontSize: '0.85rem' }}>
+              ¿Por qué estoy perdiendo dinero los martes?
+            </div>
+          </div>
+          <div style={{ height: 12 }} />
+          <div style={{ display: 'flex' }}>
+            <div style={{ background: 'rgba(120,97,255,0.06)', border: '1px solid rgba(120,97,255,0.15)', maxWidth: '85%', padding: '14px 16px', borderRadius: '12px 12px 12px 4px', fontSize: '0.85rem', lineHeight: 1.6, whiteSpace: 'pre-line', color: C.text }}>
+{`He revisado tus últimos 8 martes:
+
+📉 Tu win rate cae al 42% (vs 61% en otros días)
+
+🎯 Sesgo detectado: entras 30% más veces sin haber marcado tus niveles clave por la mañana
+
+💡 Sugerencia: los lunes por la noche has estado cerrando con -PnL en 6 de 8 semanas. Ese martes empiezas desde una base emocional cargada.
+
+¿Quieres que te proponga una rutina para los martes?`}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 28 }}>
+        <div style={{ fontSize: '0.85rem', color: C.text2, marginBottom: 14 }}>Se incluirá en el Plan Pro cuando esté disponible.</div>
+        <button onClick={onWaitlist} style={{ background: 'transparent', color: C.indigo, border: `1px solid ${C.indigo}`, padding: '10px 20px', borderRadius: 8, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>
+          Notifícame cuando salga →
+        </button>
+      </div>
+    </section>
   );
 }
 

@@ -11,6 +11,8 @@ import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
 import { RadarChart } from '../../components/Charts/RadarChart';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
+import { AiWaitlistModal } from '../../components/UI/AiWaitlistModal';
+import { hasJoinedAiWaitlist } from '../../config/tracer-ai-content';
 import { usePlan } from '../../hooks/usePlan';
 import { useSettingsStore } from '../../store/settingsStore';
 import { getDailyPnL } from '../../store/tradeStore';
@@ -140,6 +142,9 @@ export function Dashboard() {
 
   // Calendar
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [aiWaitlistOpen, setAiWaitlistOpen] = useState(false);
+  const [aiTeaserHidden, setAiTeaserHidden] = useState(() => localStorage.getItem('dismissed_ai_teaser') === '1' || hasJoinedAiWaitlist());
+  const dismissAiTeaser = () => { localStorage.setItem('dismissed_ai_teaser', '1'); setAiTeaserHidden(true); };
   const [calMonth, setCalMonth] = useState(() => {
     const d = new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
@@ -207,6 +212,20 @@ export function Dashboard() {
       )}
 
       <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* TRACE IA teaser (dismissable) */}
+      {!aiTeaserHidden && (
+        <div style={{ background: 'linear-gradient(90deg, rgba(120,97,255,0.06), rgba(79,143,255,0.03))', border: '1px solid rgba(120,97,255,0.15)', borderRadius: 10, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(120,97,255,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg viewBox="0 0 28 32" style={{ width: 12, height: 14 }}><polyline points="14,2 2,30 26,30" stroke="#7861ff" strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>🧠 TRACE IA llega este trimestre</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 1 }}>Coach virtual, auto-review, insights personalizados. Incluida en Pro.</div>
+          </div>
+          <button onClick={() => setAiWaitlistOpen(true)} style={{ flexShrink: 0, background: 'transparent', color: '#7861ff', border: '1px solid rgba(120,97,255,0.35)', borderRadius: 8, padding: '7px 14px', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>Unirme a la waitlist →</button>
+          <button onClick={dismissAiTeaser} aria-label="Descartar" style={{ flexShrink: 0, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
       {/* KPI STRIP — single horizontal card with 5 KPIs */}
       <div className="dash-kpi-strip" style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
         <div style={kpiCell}>
@@ -420,6 +439,7 @@ export function Dashboard() {
       </div>
       </div>
       <TradeDetailModal trade={trades.find(t => t.id === detailId) ?? null} onClose={() => setDetailId(null)} />
+      <AiWaitlistModal open={aiWaitlistOpen} onClose={() => { setAiWaitlistOpen(false); if (hasJoinedAiWaitlist()) setAiTeaserHidden(true); }} />
       <style>{`
         @media (max-width: 700px) {
           .dash-kpi-strip { grid-template-columns: repeat(2, 1fr) !important; }

@@ -16,7 +16,7 @@ const FEATURES = [
   'Prop Firm Hub completo',
   'Simulador Monte Carlo',
   'Heatmap de mejores horarios',
-  'IA integrada (próximamente)',
+  'TRACE IA — sin coste extra cuando salga (Q1)',
 ];
 
 export function UpgradeModal() {
@@ -70,12 +70,18 @@ export function UpgradeModal() {
             width: 'fit-content', fontWeight: 600, letterSpacing: '0.04em',
           }}>Plan Pro</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {FEATURES.map(f => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Check size={14} color="#4f8fff" strokeWidth={2.5} />
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{f}</span>
-              </div>
-            ))}
+            {FEATURES.map(f => {
+              const isAi = f.includes('TRACE IA');
+              return (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {isAi ? <span style={{ fontSize: 13, width: 14, textAlign: 'center' }}>🧠</span> : <Check size={14} color="#4f8fff" strokeWidth={2.5} />}
+                  <span style={{ fontSize: 13, color: isAi ? '#a99bff' : 'rgba(255,255,255,0.8)', fontWeight: isAi ? 600 : 400 }}>{f}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5, marginTop: 4 }}>
+            Al suscribirte hoy, tendrás TRACE IA incluida en cuanto se publique. Sin subida de precio.
           </div>
         </div>
 

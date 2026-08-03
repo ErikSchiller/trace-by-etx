@@ -9,6 +9,8 @@ export interface UserProfile {
   goal: string;
   /** Optional: prop firms the user trades with (selected during onboarding). */
   propFirms?: string[];
+  /** Interest in the upcoming TRACE IA features (from onboarding). */
+  aiInterest?: 'high' | 'medium' | 'none';
 }
 
 export interface User {
