@@ -1,18 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useUserAccounts, usePropFirmStore,
   getActiveAccounts, getPastAccounts, getTotalInvested, getTotalPayouts, getNetPnL,
-  getPassRate, getAvgDaysToFund, getAccountsByFirm,
-  accountTotalCost, accountTotalPayouts, accountNetResult,
+  getPassRate, getAvgDaysToFund, getAccountsByFirm, getPendingActivation,
+  accountTotalCost, accountTotalPayouts, accountNetResult, accountPendingCost,
   type PropFirmAccount, type Phase, type DrawdownType,
 } from '../../store/propFirmStore';
 import { PROP_FIRM_PRESETS, FIRMS, presetsForFirm } from '../../config/propFirmPresets';
 import { useUserTrades } from '../../store/tradeStore';
 import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
-import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { useToast } from '../../components/UI/ToastProvider';
+import { MarkFundedModal, DeleteAccountDialog } from './AccountModals';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -47,9 +47,11 @@ export default function PropFirms() {
   const accounts = useUserAccounts();
   const trades = useUserTrades();
   const [addOpen, setAddOpen] = useState(false);
+  const [editAccount, setEditAccount] = useState<PropFirmAccount | null>(null);
 
   const active = useMemo(() => getActiveAccounts(accounts), [accounts]);
   const past = useMemo(() => getPastAccounts(accounts), [accounts]);
+  const pending = useMemo(() => getPendingActivation(accounts), [accounts]);
   const invested = getTotalInvested(accounts);
   const payouts = getTotalPayouts(accounts);
   const net = getNetPnL(accounts);
@@ -79,7 +81,7 @@ export default function PropFirms() {
           <>
             {/* KPI strip */}
             <div style={{ background: '#161618', border: '1px solid #1e1e20', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
-              <Cell label="TOTAL INVERTIDO" value={fmtPlain(invested)} valColor="#fff" sub={`${accounts.length} cuentas · ${firmsCount} firmas`} />
+              <Cell label="TOTAL INVERTIDO" value={fmtPlain(invested)} valColor="#fff" sub={`${accounts.length} cuentas · ${firmsCount} firmas`} sub2={pending.count > 0 ? `Pendientes por pasar eval: ${fmtPlain(pending.total)} en ${pending.count} cuenta${pending.count === 1 ? '' : 's'}` : undefined} />
               <Cell label="TOTAL PAYOUTS" value={fmtPlain(payouts)} valColor="#4f8fff" />
               <Cell label="P&L NETO REAL" value={fmt(net)} valColor={net >= 0 ? '#4f8fff' : '#ef4444'} sub={`ROI: ${invested ? Math.round((net / invested) * 100) : 0}%`} />
               <Cell label="PASS RATE" value={`${Math.round(pass.rate)}%`} valColor="#fff" sub={`${pass.passed} de ${pass.total} evaluaciones`} />
@@ -95,7 +97,7 @@ export default function PropFirms() {
                   <span style={{ background: 'rgba(79,143,255,0.1)', color: '#4f8fff', fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>{active.length}</span>
                 </div>
                 <div className="pf-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  {active.map(a => <AccountCard key={a.id} account={a} trades={tradeCountFor(a.id)} />)}
+                  {active.map(a => <AccountCard key={a.id} account={a} trades={tradeCountFor(a.id)} onEdit={() => setEditAccount(a)} />)}
                 </div>
               </div>
             )}
@@ -105,19 +107,7 @@ export default function PropFirms() {
               <div>
                 <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.95rem', color: '#fff', marginBottom: 10 }}>Cuentas pasadas</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {past.map(a => (
-                    <div key={a.id} style={{ ...card, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 26, height: 26, borderRadius: 6, background: firmColor(a.firm), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{firmInitials(a.firm)}</div>
-                        <span style={{ fontWeight: 600, color: '#fff', fontSize: '0.85rem' }}>{a.firm}</span>
-                        <span style={{ fontSize: '0.7rem', color: '#4a4a60' }}>{sizeBadge(a.accountSize)}</span>
-                        <span style={{ background: PHASE_COLOR[a.phase].bg, color: PHASE_COLOR[a.phase].c, fontSize: 9, padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>{PHASE_LABEL[a.phase]}</span>
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: '#888898', fontFamily: fontBody }}>
-                        Coste {fmtPlain(accountTotalCost(a))} · Payouts {fmtPlain(accountTotalPayouts(a))} · <span style={{ color: accountNetResult(a) >= 0 ? '#4f8fff' : '#ef4444', fontWeight: 600 }}>{fmt(accountNetResult(a))}</span>
-                      </div>
-                    </div>
-                  ))}
+                  {past.map(a => <PastAccountRow key={a.id} account={a} trades={tradeCountFor(a.id)} onEdit={() => setEditAccount(a)} />)}
                 </div>
               </div>
             )}
@@ -152,29 +142,52 @@ export default function PropFirms() {
         )}
       </div>
 
-      <AddAccountModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddAccountModal open={addOpen || !!editAccount} editAccount={editAccount} onClose={() => { setAddOpen(false); setEditAccount(null); }} />
       <style>{`@media (max-width: 760px){ .pf-grid{ grid-template-columns:1fr !important; } }`}</style>
     </ProLock>
   );
 }
 
-function Cell({ label, value, valColor, sub, last }: { label: string; value: string; valColor: string; sub?: string; last?: boolean }) {
+function Cell({ label, value, valColor, sub, sub2, last }: { label: string; value: string; valColor: string; sub?: string; sub2?: string; last?: boolean }) {
   return (
     <div style={{ padding: '18px 20px', borderRight: last ? 'none' : '1px solid #1e1e20' }}>
       <div style={kLabel}>{label}</div>
       <div style={{ ...kVal, color: valColor }}>{value}</div>
       {sub && <div style={{ fontSize: '0.62rem', color: '#4a4a60', marginTop: 5 }}>{sub}</div>}
+      {sub2 && <div style={{ fontSize: '0.62rem', color: '#7861ff', marginTop: 3 }}>{sub2}</div>}
     </div>
   );
 }
 
-function AccountCard({ account: a, trades }: { account: PropFirmAccount; trades: number }) {
+function AccountMenu({ account: a, onEdit, onMarkFunded, onDelete, onClose }: { account: PropFirmAccount; onEdit: () => void; onMarkFunded: () => void; onDelete: () => void; onClose: () => void }) {
   const setPhase = usePropFirmStore(s => s.setPhase);
-  const deleteAccount = usePropFirmStore(s => s.deleteAccount);
   const { push } = useToast();
   const navigate = useNavigate();
+  const isEval = a.phase === 'eval_p1' || a.phase === 'eval_p2';
+  const Item = ({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) => (
+    <button onClick={() => { onClick(); onClose(); }} style={{ ...menuItem, color: danger ? '#ef4444' : '#c8d4e8' }}>{children}</button>
+  );
+  return (
+    <div style={{ position: 'absolute', top: 24, right: 0, background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 8, padding: 4, zIndex: 20, minWidth: 180, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
+      <Item onClick={onEdit}>Editar detalles</Item>
+      <Item onClick={() => navigate(`/prop-firms/${a.id}`)}>Registrar payout</Item>
+      <Item onClick={() => navigate(`/prop-firms/${a.id}`)}>Registrar reset</Item>
+      {isEval && <Item onClick={onMarkFunded}>Marcar como funded</Item>}
+      <Item onClick={() => { setPhase(a.id, 'blown'); push({ kind: 'success', text: 'Cuenta actualizada' }); }} danger>Marcar como blown</Item>
+      <Item onClick={() => { setPhase(a.id, 'expired'); push({ kind: 'success', text: 'Cuenta actualizada' }); }}>Marcar como expired</Item>
+      <div style={{ height: 1, background: '#1e1e20', margin: '4px 0' }} />
+      <Item onClick={onDelete} danger>Eliminar cuenta</Item>
+    </div>
+  );
+}
+
+function AccountCard({ account: a, trades, onEdit }: { account: PropFirmAccount; trades: number; onEdit: () => void }) {
+  const navigate = useNavigate();
   const [menu, setMenu] = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
+  const [markFundedOpen, setMarkFundedOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const paidNow = accountTotalCost(a);
+  const pending = accountPendingCost(a);
 
   // Approximate equity from linked payouts isn't enough; use placeholder progress from phase.
   // Real equity tracking would come from linked trades; here we show target rules.
@@ -199,15 +212,7 @@ function AccountCard({ account: a, trades }: { account: PropFirmAccount; trades:
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
           <span style={{ background: PHASE_COLOR[a.phase].bg, color: PHASE_COLOR[a.phase].c, fontSize: 9, padding: '3px 8px', borderRadius: 5, fontWeight: 700 }}>{PHASE_LABEL[a.phase]}</span>
           <button onClick={() => setMenu(m => !m)} style={{ background: 'transparent', border: 'none', color: '#4a4a60', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>⋯</button>
-          {menu && (
-            <div style={{ position: 'absolute', top: 24, right: 0, background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 8, padding: 4, zIndex: 20, minWidth: 150, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
-              {([['funded', 'Marcar funded'], ['passed_pending', 'Marcar passed'], ['blown', 'Marcar blown'], ['expired', 'Marcar expirada']] as [Phase, string][]).map(([ph, lbl]) => (
-                <button key={ph} onClick={() => { setPhase(a.id, ph); setMenu(false); push({ kind: 'success', text: 'Cuenta actualizada' }); }} style={menuItem}>{lbl}</button>
-              ))}
-              <div style={{ height: 1, background: '#1e1e20', margin: '4px 0' }} />
-              <button onClick={() => { setMenu(false); setConfirmDel(true); }} style={{ ...menuItem, color: '#ef4444' }}>Eliminar</button>
-            </div>
-          )}
+          {menu && <AccountMenu account={a} onEdit={onEdit} onMarkFunded={() => setMarkFundedOpen(true)} onDelete={() => setDeleteOpen(true)} onClose={() => setMenu(false)} />}
         </div>
       </div>
 
@@ -234,11 +239,47 @@ function AccountCard({ account: a, trades }: { account: PropFirmAccount; trades:
 
       {/* footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, fontSize: '0.72rem' }}>
-        <span style={{ color: '#4a4a60' }}>Comprada el {a.purchaseDate} · Coste: {fmtPlain(accountTotalCost(a))}</span>
+        <span style={{ color: '#4a4a60' }}>
+          {pending > 0
+            ? <>Coste: {fmtPlain(paidNow)} pagado · <span style={{ color: '#7861ff' }}>+{fmtPlain(pending)} al pasar la eval</span></>
+            : <>Coste: {fmtPlain(paidNow)} pagado</>}
+        </span>
         <span onClick={() => navigate(`/prop-firms/${a.id}`)} style={{ color: '#4f8fff', cursor: 'pointer', fontWeight: 600 }}>Ver detalles →</span>
       </div>
 
-      <ConfirmDialog open={confirmDel} title="¿Eliminar esta cuenta?" description="Se borrará el registro de fees y payouts." confirmText="Eliminar" destructive onConfirm={() => { deleteAccount(a.id); push({ kind: 'success', text: 'Cuenta eliminada' }); setConfirmDel(false); }} onCancel={() => setConfirmDel(false)} />
+      <MarkFundedModal account={a} open={markFundedOpen} onClose={() => setMarkFundedOpen(false)} />
+      <DeleteAccountDialog account={a} tradeCount={trades} open={deleteOpen} onClose={() => setDeleteOpen(false)} />
+    </div>
+  );
+}
+
+function PastAccountRow({ account: a, trades, onEdit }: { account: PropFirmAccount; trades: number; onEdit: () => void }) {
+  const [menu, setMenu] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  return (
+    <div style={{ ...card, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 6, background: firmColor(a.firm), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{firmInitials(a.firm)}</div>
+        <span style={{ fontWeight: 600, color: '#fff', fontSize: '0.85rem' }}>{a.firm}</span>
+        <span style={{ fontSize: '0.7rem', color: '#4a4a60' }}>{sizeBadge(a.accountSize)}</span>
+        <span style={{ background: PHASE_COLOR[a.phase].bg, color: PHASE_COLOR[a.phase].c, fontSize: 9, padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>{PHASE_LABEL[a.phase]}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ fontSize: '0.78rem', color: '#888898', fontFamily: fontBody }}>
+          Coste {fmtPlain(accountTotalCost(a))} · Payouts {fmtPlain(accountTotalPayouts(a))} · <span style={{ color: accountNetResult(a) >= 0 ? '#4f8fff' : '#ef4444', fontWeight: 600 }}>{fmt(accountNetResult(a))}</span>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setMenu(m => !m)} style={{ background: 'transparent', border: 'none', color: '#4a4a60', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>⋯</button>
+          {menu && (
+            <div style={{ position: 'absolute', top: 24, right: 0, background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 8, padding: 4, zIndex: 20, minWidth: 160, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
+              <button onClick={() => { onEdit(); setMenu(false); }} style={menuItem}>Editar detalles</button>
+              <div style={{ height: 1, background: '#1e1e20', margin: '4px 0' }} />
+              <button onClick={() => { setDeleteOpen(true); setMenu(false); }} style={{ ...menuItem, color: '#ef4444' }}>Eliminar cuenta</button>
+            </div>
+          )}
+        </div>
+      </div>
+      <DeleteAccountDialog account={a} tradeCount={trades} open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </div>
   );
 }
@@ -253,9 +294,10 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* ============ ADD ACCOUNT MODAL ============ */
-function AddAccountModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+/* ============ ADD / EDIT ACCOUNT MODAL ============ */
+function AddAccountModal({ open, onClose, editAccount }: { open: boolean; onClose: () => void; editAccount?: PropFirmAccount | null }) {
   const addAccount = usePropFirmStore(s => s.addAccount);
+  const updateAccount = usePropFirmStore(s => s.updateAccount);
   const { push } = useToast();
   const [firm, setFirm] = useState('TopStep');
   const [customFirm, setCustomFirm] = useState('');
@@ -279,16 +321,41 @@ function AddAccountModal({ open, onClose }: { open: boolean; onClose: () => void
     setProfitTarget(p.profitTarget); setMaxDrawdown(p.maxDrawdown); setDrawdownType(p.drawdownType);
   };
 
+  // Pre-fill when editing
+  useEffect(() => {
+    if (!open || !editAccount) return;
+    const known = FIRMS.includes(editAccount.firm);
+    setFirm(known ? editAccount.firm : 'Otro');
+    setCustomFirm(known ? '' : editAccount.firm);
+    setPresetKey('');
+    setAccountSize(editAccount.accountSize);
+    setPhase(editAccount.phase === 'eval_p2' ? 'eval_p1' : editAccount.phase);
+    setPurchaseDate(editAccount.purchaseDate);
+    setEvalFee(editAccount.evalFee);
+    setActivationFee(editAccount.activationFee);
+    setProfitTarget(editAccount.profitTarget);
+    setMaxDrawdown(editAccount.maxDrawdown);
+    setDrawdownType(editAccount.drawdownType);
+  }, [open, editAccount]);
+
   if (!open) return null;
 
   const onSave = () => {
     const finalFirm = firm === 'Otro' ? (customFirm.trim() || 'Personalizado') : firm;
-    addAccount({
-      firm: finalFirm, accountSize, phase, purchaseDate,
-      profitTarget, maxDrawdown, drawdownType,
-      evalFee, activationFee, minDays: 0,
-    });
-    push({ kind: 'success', text: 'Cuenta creada' });
+    if (editAccount) {
+      updateAccount(editAccount.id, {
+        firm: finalFirm, accountSize, phase, purchaseDate,
+        profitTarget, maxDrawdown, drawdownType, evalFee, activationFee,
+      });
+      push({ kind: 'success', text: 'Cambios guardados' });
+    } else {
+      addAccount({
+        firm: finalFirm, accountSize, phase, purchaseDate,
+        profitTarget, maxDrawdown, drawdownType,
+        evalFee, activationFee, minDays: 0,
+      });
+      push({ kind: 'success', text: 'Cuenta creada' });
+    }
     onClose();
   };
 
@@ -299,7 +366,7 @@ function AddAccountModal({ open, onClose }: { open: boolean; onClose: () => void
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: '#111113', border: '1px solid #1e1e20', borderRadius: 14, width: '100%', maxWidth: 560, fontFamily: fontBody, color: '#e0e0e8', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
         <div style={{ background: '#161618', borderBottom: '1px solid #1e1e20', padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1rem', color: '#fff', margin: 0 }}>Añadir cuenta</h2>
+          <h2 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1rem', color: '#fff', margin: 0 }}>{editAccount ? 'Editar cuenta' : 'Añadir cuenta'}</h2>
           <button onClick={onClose} aria-label="Cerrar" style={{ width: 28, height: 28, borderRadius: 6, background: 'transparent', border: '1px solid #1e1e20', color: '#4a4a60', cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -339,7 +406,11 @@ function AddAccountModal({ open, onClose }: { open: boolean; onClose: () => void
             <div><label style={lab}>Fecha de compra</label><input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} style={inp} /></div>
             <div><label style={lab}>Tamaño ($)</label><input type="number" value={accountSize} onChange={e => setAccountSize(parseFloat(e.target.value) || 0)} style={inp} /></div>
             <div><label style={lab}>Coste evaluación ($)</label><input type="number" value={evalFee} onChange={e => setEvalFee(parseFloat(e.target.value) || 0)} style={inp} /></div>
-            <div><label style={lab}>Activation fee ($)</label><input type="number" value={activationFee} onChange={e => setActivationFee(parseFloat(e.target.value) || 0)} style={inp} /></div>
+            <div>
+              <label style={lab}>Activation fee ($)</label>
+              <input type="number" value={activationFee} onChange={e => setActivationFee(parseFloat(e.target.value) || 0)} style={inp} />
+              <div style={{ fontSize: '0.68rem', color: '#6b7280', marginTop: 5, lineHeight: 1.4 }}>Este importe se registrará como coste solo cuando marques la evaluación como pasada.</div>
+            </div>
             <div><label style={lab}>Profit target ($)</label><input type="number" value={profitTarget} onChange={e => setProfitTarget(parseFloat(e.target.value) || 0)} style={inp} /></div>
             <div><label style={lab}>Max drawdown ($)</label><input type="number" value={maxDrawdown} onChange={e => setMaxDrawdown(parseFloat(e.target.value) || 0)} style={inp} /></div>
           </div>
@@ -353,7 +424,7 @@ function AddAccountModal({ open, onClose }: { open: boolean; onClose: () => void
             </div>
           </div>
 
-          <button onClick={onSave} style={{ background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 8, padding: 11, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody, marginTop: 4 }}>Crear cuenta</button>
+          <button onClick={onSave} style={{ background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 8, padding: 11, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody, marginTop: 4 }}>{editAccount ? 'Guardar cambios' : 'Crear cuenta'}</button>
         </div>
       </div>
     </div>

@@ -36,9 +36,11 @@ export interface PropFirmAccount {
   minDays?: number;
 
   // Costs
-  evalFee: number;
-  activationFee: number;
-  resets: { date: string; cost: number }[];
+  evalFee: number;          // paid upfront when buying
+  activationFee: number;    // planned fee — only a real cost once paid
+  activationFeePaid?: boolean;    // true once the eval is passed and activation is paid
+  activationPaidDate?: string;    // ISO date the activation fee was paid
+  resets: { date: string; cost: number }[];  // paid at time of reset
 
   // Income
   payouts: Payout[];
@@ -69,10 +71,14 @@ export const usePropFirmStore = create<PropFirmStore>()(
 
       addAccount: (input) => {
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';
+        // Activation fee counts as paid only if the account already reached funded/passed.
+        const funded = input.phase === 'funded' || input.phase === 'passed_pending';
         const account: PropFirmAccount = {
           ...input,
           id: nanoid(),
           userId,
+          activationFeePaid: input.activationFeePaid ?? funded,
+          activationPaidDate: input.activationPaidDate ?? (funded ? input.fundedDate : undefined),
           resets: input.resets ?? [],
           payouts: input.payouts ?? [],
           createdAt: new Date().toISOString(),
@@ -84,8 +90,12 @@ export const usePropFirmStore = create<PropFirmStore>()(
       updateAccount: (id, updates) =>
         set(s => ({ accounts: s.accounts.map(a => a.id === id ? { ...a, ...updates } : a) })),
 
-      deleteAccount: (id) =>
-        set(s => ({ accounts: s.accounts.filter(a => a.id !== id) })),
+      deleteAccount: (id) => {
+        // Unlink (don't delete) trades tied to this account.
+        const ts = useTradeStore.getState();
+        ts.trades.filter(t => t.accountId === id).forEach(t => ts.updateTrade(t.id, { accountId: undefined }));
+        set(s => ({ accounts: s.accounts.filter(a => a.id !== id) }));
+      },
 
       addPayout: (accountId, payout) =>
         set(s => ({
@@ -116,7 +126,24 @@ export const usePropFirmStore = create<PropFirmStore>()(
         set(s => ({ accounts: s.accounts.filter(a => a.userId !== userId) }));
       },
     }),
-    { name: 'trace_prop_firms' }
+    {
+      name: 'trace_prop_firms',
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as { accounts?: PropFirmAccount[] } | undefined;
+        if (version < 1 && state?.accounts) {
+          state.accounts = state.accounts.map(a => {
+            const paid = a.phase === 'funded' || a.phase === 'passed_pending';
+            return {
+              ...a,
+              activationFeePaid: a.activationFeePaid ?? paid,
+              activationPaidDate: a.activationPaidDate ?? (paid ? a.fundedDate : undefined),
+            };
+          });
+        }
+        return state;
+      },
+    }
   )
 );
 
@@ -124,8 +151,20 @@ export const usePropFirmStore = create<PropFirmStore>()(
 
 export const ACTIVE_PHASES: Phase[] = ['eval_p1', 'eval_p2', 'funded', 'passed_pending'];
 
+/** Actual money spent: eval fee + resets, plus the activation fee only once it's paid. */
 export function accountTotalCost(a: PropFirmAccount): number {
-  return a.evalFee + a.activationFee + a.resets.reduce((s, r) => s + r.cost, 0);
+  let total = a.evalFee + a.resets.reduce((s, r) => s + r.cost, 0);
+  if (a.activationFeePaid) total += a.activationFee;
+  return total;
+}
+/** Amount still owed (activation fee that hasn't been paid yet). */
+export function accountPendingCost(a: PropFirmAccount): number {
+  return a.activationFeePaid ? 0 : (a.activationFee || 0);
+}
+/** Total activation fees still pending across eval-stage accounts. */
+export function getPendingActivation(accounts: PropFirmAccount[]) {
+  const evalAccounts = accounts.filter(a => (a.phase === 'eval_p1' || a.phase === 'eval_p2') && !a.activationFeePaid && (a.activationFee || 0) > 0);
+  return { total: evalAccounts.reduce((s, a) => s + a.activationFee, 0), count: evalAccounts.length };
 }
 export function accountTotalPayouts(a: PropFirmAccount): number {
   return a.payouts.reduce((s, p) => s + p.netAmount, 0);

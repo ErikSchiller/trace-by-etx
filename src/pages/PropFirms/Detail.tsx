@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   usePropFirmStore, useUserAccounts,
-  accountTotalCost, accountTotalPayouts, accountNetResult,
+  accountTotalCost, accountTotalPayouts, accountNetResult, accountPendingCost,
   type Phase,
 } from '../../store/propFirmStore';
 import { useUserTrades } from '../../store/tradeStore';
 import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
+import { DeleteAccountDialog } from './AccountModals';
 import { useToast } from '../../components/UI/ToastProvider';
 
 const fontHead = "'Syne', sans-serif";
@@ -39,6 +40,7 @@ export default function PropFirmDetail() {
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmBlown, setConfirmBlown] = useState(false);
   const [confirmPassed, setConfirmPassed] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const trades = useMemo(
     () => allTrades.filter(t => (t as { accountId?: string }).accountId === id),
@@ -78,6 +80,7 @@ export default function PropFirmDetail() {
             <button onClick={() => setResetOpen(true)} style={btnGhost}>Registrar reset</button>
             <button onClick={() => setConfirmPassed(true)} style={btnGhost}>Marcar passed</button>
             <button onClick={() => setConfirmBlown(true)} style={{ ...btnGhost, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>Marcar blown</button>
+            <button onClick={() => setDeleteOpen(true)} style={{ ...btnGhost, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>Eliminar cuenta</button>
           </div>
         </div>
 
@@ -138,9 +141,13 @@ export default function PropFirmDetail() {
           {tab === 'costs' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={row}><span style={{ color: '#c8d4e8' }}>Evaluación</span><span style={{ marginLeft: 'auto', color: '#ef4444' }}>{fmtPlain(account.evalFee)}</span></div>
-              {account.activationFee > 0 && <div style={row}><span style={{ color: '#c8d4e8' }}>Activation fee</span><span style={{ marginLeft: 'auto', color: '#ef4444' }}>{fmtPlain(account.activationFee)}</span></div>}
               {account.resets.map((r, i) => <div key={i} style={row}><span style={{ color: '#c8d4e8' }}>Reset · {r.date}</span><span style={{ marginLeft: 'auto', color: '#ef4444' }}>{fmtPlain(r.cost)}</span></div>)}
-              <div style={{ ...row, borderTop: '1px solid #1e1e20', marginTop: 4, paddingTop: 10 }}><span style={{ color: '#fff', fontWeight: 600 }}>Total</span><span style={{ marginLeft: 'auto', color: '#ef4444', fontWeight: 700 }}>{fmtPlain(cost)}</span></div>
+              {account.activationFee > 0 && (
+                account.activationFeePaid
+                  ? <div style={row}><span style={{ color: '#c8d4e8' }}>Activation fee{account.activationPaidDate ? ` · ${account.activationPaidDate}` : ''}</span><span style={{ marginLeft: 'auto', color: '#ef4444' }}>{fmtPlain(account.activationFee)}</span></div>
+                  : <div style={row}><span style={{ color: '#888898' }}>Activation fee <span style={{ color: '#7861ff', fontSize: 11 }}>(pendiente — al pasar la eval)</span></span><span style={{ marginLeft: 'auto', color: '#7861ff' }}>+{fmtPlain(accountPendingCost(account))}</span></div>
+              )}
+              <div style={{ ...row, borderTop: '1px solid #1e1e20', marginTop: 4, paddingTop: 10 }}><span style={{ color: '#fff', fontWeight: 600 }}>Total pagado</span><span style={{ marginLeft: 'auto', color: '#ef4444', fontWeight: 700 }}>{fmtPlain(cost)}</span></div>
             </div>
           )}
 
@@ -159,6 +166,7 @@ export default function PropFirmDetail() {
       <ResetModal open={resetOpen} accountId={account.id} onClose={() => setResetOpen(false)} />
       <ConfirmDialog open={confirmPassed} title="¿Marcar como passed?" description="La cuenta pasará a estado 'passed — esperando funding'." confirmText="Marcar passed" onConfirm={() => { setPhase(account.id, 'passed_pending'); push({ kind: 'success', text: 'Cuenta marcada' }); setConfirmPassed(false); }} onCancel={() => setConfirmPassed(false)} />
       <ConfirmDialog open={confirmBlown} title="¿Marcar como blown?" description="Esta cuenta se moverá a cuentas pasadas." confirmText="Marcar blown" destructive onConfirm={() => { setPhase(account.id, 'blown'); push({ kind: 'success', text: 'Cuenta marcada' }); setConfirmBlown(false); }} onCancel={() => setConfirmBlown(false)} />
+      <DeleteAccountDialog account={account} tradeCount={trades.length} open={deleteOpen} onClose={() => setDeleteOpen(false)} onDeleted={() => navigate('/prop-firms')} />
     </ProLock>
   );
 }
