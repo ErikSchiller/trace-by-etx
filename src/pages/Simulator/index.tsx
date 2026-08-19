@@ -4,6 +4,7 @@ import { PROP_FIRM_PRESETS } from '../../config/propFirmPresets';
 import { runMonteCarloSimulation, type MonteCarloResult } from '../../utils/monteCarlo';
 import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
+import { useAnimatedValue } from '../../components/UI/AnimatedNumber';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -192,13 +193,14 @@ export default function Simulator() {
 }
 
 function Gauge({ pct, color }: { pct: number; color: string }) {
+  const animPct = useAnimatedValue(pct);
   const r = 52, cx = 64, cy = 64, circ = Math.PI * r; // semicircle
-  const filled = (pct / 100) * circ;
+  const filled = (animPct / 100) * circ;
   return (
     <svg width="128" height="78" viewBox="0 0 128 78" style={{ flexShrink: 0 }}>
       <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="#1e1e20" strokeWidth="9" strokeLinecap="round" />
       <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round" strokeDasharray={`${filled} ${circ}`} />
-      <text x={cx} y={cy - 8} textAnchor="middle" fontFamily="Syne" fontWeight="800" fontSize="26" fill="#fff">{pct}%</text>
+      <text x={cx} y={cy - 8} textAnchor="middle" fontFamily="Syne" fontWeight="800" fontSize="26" fill="#fff">{Math.round(animPct)}%</text>
     </svg>
   );
 }

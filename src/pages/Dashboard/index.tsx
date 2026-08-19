@@ -7,6 +7,7 @@ import {
   getMonthlyPnL,
 } from '../../store/tradeStore';
 import { Watermark } from '../../components/UI/Watermark';
+import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
 import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
 import { RadarChart } from '../../components/Charts/RadarChart';
@@ -230,7 +231,7 @@ export function Dashboard() {
       <div className="dash-kpi-strip" style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>NET PNL</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : 'var(--text-primary)' }}>{fmtMoney(stats.cum)}</div>
+          <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : 'var(--text-primary)' }}><AnimatedNumber value={stats.cum} format={fmtMoney} /></div>
           <div style={kpiSub}>{trades.length} operaciones</div>
           {isFree && (
             <div style={{ marginTop: 8 }}>
@@ -251,7 +252,7 @@ export function Dashboard() {
         </div>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>TRADE WIN %</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={kpiValue}>{stats.wr.toFixed(0)}%</div>
+          <div style={kpiValue}><AnimatedNumber value={stats.wr} format={n => `${n.toFixed(0)}%`} /></div>
           <div style={kpiSub}>{stats.wins}W · {stats.be}BE · {stats.losses}L</div>
           <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 8, background: 'var(--border)' }}>
             <div style={{ flex: Math.max(0.05, stats.wr / 100), background: 'var(--blue)' }} />
@@ -260,12 +261,12 @@ export function Dashboard() {
         </div>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>PROFIT FACTOR</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={kpiValue}>{isFinite(stats.pf) ? stats.pf.toFixed(2) : '∞'}</div>
+          <div style={kpiValue}><AnimatedNumber value={stats.pf} format={n => isFinite(n) ? n.toFixed(2) : '∞'} /></div>
           <div style={kpiSub}>Bruto / Pérdidas</div>
         </div>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>DAY WIN %</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={kpiValue}>{stats.dwr.toFixed(0)}%</div>
+          <div style={kpiValue}><AnimatedNumber value={stats.dwr} format={n => `${n.toFixed(0)}%`} /></div>
           <div style={kpiSub}>Días positivos</div>
           <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 8, background: 'var(--border)' }}>
             <div style={{ flex: Math.max(0.05, stats.dwr / 100), background: 'var(--blue)' }} />
@@ -274,7 +275,7 @@ export function Dashboard() {
         </div>
         <div style={{ ...kpiCell, borderRight: 'none' }}>
           <div style={kpiLabel}><span>AVG WIN / LOSS</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={kpiValue}>{stats.ratio.toFixed(2)}</div>
+          <div style={kpiValue}><AnimatedNumber value={stats.ratio} format={n => n.toFixed(2)} /></div>
           <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 8, marginBottom: 4 }}>
             <div style={{ flex: Math.max(0.1, stats.ratio / (stats.ratio + 1)), background: 'var(--blue)' }} />
             <div style={{ flex: Math.max(0.1, 1 / (stats.ratio + 1)), background: 'var(--red)' }} />

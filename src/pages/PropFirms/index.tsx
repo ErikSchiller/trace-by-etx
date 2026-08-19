@@ -11,6 +11,7 @@ import { PROP_FIRM_PRESETS, FIRMS, presetsForFirm } from '../../config/propFirmP
 import { useUserTrades } from '../../store/tradeStore';
 import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
+import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
 import { useToast } from '../../components/UI/ToastProvider';
 import { MarkFundedModal, DeleteAccountDialog } from './AccountModals';
 
@@ -81,10 +82,10 @@ export default function PropFirms() {
           <>
             {/* KPI strip */}
             <div style={{ background: '#161618', border: '1px solid #1e1e20', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
-              <Cell label="TOTAL INVERTIDO" value={fmtPlain(invested)} valColor="#fff" sub={`${accounts.length} cuentas · ${firmsCount} firmas`} sub2={pending.count > 0 ? `Pendientes por pasar eval: ${fmtPlain(pending.total)} en ${pending.count} cuenta${pending.count === 1 ? '' : 's'}` : undefined} />
-              <Cell label="TOTAL PAYOUTS" value={fmtPlain(payouts)} valColor="#4f8fff" />
-              <Cell label="P&L NETO REAL" value={fmt(net)} valColor={net >= 0 ? '#4f8fff' : '#ef4444'} sub={`ROI: ${invested ? Math.round((net / invested) * 100) : 0}%`} />
-              <Cell label="PASS RATE" value={`${Math.round(pass.rate)}%`} valColor="#fff" sub={`${pass.passed} de ${pass.total} evaluaciones`} />
+              <Cell label="TOTAL INVERTIDO" animatedValue={invested} format={fmtPlain} valColor="#fff" sub={`${accounts.length} cuentas · ${firmsCount} firmas`} sub2={pending.count > 0 ? `Pendientes por pasar eval: ${fmtPlain(pending.total)} en ${pending.count} cuenta${pending.count === 1 ? '' : 's'}` : undefined} />
+              <Cell label="TOTAL PAYOUTS" animatedValue={payouts} format={fmtPlain} valColor="#4f8fff" />
+              <Cell label="P&L NETO REAL" animatedValue={net} format={fmt} valColor={net >= 0 ? '#4f8fff' : '#ef4444'} sub={`ROI: ${invested ? Math.round((net / invested) * 100) : 0}%`} />
+              <Cell label="PASS RATE" animatedValue={pass.rate} format={n => `${Math.round(n)}%`} valColor="#fff" sub={`${pass.passed} de ${pass.total} evaluaciones`} />
               <Cell label="TIEMPO A FUNDED" value={`${days.mean} días`} valColor="#fff" sub={`Mediana: ${days.median} días`} last />
               <Watermark />
             </div>
@@ -148,11 +149,11 @@ export default function PropFirms() {
   );
 }
 
-function Cell({ label, value, valColor, sub, sub2, last }: { label: string; value: string; valColor: string; sub?: string; sub2?: string; last?: boolean }) {
+function Cell({ label, value, animatedValue, format, valColor, sub, sub2, last }: { label: string; value?: string; animatedValue?: number; format?: (n: number) => string; valColor: string; sub?: string; sub2?: string; last?: boolean }) {
   return (
     <div style={{ padding: '18px 20px', borderRight: last ? 'none' : '1px solid #1e1e20' }}>
       <div style={kLabel}>{label}</div>
-      <div style={{ ...kVal, color: valColor }}>{value}</div>
+      <div style={{ ...kVal, color: valColor }}>{animatedValue !== undefined ? <AnimatedNumber value={animatedValue} format={format} /> : value}</div>
       {sub && <div style={{ fontSize: '0.62rem', color: '#4a4a60', marginTop: 5 }}>{sub}</div>}
       {sub2 && <div style={{ fontSize: '0.62rem', color: '#7861ff', marginTop: 3 }}>{sub2}</div>}
     </div>
