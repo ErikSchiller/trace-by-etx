@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
+import { useUndoStore } from './undoStore';
 
 export interface Note {
   id: string;
@@ -129,11 +130,22 @@ export const useNotebookStore = create<NotebookStore>()(
       deleteFolder: (id) => {
         const userId = useAuthStore.getState().user?.id;
         if (!userId) return;
+        const folder = get().folders.find(f => f.id === id);
         const fallback = get().folders.find(f => f.userId === userId && f.name === 'Mis notas');
+        const movedNoteIds = get().notes.filter(n => n.folderId === id).map(n => n.id);
         set(s => ({
           folders: s.folders.filter(f => f.id !== id),
           notes: s.notes.map(n => n.folderId === id && fallback ? { ...n, folderId: fallback.id } : n),
         }));
+        if (folder) {
+          useUndoStore.getState().register({
+            message: 'Carpeta eliminada',
+            execute: () => set(s => ({
+              folders: s.folders.some(f => f.id === folder.id) ? s.folders : [...s.folders, folder],
+              notes: s.notes.map(n => movedNoteIds.includes(n.id) ? { ...n, folderId: folder.id } : n),
+            })),
+          });
+        }
       },
 
       addNote: (folderId, title = 'Sin título', content = '', linkedTradeDate) => {
@@ -162,7 +174,16 @@ export const useNotebookStore = create<NotebookStore>()(
         }));
       },
 
-      deleteNote: (id) => set(s => ({ notes: s.notes.filter(n => n.id !== id) })),
+      deleteNote: (id) => {
+        const note = get().notes.find(n => n.id === id);
+        set(s => ({ notes: s.notes.filter(n => n.id !== id) }));
+        if (note) {
+          useUndoStore.getState().register({
+            message: 'Nota eliminada',
+            execute: () => set(s => (s.notes.some(n => n.id === note.id) ? s : { notes: [...s.notes, note] })),
+          });
+        }
+      },
 
       upsertTradeNote: (tradeId, title, content) => {
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';

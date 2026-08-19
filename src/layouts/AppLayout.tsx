@@ -10,6 +10,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useUpgradeModal } from '../store/upgradeModalStore';
 import { ShortcutsHelp } from '../components/UI/ShortcutsHelp';
 import { SupportWidget } from '../components/UI/SupportWidget';
+import { UndoToast } from '../components/UndoToast';
 import { FilterModal } from '../components/Modals/FilterModal';
 import { DateRangeModal } from '../components/Modals/DateRangeModal';
 import { ConfirmDialog } from '../components/UI/ConfirmDialog';
@@ -439,6 +440,7 @@ export function AppLayout() {
       />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SupportWidget />
+      <UndoToast />
     </div>
   );
 }

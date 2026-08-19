@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
 import { useTradeStore } from './tradeStore';
+import { useUndoStore } from './undoStore';
 
 export type Phase = 'eval_p1' | 'eval_p2' | 'funded' | 'passed_pending' | 'blown' | 'expired';
 export type DrawdownType = 'trailing' | 'static';
@@ -93,8 +94,20 @@ export const usePropFirmStore = create<PropFirmStore>()(
       deleteAccount: (id) => {
         // Unlink (don't delete) trades tied to this account.
         const ts = useTradeStore.getState();
-        ts.trades.filter(t => t.accountId === id).forEach(t => ts.updateTrade(t.id, { accountId: undefined }));
+        const acc = usePropFirmStore.getState().accounts.find(a => a.id === id);
+        const linkedTradeIds = ts.trades.filter(t => t.accountId === id).map(t => t.id);
+        linkedTradeIds.forEach(tid => ts.updateTrade(tid, { accountId: undefined }));
         set(s => ({ accounts: s.accounts.filter(a => a.id !== id) }));
+        if (acc) {
+          useUndoStore.getState().register({
+            message: 'Cuenta eliminada',
+            execute: () => {
+              set(s => (s.accounts.some(a => a.id === acc.id) ? s : { accounts: [...s.accounts, acc] }));
+              const store = useTradeStore.getState();
+              linkedTradeIds.forEach(tid => store.updateTrade(tid, { accountId: acc.id }));
+            },
+          });
+        }
       },
 
       addPayout: (accountId, payout) =>

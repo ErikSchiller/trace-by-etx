@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
 import { useFilterStore, type TradeFilters } from './filterStore';
 import { useDateRangeStore, resolveRange } from './dateRangeStore';
+import { useUndoStore } from './undoStore';
 
 /**
  * Cascade-delete notes linked to trades, decoupled from notebookStore to avoid a
@@ -168,8 +169,19 @@ export const useTradeStore = create<TradeStore>()(
       },
 
       deleteTrade: (id) => {
-        set(s => ({ trades: s.trades.filter(t => t.id !== id) }));
+        let removed: Trade | undefined;
+        set(s => {
+          removed = s.trades.find(t => t.id === id);
+          return { trades: s.trades.filter(t => t.id !== id) };
+        });
         deleteLinkedTradeNotes([id]);
+        if (removed) {
+          const trade = removed;
+          useUndoStore.getState().register({
+            message: 'Operación eliminada',
+            execute: () => set(s => (s.trades.some(t => t.id === trade.id) ? s : { trades: [...s.trades, trade] })),
+          });
+        }
       },
       deleteMany: (ids) => {
         set(s => ({ trades: s.trades.filter(t => !ids.includes(t.id)) }));
