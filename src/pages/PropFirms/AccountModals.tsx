@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePropFirmStore, accountTotalCost, accountTotalPayouts, type PropFirmAccount } from '../../store/propFirmStore';
 import { useToast } from '../../components/UI/ToastProvider';
+import { celebrateEvalPassed } from '../../utils/milestones';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -49,6 +50,7 @@ export function MarkFundedModal({ account, open, onClose }: { account: PropFirmA
       activationFee: hasActivation ? (activationPaid ? activationAmount : 0) : account.activationFee,
     });
     push({ kind: 'success', text: '¡Cuenta funded! 🎉' });
+    celebrateEvalPassed();
     onClose();
   };
 

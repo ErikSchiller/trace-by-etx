@@ -9,6 +9,8 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserAccounts, getActiveAccounts } from '../../store/propFirmStore';
 import { useNotebookStore } from '../../store/notebookStore';
+import { checkTradeMilestones } from '../../utils/milestones';
+import { playSound } from '../../utils/sounds';
 
 const PHASE_SHORT: Record<string, string> = { eval_p1: 'Eval', eval_p2: 'Eval 2', funded: 'Funded', passed_pending: 'Passed' };
 function firmColor(firm: string) {
@@ -260,6 +262,12 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     );
     syncNote(createdTrades[0].id);
     push({ kind: 'success', text: selected.length > 1 ? `Operación guardada en ${selected.length} cuentas ✓` : 'Operación guardada' });
+
+    // Sound cue based on the trade result, then one-time milestone celebrations.
+    const primaryPnl = createdTrades[0].pnl;
+    if (primaryPnl > 0) playSound('positive');
+    else if (primaryPnl < 0) playSound('alert');
+    checkTradeMilestones();
 
     // After-save warnings
     setTimeout(() => {

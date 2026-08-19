@@ -7,6 +7,7 @@ import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
 import { Button } from '../../components/UI/Button';
 import { useToast } from '../../components/UI/ToastProvider';
+import { celebrateRoutineComplete } from '../../utils/milestones';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -76,6 +77,13 @@ export default function Progress() {
   const doneCount = doneToday.filter(id => habitIds.has(id)).length;
   const allDone = doneCount === routine.habits.length && routine.habits.length > 0;
 
+  const handleToggleHabit = (habitId: string) => {
+    toggleHabit(today, habitId);
+    const done = useRoutineStore.getState().completions[today] ?? [];
+    const count = done.filter(id => habitIds.has(id)).length;
+    if (count === routine.habits.length && routine.habits.length > 0) celebrateRoutineComplete(today);
+  };
+
   return (
     <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Today's checklist hero */}
@@ -91,7 +99,7 @@ export default function Progress() {
           {routine.habits.map(h => {
             const checked = doneToday.includes(h.id);
             return (
-              <button key={h.id} onClick={() => toggleHabit(today, h.id)} style={{
+              <button key={h.id} onClick={() => handleToggleHabit(h.id)} style={{
                 display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: 'none',
                 padding: '8px 6px', cursor: 'pointer', textAlign: 'left', fontFamily: fontBody,
               }}>

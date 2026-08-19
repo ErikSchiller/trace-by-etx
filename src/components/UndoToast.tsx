@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useUndoStore } from '../store/undoStore';
 import { useToast } from './UI/ToastProvider';
+import { playSound } from '../utils/sounds';
 
 const fontBody = "'Space Grotesk', sans-serif";
 
@@ -22,7 +23,7 @@ export function UndoToast() {
 
   const doUndo = () => {
     const action = useUndoStore.getState().undoLast();
-    if (action) push({ kind: 'success', text: 'Restaurado' });
+    if (action) { push({ kind: 'success', text: 'Restaurado' }); playSound('positive'); }
   };
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export function UndoToast() {
       if (useUndoStore.getState().actions.length === 0) return;
       e.preventDefault();
       const action = useUndoStore.getState().undoLast();
-      if (action) push({ kind: 'success', text: 'Restaurado' });
+      if (action) { push({ kind: 'success', text: 'Restaurado' }); playSound('positive'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

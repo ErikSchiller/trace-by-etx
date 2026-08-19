@@ -11,6 +11,7 @@ import { usePlan } from '../../hooks/usePlan';
 import { useUpgradeModal } from '../../store/upgradeModalStore';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { EmojiPicker } from '../../components/UI/EmojiPicker';
+import { checkFirstNoteMilestone } from '../../utils/milestones';
 
 const syne: React.CSSProperties = { fontFamily: "'Syne', sans-serif" };
 const body: React.CSSProperties = { fontFamily: "'Space Grotesk', sans-serif" };
@@ -144,6 +145,7 @@ export function Notebook() {
     const fid = folderId ?? activeFolderId;
     if (!fid) return;
     const note = addNote(fid, 'Nueva nota');
+    checkFirstNoteMilestone(useNotebookStore.getState().notes.filter(n => n.userId === note.userId).length);
     setActiveFolderId(fid); setFavOnly(false); setSearch(''); setActiveNoteId(note.id);
     setTimeout(() => titleRef.current?.focus(), 60);
   };

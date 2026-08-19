@@ -25,6 +25,9 @@ export interface Settings {
   notifyRisk: boolean;
   notifyStreak: boolean;
   notifyWeekly: boolean;
+  // Feedback (polish features)
+  celebrationsEnabled: boolean;
+  soundsEnabled: boolean;
   // Language & region
   language: 'es' | 'en';
   numberFormat: 'es' | 'us';
@@ -60,6 +63,8 @@ const defaults: Settings = {
   notifyRisk: true,
   notifyStreak: true,
   notifyWeekly: false,
+  celebrationsEnabled: true,
+  soundsEnabled: false,
   language: 'es',
   numberFormat: 'es',
   dateFormat: 'dmy',

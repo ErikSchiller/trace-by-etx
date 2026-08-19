@@ -12,6 +12,7 @@ import { Button } from '../../components/UI/Button';
 import { Toggle } from '../../components/UI/Toggle';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { exportToCSV, exportToJSON, parseCSV, applyAccentColor } from '../../utils/export';
+import { previewSound } from '../../utils/sounds';
 import i18n, { useTranslation } from '../../i18n/i18n';
 
 /** Resize an image data URL to a square 200x200 JPEG. */
@@ -232,8 +233,11 @@ export default function Settings() {
                   <Row label="Densidad" desc="Nivel de padding global.">
                     <Segmented options={[['comfortable', 'Cómoda'], ['standard', 'Estándar'], ['compact', 'Compacta']]} value={settings.density} onChange={v => settings.updateSettings({ density: v as Settings['density'] })} />
                   </Row>
-                  <Row label="Números destacados" desc="Usar tipografía Syne en KPIs." last>
+                  <Row label="Números destacados" desc="Usar tipografía Syne en KPIs.">
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.syneNumbers} onChange={v => settings.updateSettings({ syneNumbers: v })} /></div>
+                  </Row>
+                  <Row label="Celebraciones visuales" desc="Confetti al alcanzar hitos (pasar una eval, rachas, etc.)." last>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.celebrationsEnabled} onChange={v => settings.updateSettings({ celebrationsEnabled: v })} /></div>
                   </Row>
                 </ProLock>
               </Section>
@@ -323,10 +327,20 @@ export default function Settings() {
                 <Row label="Resumen semanal" desc="Recibe cada domingo un resumen de tu semana por email.">
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.notifyWeekly} onChange={v => settings.updateSettings({ notifyWeekly: v })} /></div>
                 </Row>
-                <Row label="Alertas de mercado" desc="Notificaciones de eventos económicos." last>
+                <Row label="Alertas de mercado" desc="Notificaciones de eventos económicos.">
                   <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
                     <span style={{ background: 'rgba(245,185,66,0.12)', color: 'var(--warning)', fontSize: '0.65rem', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>Próximamente</span>
                     <Toggle checked={false} onChange={() => {}} disabled />
+                  </div>
+                </Row>
+                <Row label="Sonidos de la interfaz" desc="Sonidos sutiles al ganar un trade, completar la rutina o pasar una eval." last>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    <Toggle checked={settings.soundsEnabled} onChange={v => settings.updateSettings({ soundsEnabled: v })} />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {([['positive', 'Positivo'], ['alert', 'Alerta'], ['success', 'Completado']] as const).map(([type, lbl]) => (
+                        <button key={type} onClick={() => previewSound(type)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: 7, padding: '4px 9px', fontSize: '0.7rem', cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>{lbl} <span style={{ color: 'var(--blue)' }}>▶</span></button>
+                      ))}
+                    </div>
                   </div>
                 </Row>
               </Section>
