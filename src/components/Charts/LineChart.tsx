@@ -11,6 +11,8 @@ interface LineChartProps {
   showXLabels?: boolean;
   showYLabels?: boolean;
   emptyLabel?: string;
+  /** Optional comparison series drawn as a faint line behind the main one. */
+  overlay?: LinePoint[];
 }
 
 const W = 320;
@@ -19,7 +21,7 @@ const W = 320;
 export function LineChart({
   data, height = 130, color = 'var(--blue)',
   showGrid = true, showPeak = true, showXLabels = false, showYLabels = false,
-  emptyLabel = 'Sin datos suficientes',
+  emptyLabel = 'Sin datos suficientes', overlay,
 }: LineChartProps) {
   const gid = useId().replace(/:/g, '');
   if (data.length < 2) {
@@ -34,8 +36,9 @@ export function LineChart({
   }
 
   const ys = data.map(p => p.value);
-  const min = Math.min(...ys, 0);
-  const max = Math.max(...ys, 0);
+  const overlayYs = overlay && overlay.length >= 2 ? overlay.map(p => p.value) : [];
+  const min = Math.min(...ys, ...overlayYs, 0);
+  const max = Math.max(...ys, ...overlayYs, 0);
   const range = max - min || 1;
   const padL = showYLabels ? 30 : 0;
   const chartW = W - padL;
@@ -43,6 +46,9 @@ export function LineChart({
   const toY = (v: number) => height - 12 - ((v - min) / range) * (height - 24);
 
   const path = data.map((p, i) => `${toX(i).toFixed(1)},${toY(p.value).toFixed(1)}`).join(' ');
+  const overlayPath = overlayYs.length >= 2
+    ? overlay!.map((p, i) => `${(padL + (i / (overlay!.length - 1)) * chartW).toFixed(1)},${toY(p.value).toFixed(1)}`).join(' ')
+    : '';
   const peakIdx = ys.indexOf(Math.max(...ys));
   const gridLines = showGrid ? [0.25, 0.5, 0.75].map(f => 12 + f * (height - 24)) : [];
   const yTicks = showYLabels ? [max, (max + min) / 2, min] : [];
@@ -65,6 +71,9 @@ export function LineChart({
         </text>
       ))}
       <polygon points={`${padL},${height} ${path} ${W},${height}`} fill={`url(#lg-${gid})`} />
+      {overlayPath && (
+        <polyline points={overlayPath} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinejoin="round" strokeDasharray="3 3" />
+      )}
       <polyline points={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
       {showPeak && peakIdx >= 0 && (
         <g>

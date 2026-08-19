@@ -60,3 +60,54 @@ export function resolveRange(state: { preset: DatePreset; from: string | null; t
     default: return null;
   }
 }
+
+/** Label describing the period a comparison is made against (e.g. "mes anterior"). */
+export const COMPARE_LABEL: Partial<Record<DatePreset, string>> = {
+  today: 'ayer',
+  yesterday: 'día anterior',
+  this_week: 'semana anterior',
+  this_month: 'mes anterior',
+  last_30: '30 días anteriores',
+  last_90: '90 días anteriores',
+  this_year: 'año anterior',
+  custom: 'periodo anterior',
+};
+
+function daysBetween(from: string, to: string) {
+  return Math.round((new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86400000) + 1;
+}
+function shift(key: string, days: number) {
+  const d = new Date(`${key}T00:00:00`);
+  d.setDate(d.getDate() - days);
+  return iso(d);
+}
+
+/**
+ * Resolve the comparison period for a preset/custom state. Returns null when no
+ * meaningful comparison exists (all-time, or incomplete custom range).
+ * Month/year compare like-for-like to-date against the previous calendar month/year.
+ */
+export function resolvePreviousRange(state: { preset: DatePreset; from: string | null; to: string | null }): { from: string; to: string } | null {
+  if (state.preset === 'all') return null;
+  const cur = resolveRange(state);
+  if (!cur) return null;
+
+  if (state.preset === 'this_month') {
+    const now = new Date();
+    const prevFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastOfPrev = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    const prevTo = new Date(now.getFullYear(), now.getMonth() - 1, Math.min(now.getDate(), lastOfPrev));
+    return { from: iso(prevFrom), to: iso(prevTo) };
+  }
+  if (state.preset === 'this_year') {
+    const now = new Date();
+    const y = now.getFullYear() - 1;
+    const prevFrom = new Date(y, 0, 1);
+    const lastOfMonth = new Date(y, now.getMonth() + 1, 0).getDate();
+    const prevTo = new Date(y, now.getMonth(), Math.min(now.getDate(), lastOfMonth));
+    return { from: iso(prevFrom), to: iso(prevTo) };
+  }
+  // Default: same-length window immediately before the current one.
+  const len = daysBetween(cur.from, cur.to);
+  return { from: shift(cur.from, len), to: shift(cur.from, 1) };
+}

@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
 import { useFilterStore, type TradeFilters } from './filterStore';
-import { useDateRangeStore, resolveRange } from './dateRangeStore';
+import { useDateRangeStore, resolveRange, resolvePreviousRange } from './dateRangeStore';
 import { useUndoStore } from './undoStore';
 
 /**
@@ -259,6 +259,29 @@ export function useFilteredTrades(): Trade[] {
   return useMemo(() => {
     const range = resolveRange({ preset, from, to });
     return filterTrades(trades, { assets, directions, sessions, setups, statuses, accountId }, range);
+  }, [trades, assets, directions, sessions, setups, statuses, accountId, preset, from, to]);
+}
+
+/**
+ * User trades for the period immediately preceding the active date range,
+ * with the same Filtros applied. Returns null when no comparison is possible
+ * (all-time or incomplete custom range).
+ */
+export function usePreviousPeriodTrades(): Trade[] | null {
+  const trades = useUserTrades();
+  const assets = useFilterStore(s => s.assets);
+  const directions = useFilterStore(s => s.directions);
+  const sessions = useFilterStore(s => s.sessions);
+  const setups = useFilterStore(s => s.setups);
+  const statuses = useFilterStore(s => s.statuses);
+  const accountId = useFilterStore(s => s.accountId);
+  const preset = useDateRangeStore(s => s.preset);
+  const from = useDateRangeStore(s => s.from);
+  const to = useDateRangeStore(s => s.to);
+  return useMemo(() => {
+    const prev = resolvePreviousRange({ preset, from, to });
+    if (!prev) return null;
+    return filterTrades(trades, { assets, directions, sessions, setups, statuses, accountId }, prev);
   }, [trades, assets, directions, sessions, setups, statuses, accountId, preset, from, to]);
 }
 

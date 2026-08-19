@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  useFilteredTrades,
+  useFilteredTrades, usePreviousPeriodTrades,
   getCumulativePnL, getWinRate, getProfitFactor, getDayWinRate,
   getAvgWin, getAvgLoss, getEquityCurve, getRecentTrades, getTraceScore,
   getMonthlyPnL,
 } from '../../store/tradeStore';
+import { useDateRangeStore, COMPARE_LABEL } from '../../store/dateRangeStore';
 import { Watermark } from '../../components/UI/Watermark';
 import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
 import { ProLock } from '../../components/UI/ProLock';
@@ -55,6 +56,29 @@ function fmtMoney(n: number) {
   return `${sign}$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 }
 
+type DeltaMode = 'pct' | 'pp' | 'abs';
+function formatDelta(cur: number, prev: number | undefined, mode: DeltaMode): { text: string; positive: boolean } | null {
+  if (prev === undefined) return null;
+  if (mode === 'pct') {
+    if (prev === 0 || !isFinite(prev) || !isFinite(cur)) return null;
+    const d = ((cur - prev) / Math.abs(prev)) * 100;
+    return { text: `${d >= 0 ? '+' : ''}${d.toFixed(1)}%`, positive: d >= 0 };
+  }
+  if (mode === 'pp') {
+    const d = cur - prev;
+    return { text: `${d >= 0 ? '+' : ''}${Math.round(d)}pp`, positive: d >= 0 };
+  }
+  if (!isFinite(cur) || !isFinite(prev)) return null;
+  const d = cur - prev;
+  return { text: `${d >= 0 ? '+' : ''}${d.toFixed(2)}`, positive: d >= 0 };
+}
+
+function Delta({ res, label }: { res: { text: string; positive: boolean } | null; label?: string }) {
+  if (res === null) return <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 5 }}>— sin datos anteriores</div>;
+  const color = res.positive ? 'var(--blue)' : 'var(--red)';
+  return <div style={{ fontSize: '0.65rem', color, marginTop: 5, fontFamily: "'Space Grotesk', sans-serif" }}>{res.positive ? '↗' : '↘'} {res.text} vs {label}</div>;
+}
+
 function Sparkline({ points }: { points: { date: string; cumPnl: number }[] }) {
   if (points.length < 2) return <div style={{ height: 28, marginTop: 6 }} />;
   return (
@@ -69,8 +93,14 @@ function HexagonRadar({ score, breakdown }: { score: number; breakdown: number[]
   return <RadarChart values={breakdown} labels={labels} size={180} centerLabel={score} />;
 }
 
-function PnLAreaChart({ curve }: { curve: { date: string; cumPnl: number }[] }) {
-  return <LineChart data={curve.map(p => ({ label: p.date, value: p.cumPnl }))} height={130} showGrid showPeak />;
+function PnLAreaChart({ curve, overlay }: { curve: { date: string; cumPnl: number }[]; overlay?: { date: string; cumPnl: number }[] }) {
+  return (
+    <LineChart
+      data={curve.map(p => ({ label: p.date, value: p.cumPnl }))}
+      overlay={overlay ? overlay.map(p => ({ value: p.cumPnl })) : undefined}
+      height={130} showGrid showPeak
+    />
+  );
 }
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -124,6 +154,28 @@ export function Dashboard() {
       breakdown: [winRateNorm, pfNorm, ratioNorm, recoveryNorm, ddNorm, consistencyNorm],
     };
   }, [trades, beCountsAsWin]);
+
+  // Period comparison
+  const prevTrades = usePreviousPeriodTrades();
+  const preset = useDateRangeStore(s => s.preset);
+  const compareLabel = COMPARE_LABEL[preset];
+  const [compareOn, setCompareOn] = useState(() => localStorage.getItem('dash_compare') !== '0');
+  const [showPrevCurve, setShowPrevCurve] = useState(false);
+  const toggleCompare = () => setCompareOn(v => { const n = !v; localStorage.setItem('dash_compare', n ? '1' : '0'); return n; });
+  const prevStats = useMemo(() => {
+    if (!prevTrades) return null;
+    const aw = getAvgWin(prevTrades); const al = Math.abs(getAvgLoss(prevTrades));
+    return {
+      cum: getCumulativePnL(prevTrades),
+      wr: getWinRate(prevTrades, beCountsAsWin),
+      pf: getProfitFactor(prevTrades),
+      dwr: getDayWinRate(prevTrades),
+      ratio: al > 0 ? aw / al : (aw > 0 ? aw : 0),
+      equity: getEquityCurve(prevTrades),
+      count: prevTrades.length,
+    };
+  }, [prevTrades, beCountsAsWin]);
+  const canCompare = compareOn && prevStats !== null && !!compareLabel;
 
   // Plan + loss-limit alert + trade counter for free users
   const { isFree } = usePlan();
@@ -227,11 +279,30 @@ export function Dashboard() {
           <button onClick={dismissAiTeaser} aria-label="Descartar" style={{ flexShrink: 0, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>✕</button>
         </div>
       )}
+      {/* Comparison toggle chip */}
+      {compareLabel && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -6 }}>
+          <button
+            onClick={toggleCompare}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              background: compareOn ? 'rgba(79,143,255,0.08)' : 'transparent',
+              border: `1px solid ${compareOn ? 'rgba(79,143,255,0.25)' : 'var(--border-subtle)'}`,
+              color: compareOn ? 'var(--blue)' : 'var(--text-secondary)',
+              borderRadius: 20, padding: '5px 12px', fontSize: '0.7rem', fontFamily: "'Space Grotesk', sans-serif",
+            }}
+          >
+            <span style={{ width: 14, height: 14, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: compareOn ? 'var(--blue)' : 'transparent', border: compareOn ? 'none' : '1px solid var(--border)', color: '#fff' }}>{compareOn ? '✓' : ''}</span>
+            Comparar con periodo anterior
+          </button>
+        </div>
+      )}
       {/* KPI STRIP — single horizontal card with 5 KPIs */}
       <div className="dash-kpi-strip" style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>NET PNL</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
           <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : 'var(--text-primary)' }}><AnimatedNumber value={stats.cum} format={fmtMoney} /></div>
+          {canCompare && <Delta res={formatDelta(stats.cum, prevStats?.cum, 'pct')} label={compareLabel} />}
           <div style={kpiSub}>{trades.length} operaciones</div>
           {isFree && (
             <div style={{ marginTop: 8 }}>
@@ -253,6 +324,7 @@ export function Dashboard() {
         <div style={kpiCell}>
           <div style={kpiLabel}><span>TRADE WIN %</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
           <div style={kpiValue}><AnimatedNumber value={stats.wr} format={n => `${n.toFixed(0)}%`} /></div>
+          {canCompare && <Delta res={formatDelta(stats.wr, prevStats?.wr, 'pp')} label={compareLabel} />}
           <div style={kpiSub}>{stats.wins}W · {stats.be}BE · {stats.losses}L</div>
           <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 8, background: 'var(--border)' }}>
             <div style={{ flex: Math.max(0.05, stats.wr / 100), background: 'var(--blue)' }} />
@@ -262,11 +334,13 @@ export function Dashboard() {
         <div style={kpiCell}>
           <div style={kpiLabel}><span>PROFIT FACTOR</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
           <div style={kpiValue}><AnimatedNumber value={stats.pf} format={n => isFinite(n) ? n.toFixed(2) : '∞'} /></div>
+          {canCompare && <Delta res={formatDelta(stats.pf, prevStats?.pf, 'abs')} label={compareLabel} />}
           <div style={kpiSub}>Bruto / Pérdidas</div>
         </div>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>DAY WIN %</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
           <div style={kpiValue}><AnimatedNumber value={stats.dwr} format={n => `${n.toFixed(0)}%`} /></div>
+          {canCompare && <Delta res={formatDelta(stats.dwr, prevStats?.dwr, 'pp')} label={compareLabel} />}
           <div style={kpiSub}>Días positivos</div>
           <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 8, background: 'var(--border)' }}>
             <div style={{ flex: Math.max(0.05, stats.dwr / 100), background: 'var(--blue)' }} />
@@ -276,6 +350,7 @@ export function Dashboard() {
         <div style={{ ...kpiCell, borderRight: 'none' }}>
           <div style={kpiLabel}><span>AVG WIN / LOSS</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
           <div style={kpiValue}><AnimatedNumber value={stats.ratio} format={n => n.toFixed(2)} /></div>
+          {canCompare && <Delta res={formatDelta(stats.ratio, prevStats?.ratio, 'pct')} label={compareLabel} />}
           <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 8, marginBottom: 4 }}>
             <div style={{ flex: Math.max(0.1, stats.ratio / (stats.ratio + 1)), background: 'var(--blue)' }} />
             <div style={{ flex: Math.max(0.1, 1 / (stats.ratio + 1)), background: 'var(--red)' }} />
@@ -321,12 +396,19 @@ export function Dashboard() {
         <ProLock feature="Equity curve" description="Tu PnL acumulado en el tiempo">
           <div style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: '0.78rem', color: '#c8d4e8' }}>Net PnL Acumulado</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: '0.78rem', color: '#c8d4e8' }}>Net PnL Acumulado</div>
+                {prevStats && prevStats.equity.length > 1 && compareLabel && (
+                  <span onClick={() => setShowPrevCurve(v => !v)} style={{ fontSize: '0.62rem', color: showPrevCurve ? 'var(--blue)' : 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {showPrevCurve ? '● ' : '○ '}Ver periodo anterior
+                  </span>
+                )}
+              </div>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: stats.cum >= 0 ? 'var(--blue)' : 'var(--red)' }}>
                 {fmtMoney(stats.cum)}
               </div>
             </div>
-            <PnLAreaChart curve={stats.equity} /><Watermark />
+            <PnLAreaChart curve={stats.equity} overlay={showPrevCurve && prevStats ? prevStats.equity : undefined} /><Watermark />
           </div>
         </ProLock>
       </div>
