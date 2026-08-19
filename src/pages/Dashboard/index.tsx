@@ -9,6 +9,8 @@ import {
 import { useDateRangeStore, COMPARE_LABEL } from '../../store/dateRangeStore';
 import { Watermark } from '../../components/UI/Watermark';
 import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
+import { RecapPrompt } from '../../components/WeeklyRecap/RecapPrompt';
+import { tradingDaysLast7 } from '../../utils/recap';
 import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
 import { RadarChart } from '../../components/Charts/RadarChart';
@@ -279,6 +281,8 @@ export function Dashboard() {
           <button onClick={dismissAiTeaser} aria-label="Descartar" style={{ flexShrink: 0, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>✕</button>
         </div>
       )}
+      {/* Weekly recap prompt — shown when the user has been active */}
+      {tradingDaysLast7(trades) >= 3 && <RecapPrompt />}
       {/* Comparison toggle chip */}
       {compareLabel && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -6 }}>

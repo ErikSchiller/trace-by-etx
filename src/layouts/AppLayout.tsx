@@ -11,6 +11,7 @@ import { useUpgradeModal } from '../store/upgradeModalStore';
 import { ShortcutsHelp } from '../components/UI/ShortcutsHelp';
 import { SupportWidget } from '../components/UI/SupportWidget';
 import { UndoToast } from '../components/UndoToast';
+import { WeeklyRecapModal } from '../components/WeeklyRecap/WeeklyRecapModal';
 import { FilterModal } from '../components/Modals/FilterModal';
 import { DateRangeModal } from '../components/Modals/DateRangeModal';
 import { ConfirmDialog } from '../components/UI/ConfirmDialog';
@@ -144,6 +145,14 @@ export function AppLayout() {
     const handler = () => setModalOpen(true);
     window.addEventListener('trace:open-add-trade', handler);
     return () => window.removeEventListener('trace:open-add-trade', handler);
+  }, []);
+
+  // Weekly recap modal (opened from dashboard card, reportes, or command palette)
+  const [recapOpen, setRecapOpen] = useState(false);
+  useEffect(() => {
+    const handler = () => setRecapOpen(true);
+    window.addEventListener('trace:open-weekly-recap', handler);
+    return () => window.removeEventListener('trace:open-weekly-recap', handler);
   }, []);
 
   // Global keyboard shortcuts
@@ -441,6 +450,7 @@ export function AppLayout() {
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <SupportWidget />
       <UndoToast />
+      <WeeklyRecapModal open={recapOpen} onClose={() => setRecapOpen(false)} />
     </div>
   );
 }

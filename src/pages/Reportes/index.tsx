@@ -6,6 +6,7 @@ import {
 import { useSettingsStore } from '../../store/settingsStore';
 import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
+import { RecapPrompt } from '../../components/WeeklyRecap/RecapPrompt';
 
 const fontHead = "'Syne', sans-serif";
 const card: React.CSSProperties = {
@@ -124,6 +125,7 @@ export default function Reportes() {
         </nav>
 
         <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <RecapPrompt compact />
           {!enough ? <EmptyReport /> : (
             <>
               {cat === 'general' && <GeneralReport trades={trades} />}
