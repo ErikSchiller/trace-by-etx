@@ -150,6 +150,21 @@ export function Notebook() {
     setTimeout(() => titleRef.current?.focus(), 60);
   };
   const doDeleteNote = () => { if (confirmNoteId) { deleteNote(confirmNoteId); push({ kind: 'success', text: 'Nota eliminada' }); setConfirmNoteId(null); } };
+
+  // Command palette: create a note, or open a specific one.
+  useEffect(() => {
+    const onNew = () => onNewNote();
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      const target = useNotebookStore.getState().notes.find(n => n.id === id);
+      if (!target) return;
+      setFavOnly(false); setSearch(''); setActiveFolderId(target.folderId); setActiveNoteId(id);
+    };
+    window.addEventListener('trace:new-note', onNew);
+    window.addEventListener('trace:open-note', onOpen as EventListener);
+    return () => { window.removeEventListener('trace:new-note', onNew); window.removeEventListener('trace:open-note', onOpen as EventListener); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const duplicateNote = () => {
     if (!activeNote) return;
     const copy = addNote(activeNote.folderId, `${activeNote.title} (copia)`, activeNote.content);

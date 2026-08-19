@@ -12,6 +12,7 @@ import { ShortcutsHelp } from '../components/UI/ShortcutsHelp';
 import { SupportWidget } from '../components/UI/SupportWidget';
 import { UndoToast } from '../components/UndoToast';
 import { WeeklyRecapModal } from '../components/WeeklyRecap/WeeklyRecapModal';
+import { CommandPalette } from '../components/CommandPalette/CommandPalette';
 import { FilterModal } from '../components/Modals/FilterModal';
 import { DateRangeModal } from '../components/Modals/DateRangeModal';
 import { ConfirmDialog } from '../components/UI/ConfirmDialog';
@@ -365,6 +366,17 @@ export function AppLayout() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
+              onClick={() => window.dispatchEvent(new CustomEvent('trace:open-command-palette'))}
+              title="Buscar (Cmd+K)"
+              aria-label="Buscar"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#5a6080', fontSize: '0.75rem', padding: '6px 10px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; }}
+            >
+              <svg width="13" height="13" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3" /><line x1="10" y1="10" x2="13.5" y2="13.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+              <span style={{ fontSize: '0.62rem', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '0 4px', lineHeight: 1.6 }}>⌘K</span>
+            </button>
+            <button
               onClick={() => setFilterOpen(true)}
               style={{ position: 'relative', background: filterCount ? 'rgba(79,143,255,0.1)' : 'transparent', border: `1px solid ${filterCount ? 'rgba(79,143,255,0.3)' : 'rgba(255,255,255,0.08)'}`, color: filterCount ? 'var(--blue)' : '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
               onMouseEnter={e => { if (!filterCount) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; } }}
@@ -451,6 +463,7 @@ export function AppLayout() {
       <SupportWidget />
       <UndoToast />
       <WeeklyRecapModal open={recapOpen} onClose={() => setRecapOpen(false)} />
+      <CommandPalette />
     </div>
   );
 }
