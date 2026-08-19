@@ -6,8 +6,11 @@ import { useRoutineStore, TEMPLATES, SUGGESTED_HABITS, type Template, type Habit
 import { ProLock } from '../../components/UI/ProLock';
 import { Watermark } from '../../components/UI/Watermark';
 import { Button } from '../../components/UI/Button';
+import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
 import { useToast } from '../../components/UI/ToastProvider';
-import { celebrateRoutineComplete } from '../../utils/milestones';
+import { useUserNotes } from '../../store/notebookStore';
+import { celebrateRoutineComplete, celebrateStreakMilestone } from '../../utils/milestones';
+import { computeStreaks, detectStreakEvents, STREAK_META, type StreakInfo, type StreakKey } from '../../utils/streaks';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -43,8 +46,28 @@ export default function Progress() {
   const [year, setYear] = useState(new Date().getFullYear());
   useEffect(() => { saveGoals(userId, goals); }, [goals, userId]);
 
-  const streaks = useMemo(() => computeStreaks(routine, completions), [routine, completions]);
+  const notes = useUserNotes();
+  const dailyLossLimit = useSettingsStore(s => s.dailyLossLimit);
+  const notifyStreak = useSettingsStore(s => s.notifyStreak);
+  const allStreaks = useMemo(
+    () => computeStreaks({ routine, completions, trades, notes, dailyLossLimit }),
+    [routine, completions, trades, notes, dailyLossLimit]
+  );
+  const streaks = allStreaks.routine;
   const insights = useMemo(() => buildInsights(trades, streaks.current), [trades, streaks.current]);
+
+  // Fire toasts / celebrations when a streak reaches a milestone, sets a record, or breaks.
+  useEffect(() => {
+    const events = detectStreakEvents(allStreaks);
+    if (events.length === 0) return;
+    const nameOf = (k: StreakKey) => STREAK_META.find(m => m.key === k)?.name ?? '';
+    for (const ev of events) {
+      if (notifyStreak) {
+        push({ kind: ev.kind === 'broken' ? 'info' : 'success', title: ev.message, description: nameOf(ev.key) });
+      }
+      if (ev.kind !== 'broken') celebrateStreakMilestone(ev.key, allStreaks[ev.key].current);
+    }
+  }, [allStreaks, notifyStreak, push]);
 
   const applyTemplate = (t: Template) => { setRoutine(t.title, t.habits); setTemplatesOpen(false); push({ kind: 'success', text: 'Rutina creada' }); };
   const applyCustom = (name: string, habits: string[]) => { setRoutine(name, habits); setCustomOpen(false); push({ kind: 'success', text: 'Rutina creada' }); };
@@ -123,10 +146,8 @@ export default function Progress() {
       <ProLock feature="Progress Tracker completo" description="Rachas, heatmap anual, objetivos e insights">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Streak cards */}
-          <div className="prog-streaks" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            <StreakCard n={streaks.current} title="días seguidos completos" flame={streaks.current > 3} accent />
-            <StreakCard n={streaks.best} title="Récord personal" />
-            <StreakCard n={streaks.total} title="Días con rutina completa" />
+          <div className="prog-streaks" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12 }}>
+            {STREAK_META.map(m => <StreakCard key={m.key} icon={m.icon} name={m.name} info={allStreaks[m.key]} />)}
           </div>
 
           {/* Year heatmap */}
@@ -200,40 +221,39 @@ function PathCard({ emoji, title, desc, cta, onClick }: { emoji: string; title: 
   );
 }
 
-function StreakCard({ n, title, flame, accent }: { n: number; title: string; flame?: boolean; accent?: boolean }) {
+function StreakCard({ icon, name, info }: { icon: string; name: string; info: StreakInfo }) {
+  const { current, best, last7 } = info;
+  const trophy = current > 30;
+  const glow = current > 14;
+  const flame = current > 7;
   return (
-    <div style={card}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ ...syne(800), fontSize: '2.2rem', color: accent ? 'var(--blue)' : 'var(--text-primary)', lineHeight: 1 }}>{n}</div>
-        {flame && <span style={{ fontSize: 22 }}>🔥</span>}
+    <div style={{
+      ...card, padding: '18px 20px',
+      borderColor: glow ? 'rgba(79,143,255,0.45)' : 'var(--border-subtle)',
+      boxShadow: current > 30 ? '0 0 24px rgba(79,143,255,0.25)' : glow ? '0 0 14px rgba(79,143,255,0.15)' : 'none',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+          <span style={{ fontSize: 15 }}>{icon}</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+        </div>
+        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>Récord: {best}</span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>{title}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 10 }}>
+        <span style={{ ...syne(800), fontSize: '2rem', color: current > 0 ? 'var(--blue)' : 'var(--text-primary)', lineHeight: 1 }}>
+          <AnimatedNumber value={current} />
+        </span>
+        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>días</span>
+        {flame && <span style={{ fontSize: 16, marginLeft: 2 }}>🔥</span>}
+        {trophy && <span style={{ fontSize: 16 }}>🏆</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 4, marginTop: 12 }}>
+        {last7.map((on, i) => (
+          <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: on ? 'var(--blue)' : 'var(--border)', flexShrink: 0 }} />
+        ))}
+      </div>
     </div>
   );
-}
-
-function computeStreaks(routine: { habits: Habit[] } | null, completions: Record<string, string[]>) {
-  if (!routine || routine.habits.length === 0) return { current: 0, best: 0, total: 0 };
-  const ids = new Set(routine.habits.map(h => h.id));
-  const need = routine.habits.length;
-  const full = Object.entries(completions)
-    .filter(([, list]) => list.filter(id => ids.has(id)).length >= need)
-    .map(([d]) => d).sort();
-  const total = full.length;
-  if (total === 0) return { current: 0, best: 0, total: 0 };
-  let current = 0; const d = new Date();
-  for (;;) {
-    const key = d.toISOString().slice(0, 10);
-    if (full.includes(key)) { current += 1; d.setDate(d.getDate() - 1); }
-    else if (key === todayKey()) { d.setDate(d.getDate() - 1); }
-    else break;
-  }
-  let best = 1, run = 1;
-  for (let i = 1; i < full.length; i++) {
-    const prev = new Date(`${full[i - 1]}T00:00:00`), cur = new Date(`${full[i]}T00:00:00`);
-    if ((cur.getTime() - prev.getTime()) / 86400000 === 1) { run += 1; best = Math.max(best, run); } else run = 1;
-  }
-  return { current, best: Math.max(best, current), total };
 }
 
 function YearHeatmap({ year, routineLen, habitIds, completions }: { year: number; routineLen: number; habitIds: Set<string>; completions: Record<string, string[]> }) {
