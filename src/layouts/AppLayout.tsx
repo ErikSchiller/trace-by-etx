@@ -13,6 +13,7 @@ import { SupportWidget } from '../components/UI/SupportWidget';
 import { UndoToast } from '../components/UndoToast';
 import { WeeklyRecapModal } from '../components/WeeklyRecap/WeeklyRecapModal';
 import { CommandPalette } from '../components/CommandPalette/CommandPalette';
+import { PnLCardModal } from '../components/Modals/PnLCardModal';
 import { FilterModal } from '../components/Modals/FilterModal';
 import { DateRangeModal } from '../components/Modals/DateRangeModal';
 import { ConfirmDialog } from '../components/UI/ConfirmDialog';
@@ -155,6 +156,24 @@ export function AppLayout() {
     window.addEventListener('trace:open-weekly-recap', handler);
     return () => window.removeEventListener('trace:open-weekly-recap', handler);
   }, []);
+
+  // PnL Card generator (opened from trade modals, table, command palette)
+  const [pnlTradeId, setPnlTradeId] = useState<string | null>(null);
+  const [pnlOpen, setPnlOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ tradeId?: string }>).detail?.tradeId ?? null;
+      setPnlTradeId(id);
+      setPnlOpen(true);
+    };
+    window.addEventListener('trace:open-pnl-card', handler as EventListener);
+    return () => window.removeEventListener('trace:open-pnl-card', handler as EventListener);
+  }, []);
+  const pnlTrade = useMemo(() => {
+    const id = pnlTradeId ?? undefined;
+    if (!id) return trades[0] ?? null;
+    return trades.find(t => t.id === id) ?? null;
+  }, [pnlTradeId, trades]);
 
   // Global keyboard shortcuts
   const [helpOpen, setHelpOpen] = useState(false);
@@ -463,6 +482,7 @@ export function AppLayout() {
       <SupportWidget />
       <UndoToast />
       <WeeklyRecapModal open={recapOpen} onClose={() => setRecapOpen(false)} />
+      <PnLCardModal open={pnlOpen} trade={pnlTrade} onClose={() => setPnlOpen(false)} />
       <CommandPalette />
     </div>
   );

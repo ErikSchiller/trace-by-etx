@@ -20,14 +20,26 @@ function inlineStyles(src: Element, dst: Element) {
   for (let i = 0; i < srcKids.length; i++) inlineStyles(srcKids[i], dstKids[i]);
 }
 
-async function nodeToPngBlob(node: HTMLElement, bg = '#0d0d0f'): Promise<Blob> {
+interface PngOpts {
+  bg?: string;
+  /** Explicit native size — use when the node is rendered CSS-scaled on screen. */
+  width?: number;
+  height?: number;
+  /** Output pixel-density multiplier (default: min(2, devicePixelRatio)). */
+  scale?: number;
+}
+
+export async function nodeToPngBlob(node: HTMLElement, opts: PngOpts = {}): Promise<Blob> {
   const rect = node.getBoundingClientRect();
-  const width = Math.max(1, Math.ceil(rect.width));
-  const height = Math.max(1, Math.ceil(node.scrollHeight || rect.height));
+  const width = Math.max(1, Math.ceil(opts.width ?? rect.width));
+  const height = Math.max(1, Math.ceil(opts.height ?? node.scrollHeight ?? rect.height));
+  const bg = opts.bg ?? '#0d0d0f';
 
   const clone = node.cloneNode(true) as HTMLElement;
   inlineStyles(node, clone);
   clone.style.margin = '0';
+  clone.style.width = `${width}px`;
+  clone.style.height = `${height}px`;
 
   const xml = new XMLSerializer().serializeToString(clone);
   const svg =
@@ -45,7 +57,7 @@ async function nodeToPngBlob(node: HTMLElement, bg = '#0d0d0f'): Promise<Blob> {
     img.src = url;
   });
 
-  const scale = Math.min(2, window.devicePixelRatio || 1);
+  const scale = opts.scale ?? Math.min(2, window.devicePixelRatio || 1);
   const canvas = document.createElement('canvas');
   canvas.width = width * scale; canvas.height = height * scale;
   const ctx = canvas.getContext('2d')!;
