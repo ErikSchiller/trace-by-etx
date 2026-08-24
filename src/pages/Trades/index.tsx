@@ -140,6 +140,7 @@ export function Trades() {
 
   return (
     <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <style>{`.trade-row .share-btn{opacity:0;transition:opacity .12s} .trade-row:hover .share-btn{opacity:0.7} .trade-row .share-btn:hover{opacity:1 !important;color:#7861ff}`}</style>
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
         <div style={card}>
@@ -225,6 +226,7 @@ export function Trades() {
                 <th style={{ padding: '10px 14px', textAlign: 'right' }}>Salida</th>
                 <Th onClick={() => toggleSort('pnl')} active={sortKey === 'pnl'} dir={sortDir} align="right">Net PnL</Th>
                 <Th onClick={() => toggleSort('realRR')} active={sortKey === 'realRR'} dir={sortDir} align="left">R:R</Th>
+                <th style={{ padding: '10px 14px', width: 36 }} />
               </tr>
             </thead>
             <tbody>
@@ -235,6 +237,7 @@ export function Trades() {
                 return (
                   <tr
                     key={t.id}
+                    className="trade-row"
                     style={{ background: bg, borderTop: '1px solid var(--border-subtle)', cursor: 'pointer' }}
                     onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
                     onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = bg; }}
@@ -260,6 +263,14 @@ export function Trades() {
                     <td style={{ padding: '10px 14px' }}>
                       <RRBar rr={t.realRR} win={t.pnl > 0} />
                       <span style={{ ...mono, fontSize: 10, color: 'var(--muted)', marginLeft: 6 }}>{t.realRR.toFixed(2)}</span>
+                    </td>
+                    <td style={{ padding: '10px 10px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                      <button
+                        className="share-btn"
+                        title="Generar PnL Card"
+                        onClick={() => window.dispatchEvent(new CustomEvent('trace:open-pnl-card', { detail: { tradeId: t.id } }))}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 4 }}
+                      >✨</button>
                     </td>
                   </tr>
                 );

@@ -106,9 +106,11 @@ export function CommandPalette() {
     { id: 'nav-progress', section: 'ACCIONES', icon: '📈', label: 'Ir a progress tracker', keywords: 'progreso rutina rachas', recordable: true, run: () => go('/progress') },
     { id: 'nav-propfirms', section: 'ACCIONES', icon: '🏦', label: 'Ir a prop firms', keywords: 'prop firm cuentas', recordable: true, run: () => go('/prop-firms') },
     { id: 'nav-simulator', section: 'ACCIONES', icon: '🎲', label: 'Ir al simulador', keywords: 'simulador montecarlo', recordable: true, run: () => go('/simulator') },
+    { id: 'card-last', section: 'ACCIONES', icon: '✨', label: 'Generar PnL Card del último trade', keywords: 'compartir card imagen pnl story', recordable: true, run: () => { const last = trades[0]; close(); if (last) setTimeout(() => window.dispatchEvent(new CustomEvent('trace:open-pnl-card', { detail: { tradeId: last.id } })), 60); } },
+    { id: 'card-custom', section: 'ACCIONES', icon: '🖼️', label: 'Generar PnL Card personalizada', keywords: 'compartir card imagen pnl personalizar', recordable: true, run: () => { close(); setTimeout(() => window.dispatchEvent(new CustomEvent('trace:open-pnl-card', { detail: {} })), 60); } },
     { id: 'nav-settings', section: 'ACCIONES', icon: '⚙️', label: 'Ajustes', shortcut: '⌘,', keywords: 'settings configuracion', recordable: true, run: () => go('/settings') },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [navigate]);
+  ], [navigate, trades]);
 
   const themeItems = useMemo<CmdItem[]>(() => [
     { id: 'theme-accent', section: 'TEMA Y APARIENCIA', icon: '🎨', label: 'Cambiar color de acento', inline: true, run: () => setColorMode(m => !m) },

@@ -208,6 +208,12 @@ export function TradeDetailModal({ trade, onClose }: { trade: Trade | null; onCl
             </button>
           )}
           <button
+            onClick={() => { const id = trade.id; onClose(); setTimeout(() => window.dispatchEvent(new CustomEvent('trace:open-pnl-card', { detail: { tradeId: id } })), 60); }}
+            style={{ background: 'rgba(120,97,255,0.1)', color: '#7861ff', border: '1px solid rgba(120,97,255,0.3)', padding: '8px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Compartir PnL Card ✨
+          </button>
+          <button
             onClick={() => { onClose(); navigate(`/replay?trade=${trade.id}`); }}
             style={{ background: 'var(--blue)', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >

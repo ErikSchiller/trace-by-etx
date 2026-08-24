@@ -28,6 +28,11 @@ export interface Settings {
   // Feedback (polish features)
   celebrationsEnabled: boolean;
   soundsEnabled: boolean;
+  // PnL Cards
+  cardDefaultVariant: 'clasico' | 'minimo' | 'ganador' | 'retro' | 'cinematico';
+  cardDefaultFormat: 'square' | 'vertical';
+  cardHandle: string;
+  cardSuggest: boolean;
   // Language & region
   language: 'es' | 'en';
   numberFormat: 'es' | 'us';
@@ -65,6 +70,10 @@ const defaults: Settings = {
   notifyWeekly: false,
   celebrationsEnabled: true,
   soundsEnabled: false,
+  cardDefaultVariant: 'clasico',
+  cardDefaultFormat: 'vertical',
+  cardHandle: '',
+  cardSuggest: true,
   language: 'es',
   numberFormat: 'es',
   dateFormat: 'dmy',

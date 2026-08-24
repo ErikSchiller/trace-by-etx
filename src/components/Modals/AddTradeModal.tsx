@@ -86,6 +86,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const defaultMultiplier = useSettingsStore(s => s.defaultMultiplier);
   const currencySymbol = useSettingsStore(s => s.currencySymbol);
   const dailyLossLimit = useSettingsStore(s => s.dailyLossLimit);
+  const cardSuggest = useSettingsStore(s => s.cardSuggest);
   const { isFree } = usePlan();
   const allAccounts = useUserAccounts();
   const activeAccounts = useMemo(() => getActiveAccounts(allAccounts), [allAccounts]);
@@ -120,6 +121,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDragOver, setIsDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedTrade, setSavedTrade] = useState<import('../../store/tradeStore').Trade | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const assetRef = useRef<HTMLInputElement>(null);
@@ -128,6 +130,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   useEffect(() => {
     if (!open) return;
     setErrors({});
+    setSavedTrade(null);
     if (editTrade) {
       setInputMode(editTrade.inputMode || 'calculated');
       setAsset(editTrade.asset);
@@ -282,15 +285,22 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       }
     }, 0);
 
-    // reset
+    setSaving(false);
+    // Show the in-modal success screen (offers the PnL Card generator) instead
+    // of closing immediately. The success screen's buttons reset + close.
+    setSavedTrade(createdTrades[0]);
+  };
+
+  const resetForm = () => {
     setAsset(''); setPnlText(''); setEntryPrice(''); setExitPrice('');
     setPositionSize('1'); setCommission(String(defaultCommission ?? 0));
     setMultiplier(String(defaultMultiplier ?? 1));
     setErrorTags([]); setScreenshots([]); setEmotionalState(3); setIsPlanBased(true);
     setAccountIds([]); setQuickNote('');
-    setSaving(false);
-    onClose();
+    setSavedTrade(null);
   };
+  const closeAfterSave = () => { resetForm(); onClose(); };
+  const openCardFor = (id: string) => { closeAfterSave(); setTimeout(() => window.dispatchEvent(new CustomEvent('trace:open-pnl-card', { detail: { tradeId: id } })), 60); };
 
   const handleFiles = (files: FileList | null) => {
     if (!files?.length) return;
@@ -300,6 +310,36 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   };
 
   const pnlPreviewColor = directValid ? (directPnl > 0 ? '#4f8fff' : directPnl < 0 ? '#ef4444' : '#888898') : '#fff';
+
+  // ── Success screen after saving a trade (offers the PnL Card generator) ──
+  if (savedTrade) {
+    const col = savedTrade.pnl > 0 ? '#4f8fff' : savedTrade.pnl < 0 ? '#ef4444' : '#888898';
+    const cutoff = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
+    const recent = allTrades.filter(t => t.date >= cutoff);
+    const maxRecent = recent.length ? Math.max(...recent.map(t => t.pnl)) : 0;
+    const isRecord = savedTrade.pnl > 0 && recent.length > 1 && savedTrade.pnl >= maxRecent;
+    const bigR = (savedTrade.realRR || 0) >= 3;
+    const standout = (isRecord || bigR) && cardSuggest;
+    return (
+      <div className="trace-add-modal" onClick={closeAfterSave} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+        <style>{css}</style>
+        <div onClick={e => e.stopPropagation()} style={{ background: '#111113', border: '1px solid #1e1e20', borderRadius: 14, width: '100%', maxWidth: 440, fontFamily: fontBody, color: '#e0e0e8', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', animation: 'traceModalIn 0.2s ease', textAlign: 'center', padding: '36px 28px' }}>
+          <div style={{ width: 68, height: 68, borderRadius: '50%', margin: '0 auto 18px', background: 'rgba(79,143,255,0.12)', border: '2px solid rgba(79,143,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, color: '#4f8fff', animation: 'traceModalIn 0.35s ease' }}>✓</div>
+          <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>Operación guardada</div>
+          <div style={{ fontSize: '0.9rem', color: '#888898', marginTop: 6 }}>Net PnL: <b style={{ color: col }}>{fmtMoney(savedTrade.pnl)}</b></div>
+          {standout && (
+            <div style={{ marginTop: 16, background: 'rgba(120,97,255,0.08)', border: '1px solid rgba(120,97,255,0.2)', borderRadius: 10, padding: '10px 14px', fontSize: '0.82rem', color: '#c8d4e8' }}>
+              {isRecord ? '🎉 ¡Nuevo récord del mes! Compártelo →' : '🔥 Gran trade (+3R). Compártelo →'}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+            <button onClick={closeAfterSave} style={{ flex: 1, background: 'transparent', border: '1px solid #1e1e20', color: '#888898', borderRadius: 9, padding: 11, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>Cerrar</button>
+            <button onClick={() => openCardFor(savedTrade.id)} style={{ flex: 1.4, background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 9, padding: 11, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>Generar PnL Card ✨</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

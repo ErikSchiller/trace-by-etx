@@ -30,20 +30,12 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
   const dailyLossLimit = useSettingsStore(s => s.dailyLossLimit);
   const { push } = useToast();
 
-  const [opts, setOpts] = useState<CardOpts>(() => defaultOpts({
-    variant: (settings as unknown as { cardDefaultVariant?: CardOpts['variant'] }).cardDefaultVariant,
-    format: (settings as unknown as { cardDefaultFormat?: CardOpts['format'] }).cardDefaultFormat,
-    ...initialOpts,
-  }));
+  const [opts, setOpts] = useState<CardOpts>(() => defaultOpts({ variant: settings.cardDefaultVariant, format: settings.cardDefaultFormat, ...initialOpts }));
   const [busy, setBusy] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) setOpts(defaultOpts({
-      variant: (settings as unknown as { cardDefaultVariant?: CardOpts['variant'] }).cardDefaultVariant,
-      format: (settings as unknown as { cardDefaultFormat?: CardOpts['format'] }).cardDefaultFormat,
-      ...initialOpts,
-    }));
+    if (open) setOpts(defaultOpts({ variant: settings.cardDefaultVariant, format: settings.cardDefaultFormat, ...initialOpts }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, trade?.id]);
 
@@ -62,7 +54,7 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
     if (!trade) return null;
     const dayTrades = getUserTrades().filter(t => t.date === trade.date);
     const acc = accounts.find(a => a.id === trade.accountId);
-    const handleRaw = (settings as unknown as { cardHandle?: string }).cardHandle || user?.name || '';
+    const handleRaw = settings.cardHandle || user?.name || '';
     const handle = handleRaw ? (handleRaw.startsWith('@') ? handleRaw : `@${handleRaw.replace(/\s+/g, '').toLowerCase()}`) : undefined;
     let streakLabel: string | undefined;
     if (streaks) {
@@ -195,6 +187,22 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
               <Toggle label="Fecha exacta" checked={opts.showDate} onChange={c => set({ showDate: c })} />
               {data.handle && <Toggle label={`Mostrar handle (${data.handle})`} checked={opts.showHandle} onChange={c => set({ showHandle: c })} />}
             </Section>
+
+            {data.screenshots && data.screenshots.length > 0 && (
+              <Section title="Captura de pantalla (opcional)">
+                <Toggle label="Incluir captura del trade" checked={!!opts.screenshot} onChange={c => set({ screenshot: c ? (data.screenshots![0]) : undefined })} />
+                {opts.screenshot && data.screenshots.length > 1 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                    {data.screenshots.map((s, i) => (
+                      <button key={i} onClick={() => set({ screenshot: s })} style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', border: opts.screenshot === s ? '2px solid #4f8fff' : '1px solid #2a2d38', padding: 0, cursor: 'pointer', background: '#0d0d0f' }}>
+                        <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontSize: '0.62rem', color: '#6b7280' }}>Se usa como fondo sutil en el diseño Cinemático.</div>
+              </Section>
+            )}
 
             <Section title="Nota corta (opcional)">
               <input value={opts.note} maxLength={60} onChange={e => set({ note: e.target.value })} placeholder="Mi mejor entrada del mes 🎯" style={{ width: '100%', background: '#0d0d0f', border: '1px solid #1e2029', borderRadius: 8, padding: '9px 12px', color: '#e0e0e8', fontSize: '0.82rem', fontFamily: BODY, boxSizing: 'border-box' }} />

@@ -236,8 +236,24 @@ export default function Settings() {
                   <Row label="Números destacados" desc="Usar tipografía Syne en KPIs.">
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.syneNumbers} onChange={v => settings.updateSettings({ syneNumbers: v })} /></div>
                   </Row>
-                  <Row label="Celebraciones visuales" desc="Confetti al alcanzar hitos (pasar una eval, rachas, etc.)." last>
+                  <Row label="Celebraciones visuales" desc="Confetti al alcanzar hitos (pasar una eval, rachas, etc.).">
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.celebrationsEnabled} onChange={v => settings.updateSettings({ celebrationsEnabled: v })} /></div>
+                  </Row>
+
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, margin: '18px 0 4px' }}>PnL Cards</div>
+                  <Row label="Diseño por defecto" desc="Se pre-selecciona al generar una PnL Card.">
+                    <select value={settings.cardDefaultVariant} onChange={e => settings.updateSettings({ cardDefaultVariant: e.target.value as Settings['cardDefaultVariant'] })} style={inp}>
+                      <option value="clasico">Clásico</option><option value="minimo">Mínimo</option><option value="ganador">Ganador</option><option value="retro">Retro</option><option value="cinematico">Cinemático</option>
+                    </select>
+                  </Row>
+                  <Row label="Formato por defecto" desc="Vertical (Stories) o cuadrado.">
+                    <Segmented options={[['vertical', 'Vertical'], ['square', 'Cuadrado']]} value={settings.cardDefaultFormat} onChange={v => settings.updateSettings({ cardDefaultFormat: v as Settings['cardDefaultFormat'] })} />
+                  </Row>
+                  <Row label="Incluir @handle en cards" desc="Tu identificador público, mostrado sutilmente en la card.">
+                    <input value={settings.cardHandle} onChange={e => settings.updateSettings({ cardHandle: e.target.value })} placeholder="@tu_handle" style={{ ...inp, maxWidth: 180 }} />
+                  </Row>
+                  <Row label="Sugerir cards en trades destacados" desc="Propone compartir cuando registras un récord o un gran trade." last>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={settings.cardSuggest} onChange={v => settings.updateSettings({ cardSuggest: v })} /></div>
                   </Row>
                 </ProLock>
               </Section>
