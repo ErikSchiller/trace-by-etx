@@ -1,53 +1,49 @@
+type Size = 'sm' | 'md' | 'lg' | 'xl';
+
 interface LogoMarkProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  withBox?: boolean;
+  size?: Size;
   showByEtx?: boolean;
-  /** Render only the ∧ symbol (no TR / CE / by ETX). */
+  color?: string;
+  chevronColor?: string;
   symbolOnly?: boolean;
-  /** Override the ∧ color (defaults to #4f8fff). */
-  accent?: string;
 }
 
-const SIZE_REM: Record<NonNullable<LogoMarkProps['size']>, string> = {
-  sm: '0.85rem',
-  md: '1.15rem',
-  lg: '1.75rem',
-  xl: '2.4rem',
-};
-
-const BOX_PX: Record<NonNullable<LogoMarkProps['size']>, number> = {
-  sm: 22,
-  md: 28,
-  lg: 36,
-  xl: 44,
+const SIZES: Record<Size, string> = {
+  sm: '1rem',
+  md: '1.4rem',
+  lg: '2rem',
+  xl: '2.8rem',
 };
 
 /**
- * TR∧CE wordmark. The ∧ is rendered as an inline SVG sized in `em`
- * so it matches Syne 800's cap-height and stroke weight at every size.
- * All em units resolve against the wordmark's own font-size.
+ * TR∧CE wordmark. The ∧ (blue chevron) REPLACES the letter A — the A is never
+ * drawn. The chevron is ~1.15x taller than the surrounding letters, its peak
+ * rising above the cap-height, with clear spacing so it never touches TR / CE.
+ * LogoMark.tsx is the single source of truth for the logo.
  */
 export function LogoMark({
   size = 'md',
-  withBox = false,
   showByEtx = true,
+  color = '#ffffff',
+  chevronColor = '#4f8fff',
   symbolOnly = false,
-  accent = '#4f8fff',
 }: LogoMarkProps) {
-  const fontSize = SIZE_REM[size];
+  const fontSize = SIZES[size];
 
-  // Standalone ∧ symbol — identical geometry/stroke to the wordmark caret.
+  // Chevron alone (collapsed sidebar, favicons)
   if (symbolOnly) {
     return (
       <svg
-        viewBox="0 0 28 32"
+        viewBox="0 0 100 100"
+        xmlns="http://www.w3.org/2000/svg"
         aria-label="TRACE"
-        style={{ width: `calc(${fontSize} * 0.72)`, height: fontSize, display: 'block', fill: 'none' }}
+        style={{ width: fontSize, height: fontSize, display: 'block' }}
       >
         <polyline
-          points="14,2 2,30 26,30"
-          stroke={accent}
-          strokeWidth={4.5}
+          points="50,10 15,88 85,88"
+          fill="none"
+          stroke={chevronColor}
+          strokeWidth="14"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -55,91 +51,68 @@ export function LogoMark({
     );
   }
 
-  const Caret = ({ color = accent }: { color?: string }) => (
-    <svg
-      viewBox="0 0 28 32"
-      aria-hidden
-      style={{
-        width: '0.72em',
-        height: '1em',
-        display: 'inline-block',
-        verticalAlign: 'baseline',
-        position: 'relative',
-        top: '0.05em',
-        fill: 'none',
-      }}
-    >
-      <polyline
-        points="14,2 2,30 26,30"
-        stroke={color}
-        strokeWidth={4.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  // font-size lives on the column so 0.42em / 0.72em / 0.05em all resolve
-  // against the logo size regardless of surrounding context.
-  const wordmark = (
-    <span style={{ display: 'inline-block', fontSize, lineHeight: 1 }}>
-      <span
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+      {/* Wordmark row */}
+      <div
         style={{
           fontFamily: "'Syne', sans-serif",
           fontWeight: 800,
-          color: '#fff',
-          letterSpacing: '0.02em',
+          fontSize,
+          letterSpacing: '0.05em',
+          color,
           display: 'inline-flex',
-          alignItems: 'baseline',
-          gap: 0,
+          alignItems: 'center',
+          gap: '0.08em', // KEY: gap between TR, chevron, CE
           lineHeight: 1,
         }}
       >
         <span>TR</span>
-        <Caret />
-        <span>CE</span>
-      </span>
-      {showByEtx && (
-        <span
+        <svg
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden
           style={{
-            fontFamily: "'Space Grotesk', sans-serif",
-            display: 'block',
-            fontWeight: 500,
-            color: '#4a4a60',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            fontSize: '0.42em',
-            marginTop: 3,
+            // Chevron is TALLER than letters (~1.15x)
+            width: '0.75em',
+            height: '1.15em',
+            display: 'inline-block',
+            // Shift up so peak rises above cap-height
+            marginTop: '-0.15em',
+            overflow: 'visible',
           }}
         >
-          by etx
-        </span>
-      )}
-    </span>
-  );
-
-  if (!withBox) return wordmark;
-
-  const box = BOX_PX[size];
-  return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      <div
-        style={{
-          width: box,
-          height: box,
-          background: '#050508',
-          border: '1px solid rgba(79,143,255,0.22)',
-          borderRadius: 7,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          lineHeight: 1,
-          fontSize: `calc(${fontSize} * 1.05)`,
-        }}
-      >
-        <Caret />
+          <polyline
+            points="50,8 15,88 85,88"
+            fill="none"
+            stroke={chevronColor}
+            strokeWidth="14"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span>CE</span>
       </div>
-      {wordmark}
+
+      {/* "by ETX" tagline */}
+      {showByEtx && (
+        <div
+          style={{
+            fontFamily: "'Syne', sans-serif",
+            fontWeight: 700,
+            fontSize: '0.32em', // relative to parent
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            marginTop: '0.6em',
+            display: 'inline-flex',
+            gap: '0.4em', // gap between "by" and "ETX"
+            lineHeight: 1,
+          }}
+        >
+          <span style={{ color: chevronColor }}>by</span>
+          <span style={{ color }}>ETX</span>
+        </div>
+      )}
     </div>
   );
 }

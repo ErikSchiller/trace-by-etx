@@ -80,19 +80,25 @@ export function subtitleParts(data: CardData, opts: CardOpts): string[] {
   return parts;
 }
 
-/** TR∧CE wordmark rendered with an inline caret that scales with font size. */
-export function Wordmark({ size, color = '#fff', accent = BLUE, byEtx = true, letterSpacing = '0.02em' }: { size: number; color?: string; accent?: string; byEtx?: boolean; letterSpacing?: string }) {
+/**
+ * TR∧CE wordmark — the blue chevron replaces the letter A (taller than TR/CE,
+ * peak above cap-height, clear spacing). Matches LogoMark's geometry exactly.
+ */
+export function Wordmark({ size, color = '#fff', accent = BLUE, byEtx = true, letterSpacing = '0.05em' }: { size: number; color?: string; accent?: string; byEtx?: boolean; letterSpacing?: string }) {
   return (
-    <span style={{ display: 'inline-block', fontSize: size, lineHeight: 1, textAlign: 'center' }}>
-      <span style={{ fontFamily: HEAD, fontWeight: 800, color, letterSpacing, display: 'inline-flex', alignItems: 'baseline', lineHeight: 1 }}>
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', fontSize: size, lineHeight: 1 }}>
+      <span style={{ fontFamily: HEAD, fontWeight: 800, color, letterSpacing, display: 'inline-flex', alignItems: 'center', gap: '0.08em', lineHeight: 1 }}>
         <span>TR</span>
-        <svg viewBox="0 0 28 32" style={{ width: '0.72em', height: '1em', display: 'inline-block', position: 'relative', top: '0.05em', fill: 'none' }}>
-          <polyline points="14,2 2,30 26,30" stroke={accent} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
+        <svg viewBox="0 0 100 100" style={{ width: '0.75em', height: '1.15em', display: 'inline-block', marginTop: '-0.15em', overflow: 'visible' }}>
+          <polyline points="50,8 15,88 85,88" fill="none" stroke={accent} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span>CE</span>
       </span>
       {byEtx && (
-        <span style={{ fontFamily: BODY, display: 'block', fontWeight: 500, color: '#6b7280', letterSpacing: '0.28em', textTransform: 'uppercase', fontSize: '0.34em', marginTop: '0.35em' }}>by etx</span>
+        <span style={{ fontFamily: HEAD, display: 'inline-flex', gap: '0.4em', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: '0.32em', marginTop: '0.6em', lineHeight: 1 }}>
+          <span style={{ color: accent }}>by</span>
+          <span style={{ color }}>ETX</span>
+        </span>
       )}
     </span>
   );
@@ -100,8 +106,8 @@ export function Wordmark({ size, color = '#fff', accent = BLUE, byEtx = true, le
 
 export function Chevron({ size, color = BLUE, opacity = 1 }: { size: number; color?: string; opacity?: number }) {
   return (
-    <svg viewBox="0 0 28 32" style={{ width: size * 0.72, height: size, display: 'block', fill: 'none', opacity }}>
-      <polyline points="14,2 2,30 26,30" stroke={color} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 100 100" style={{ width: size * 0.75, height: size, display: 'block', fill: 'none', opacity, overflow: 'visible' }}>
+      <polyline points="50,10 15,88 85,88" fill="none" stroke={color} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
