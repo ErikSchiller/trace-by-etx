@@ -26,6 +26,7 @@ const Replay = lazy(() => import('./pages/Replay'));
 const Simulator = lazy(() => import('./pages/Simulator'));
 const PropFirms = lazy(() => import('./pages/PropFirms'));
 const PropFirmDetail = lazy(() => import('./pages/PropFirms/Detail'));
+const Gallery = lazy(() => import('./pages/Gallery'));
 // Lazy — marketing pages
 const Funciones = lazy(() => import('./pages/Funciones'));
 const BrokersLanding = lazy(() => import('./pages/BrokersLanding'));
@@ -98,6 +99,7 @@ export default function App() {
             <Route path="/simulator" element={<Simulator />} />
             <Route path="/prop-firms" element={<PropFirms />} />
             <Route path="/prop-firms/:id" element={<PropFirmDetail />} />
+            <Route path="/gallery" element={<Gallery />} />
             <Route path="/brokers" element={<Brokers />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

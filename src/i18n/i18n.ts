@@ -12,7 +12,7 @@ const es = {
     nav: {
       dashboard: 'Dashboard', journal: 'Diario Diario', trades: 'Operaciones', notebook: 'Notebook',
       reports: 'Reportes', progress: 'Progress Tracker', replay: 'Trade Replay', simulator: 'Simulador',
-      propFirms: 'Prop Firms', brokers: 'Brokers', settings: 'Ajustes',
+      propFirms: 'Prop Firms', gallery: 'Galería', brokers: 'Brokers', settings: 'Ajustes',
     },
     addTrade: 'Añadir operación',
     settings: {
@@ -32,7 +32,7 @@ const en = {
     nav: {
       dashboard: 'Dashboard', journal: 'Daily Journal', trades: 'Trades', notebook: 'Notebook',
       reports: 'Reports', progress: 'Progress Tracker', replay: 'Trade Replay', simulator: 'Simulator',
-      propFirms: 'Prop Firms', brokers: 'Brokers', settings: 'Settings',
+      propFirms: 'Prop Firms', gallery: 'Gallery', brokers: 'Brokers', settings: 'Settings',
     },
     addTrade: 'Add trade',
     settings: {

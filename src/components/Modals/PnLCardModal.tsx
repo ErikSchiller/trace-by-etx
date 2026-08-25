@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import type { Trade } from '../../store/tradeStore';
-import { getUserTrades, getTraceScore } from '../../store/tradeStore';
+import { getUserTrades } from '../../store/tradeStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAuthStore } from '../../store/authStore';
 import { useUserAccounts } from '../../store/propFirmStore';
@@ -11,6 +12,7 @@ import { celebrate } from '../../utils/celebrate';
 import { computeStreaks } from '../../utils/streaks';
 import { nodeToPngBlob } from '../../utils/domImage';
 import { DIMS } from '../PnLCard/shared';
+import { buildCardData } from '../PnLCard/buildCardData';
 import { PnLCard, VARIANTS, defaultOpts, type CardData, type CardOpts } from '../PnLCard';
 
 const HEAD = "'Syne', sans-serif";
@@ -52,37 +54,28 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
 
   const data: CardData | null = useMemo(() => {
     if (!trade) return null;
-    const dayTrades = getUserTrades().filter(t => t.date === trade.date);
-    const acc = accounts.find(a => a.id === trade.accountId);
-    const handleRaw = settings.cardHandle || user?.name || '';
-    const handle = handleRaw ? (handleRaw.startsWith('@') ? handleRaw : `@${handleRaw.replace(/\s+/g, '').toLowerCase()}`) : undefined;
     let streakLabel: string | undefined;
     if (streaks) {
       if (streaks.routine.current >= 7) streakLabel = `${streaks.routine.current} días`;
       else if (streaks.profitable.current >= 5) streakLabel = `${streaks.profitable.current} días`;
     }
-    return {
-      asset: trade.asset,
-      direction: trade.direction,
-      pnl: trade.pnl,
-      pnlPct: (trade.pnl / (acc?.accountSize || accountSize || 100000)) * 100,
-      realRR: trade.realRR || (trade.pnl >= 0 ? 1 : -1),
-      setup: trade.setup,
-      session: trade.session,
-      date: trade.date,
-      time: trade.time,
-      currencySymbol: sym,
-      traceScore: getTraceScore(dayTrades),
-      accountLabel: acc ? `${acc.firm} $${Math.round(acc.accountSize / 1000)}K` : undefined,
-      screenshots: trade.screenshots,
-      handle,
-      streakLabel,
-    };
+    return buildCardData(trade, { accounts, currencySymbol: sym, accountSize, handleRaw: settings.cardHandle || user?.name || '', streakLabel });
   }, [trade, accounts, settings, user, streaks, sym, accountSize]);
+
+  // Generate the QR (traceetx.com, with ?ref= when the handle is shown).
+  const [qrUrl, setQrUrl] = useState<string | undefined>();
+  const handleRef = opts.showHandle && data?.handle ? data.handle.replace(/^@/, '') : '';
+  useEffect(() => {
+    if (!open) return;
+    const url = `https://traceetx.com${handleRef ? `?ref=${encodeURIComponent(handleRef)}` : ''}`;
+    QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: '#0a0a0cff', light: '#ffffffff' } })
+      .then(setQrUrl).catch(() => setQrUrl(undefined));
+  }, [open, handleRef]);
 
   if (!open || !data) return null;
 
   const set = (patch: Partial<CardOpts>) => setOpts(o => ({ ...o, ...patch }));
+  const renderOpts: CardOpts = { ...opts, qrDataUrl: qrUrl };
   const previewH = opts.format === 'vertical' ? 470 : 400;
   const nativeH = opts.format === 'vertical' ? 1920 : 1080;
   const scale = previewH / nativeH;
@@ -106,6 +99,7 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
     try {
       const blob = await generate(); if (!blob) return;
       dl(blob);
+      useAuthStore.getState().recordGeneratedCard({ tradeId: trade!.id, variant: opts.variant, format: opts.format });
       push({ kind: 'success', text: 'PnL Card descargada' });
       celebrate('subtle');
     } catch { push({ kind: 'error', text: 'Error al generar la imagen. Intenta de nuevo.' }); }
@@ -150,7 +144,7 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
             <div style={{ fontSize: '0.68rem', color: '#6b7280' }}>Vista previa — se descarga en alta resolución (1080p / 2160p)</div>
             <div style={{ width: 1080 * scale, height: nativeH * scale, position: 'relative', borderRadius: 12, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
               <div style={{ position: 'absolute', top: 0, left: 0, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-                <PnLCard ref={cardRef} data={data} opts={opts} />
+                <PnLCard ref={cardRef} data={data} opts={renderOpts} />
               </div>
             </div>
           </div>
@@ -185,6 +179,7 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
               <Toggle label="Racha activa" checked={opts.showStreak} onChange={c => set({ showStreak: c })} />
               <Toggle label="Cuenta / prop firm" checked={opts.showAccount} onChange={c => set({ showAccount: c })} />
               <Toggle label="Fecha exacta" checked={opts.showDate} onChange={c => set({ showDate: c })} />
+              <Toggle label="Código QR (traceetx.com)" checked={opts.showQR} onChange={c => set({ showQR: c })} />
               {data.handle && <Toggle label={`Mostrar handle (${data.handle})`} checked={opts.showHandle} onChange={c => set({ showHandle: c })} />}
             </Section>
 

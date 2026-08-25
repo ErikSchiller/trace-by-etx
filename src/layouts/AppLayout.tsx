@@ -36,6 +36,7 @@ const Icon = {
   Simulator: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="4.8" cy="4.8" r="0.9" fill="currentColor"/><circle cx="10.2" cy="4.8" r="0.9" fill="currentColor"/><circle cx="7.5" cy="7.5" r="0.9" fill="currentColor"/><circle cx="4.8" cy="10.2" r="0.9" fill="currentColor"/><circle cx="10.2" cy="10.2" r="0.9" fill="currentColor"/></svg>),
   PropFirms: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="2.5" y="4.5" width="10" height="8" rx="1.3" stroke="currentColor" strokeWidth="1.2"/><path d="M4 4.5V3.2a1 1 0 011-1h5a1 1 0 011 1v1.3" stroke="currentColor" strokeWidth="1.1"/><line x1="2.5" y1="7.5" x2="12.5" y2="7.5" stroke="currentColor" strokeWidth="1"/></svg>),
   ChevronDown: () => (<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><polyline points="3,4.5 6,8 9,4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  Gallery: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="12" rx="1.8" stroke="currentColor" strokeWidth="1.2"/><circle cx="5" cy="5" r="1.3" stroke="currentColor" strokeWidth="1.1"/><path d="M2 11l3.2-3.2 2.3 2.3L10 7.5l3 3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>),
 };
 
 interface NavItem { to: string; label: string; tKey: string; icon: React.ComponentType; badge?: string }
@@ -53,6 +54,7 @@ const sections: { title: string; tKey: string; items: NavItem[] }[] = [
     { to: '/replay',      label: 'Trade Replay',     tKey: 'nav.replay',    icon: Icon.Replay },
     { to: '/simulator',   label: 'Simulador',        tKey: 'nav.simulator', icon: Icon.Simulator, badge: 'NEW' },
     { to: '/prop-firms',  label: 'Prop Firms',       tKey: 'nav.propFirms', icon: Icon.PropFirms, badge: 'NEW' },
+    { to: '/gallery',     label: 'Galería',          tKey: 'nav.gallery',   icon: Icon.Gallery, badge: 'NEW' },
   ]},
   { title: 'CONFIG', tKey: 'section.config', items: [
     { to: '/brokers',  label: 'Brokers', tKey: 'nav.brokers',  icon: Icon.Brokers },
@@ -64,7 +66,7 @@ const titleMap: Record<string, string> = {
   '/dashboard': 'Dashboard', '/journal': 'Diario Diario', '/trades': 'Operaciones',
   '/notebook': 'Notebook', '/reports': 'Reportes', '/progress': 'Progress Tracker',
   '/replay': 'Trade Replay', '/simulator': 'Simulador', '/prop-firms': 'Prop Firms',
-  '/brokers': 'Brokers', '/settings': 'Ajustes',
+  '/gallery': 'Galería', '/brokers': 'Brokers', '/settings': 'Ajustes',
 };
 
 const PLAN_LABEL: Record<string, string> = { free: 'Plan Gratis', pro: 'Plan Pro' };
@@ -157,13 +159,15 @@ export function AppLayout() {
     return () => window.removeEventListener('trace:open-weekly-recap', handler);
   }, []);
 
-  // PnL Card generator (opened from trade modals, table, command palette)
+  // PnL Card generator (opened from trade modals, table, command palette, gallery)
   const [pnlTradeId, setPnlTradeId] = useState<string | null>(null);
   const [pnlOpen, setPnlOpen] = useState(false);
+  const [pnlInitial, setPnlInitial] = useState<{ variant?: string; format?: string } | undefined>(undefined);
   useEffect(() => {
     const handler = (e: Event) => {
-      const id = (e as CustomEvent<{ tradeId?: string }>).detail?.tradeId ?? null;
-      setPnlTradeId(id);
+      const detail = (e as CustomEvent<{ tradeId?: string; variant?: string; format?: string }>).detail;
+      setPnlTradeId(detail?.tradeId ?? null);
+      setPnlInitial(detail?.variant || detail?.format ? { variant: detail?.variant, format: detail?.format } : undefined);
       setPnlOpen(true);
     };
     window.addEventListener('trace:open-pnl-card', handler as EventListener);
@@ -482,7 +486,7 @@ export function AppLayout() {
       <SupportWidget />
       <UndoToast />
       <WeeklyRecapModal open={recapOpen} onClose={() => setRecapOpen(false)} />
-      <PnLCardModal open={pnlOpen} trade={pnlTrade} onClose={() => setPnlOpen(false)} />
+      <PnLCardModal open={pnlOpen} trade={pnlTrade} initialOpts={pnlInitial as unknown as Partial<import('../components/PnLCard').CardOpts> | undefined} onClose={() => setPnlOpen(false)} />
       <CommandPalette />
     </div>
   );

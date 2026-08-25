@@ -25,6 +25,18 @@ export interface User {
   profile?: UserProfile;
   /** Avatar as a data URL (or remote URL). */
   avatar?: string;
+  /** Lightweight usage stats. */
+  stats?: { cardsGenerated?: number };
+  /** Metadata (not images) of PnL cards the user has generated. */
+  generatedCards?: GeneratedCard[];
+}
+
+export interface GeneratedCard {
+  id: string;
+  tradeId: string;
+  variant: string;
+  format: string;
+  ts: number;
 }
 
 interface StoredUser extends User {
@@ -40,6 +52,7 @@ interface AuthState {
   setOnboardingComplete: (profile: UserProfile) => void;
   updateUser: (updates: Partial<User>) => void;
   updateAvatar: (dataUrl: string | undefined) => void;
+  recordGeneratedCard: (meta: Omit<GeneratedCard, 'id' | 'ts'>) => void;
   upgradeToPro: (cycle: 'monthly' | 'annual') => void;
   downgradeToFree: () => void;
 }
@@ -132,6 +145,15 @@ export const useAuthStore = create<AuthState>()(
 
       updateAvatar: (dataUrl) => {
         get().updateUser({ avatar: dataUrl });
+      },
+
+      recordGeneratedCard: (meta) => {
+        const cur = get().user;
+        if (!cur) return;
+        const entry: GeneratedCard = { ...meta, id: nanoid(), ts: Date.now() };
+        const generatedCards = [entry, ...(cur.generatedCards ?? [])].slice(0, 60);
+        const stats = { ...cur.stats, cardsGenerated: (cur.stats?.cardsGenerated ?? 0) + 1 };
+        get().updateUser({ generatedCards, stats });
       },
 
       upgradeToPro: (cycle) => {
