@@ -16,18 +16,18 @@ export function Minimo({ data, opts }: { data: CardData; opts: CardOpts; W: numb
   ].filter(Boolean) as string[];
 
   return (
-    <div style={{ position: 'absolute', inset: 0, background: '#ffffff', color: '#0a0a0c', fontFamily: BODY, padding: pad, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <div style={{ position: 'absolute', inset: 0, background: '#ffffff', color: '#0a0a0c', fontFamily: BODY, padding: vertical ? '110px 90px' : pad, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       {/* top */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Wordmark size={64} color="#0a0a0c" accent={BLUE} byEtx={false} />
+        <Wordmark size={vertical ? 84 : 64} color="#0a0a0c" accent={BLUE} byEtx={false} />
         {opts.showStreak && data.streakLabel ? <div style={{ filter: 'grayscale(0)' }}><StreakBadge label={data.streakLabel} scale={1.1} /></div> : <span />}
       </div>
 
       {/* center-left */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: vertical ? 8 : 4 }}>
-        <div style={{ fontSize: 30, letterSpacing: '0.28em', color: '#9096a3', textTransform: 'uppercase', marginBottom: 10 }}>Operación</div>
-        <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: vertical ? 250 : 210, color: col, lineHeight: 0.92 }}>{heroValue(data, opts)}</div>
-        <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 60, color: '#0a0a0c', marginTop: 20 }}>
+        <div style={{ fontSize: 34, letterSpacing: '0.28em', color: '#9096a3', textTransform: 'uppercase', marginBottom: 10 }}>Operación</div>
+        <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: vertical ? 300 : 210, color: col, lineHeight: 0.9 }}>{heroValue(data, opts)}</div>
+        <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: vertical ? 76 : 60, color: '#0a0a0c', marginTop: 24 }}>
           {data.asset} <span style={{ color: col }}>·</span> {data.direction === 'long' ? 'LONG' : 'SHORT'}
         </div>
         {stats.length > 0 && (

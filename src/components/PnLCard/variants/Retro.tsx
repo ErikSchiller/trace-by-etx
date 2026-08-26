@@ -7,7 +7,7 @@ export function Retro({ data, opts }: { data: CardData; opts: CardOpts; W: numbe
   const vertical = opts.format === 'vertical';
   const col = pnlColor(data.pnl);
   const mono: React.CSSProperties = { fontFamily: BODY, letterSpacing: '0.04em' };
-  const size = vertical ? 48 : 42;
+  const size = vertical ? 56 : 42;
 
   const lines: { label: string; value: string; color?: string }[] = [
     { label: '> ORDER FILLED', value: '' },
@@ -27,14 +27,14 @@ export function Retro({ data, opts }: { data: CardData; opts: CardOpts; W: numbe
       {/* blue scanlines */}
       <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(79,143,255,0.05) 0px, rgba(79,143,255,0.05) 2px, transparent 2px, transparent 6px)', pointerEvents: 'none' }} />
 
-      <div style={{ position: 'absolute', inset: 0, padding: 88, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div style={{ position: 'absolute', inset: 0, padding: vertical ? '110px 80px' : 88, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         {/* ASCII logo */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 96, color: '#fff', display: 'flex', alignItems: 'baseline' }}>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 104, color: '#fff', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.08em' }}>
                 <span>TR</span>
-                <svg viewBox="0 0 28 32" style={{ width: '0.72em', height: '1em', position: 'relative', top: '0.05em', fill: 'none' }}><polyline points="14,2 2,30 26,30" stroke={BLUE} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <svg viewBox="0 0 100 100" style={{ width: '0.75em', height: '1.15em', marginTop: '-0.15em', overflow: 'visible' }}><polyline points="50,8 15,88 85,88" fill="none" stroke={BLUE} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" /></svg>
                 <span>CE</span>
               </div>
               <div style={{ fontSize: 40, color: BLUE, letterSpacing: '0.3em', marginTop: 6 }}>══════════</div>

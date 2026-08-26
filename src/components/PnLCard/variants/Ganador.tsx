@@ -29,26 +29,26 @@ export function Ganador({ data, opts, W, H }: { data: CardData; opts: CardOpts; 
       <svg style={{ position: 'absolute', top: 40, left: 40, width: 70, height: 80, opacity: 0.15 }} viewBox="0 0 28 32"><polyline points="14,2 2,30 26,30" stroke={BLUE} strokeWidth={4} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
       <svg style={{ position: 'absolute', bottom: 40, right: 40, width: 70, height: 80, opacity: 0.15, transform: 'rotate(180deg)' }} viewBox="0 0 28 32"><polyline points="14,2 2,30 26,30" stroke={BLUE} strokeWidth={4} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
-      <div style={{ position: 'absolute', inset: 0, padding: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ marginTop: vertical ? 40 : 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-          <Wordmark size={100} />
+      <div style={{ position: 'absolute', inset: 0, padding: vertical ? '100px 80px' : 70, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: '3 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22 }}>
+          <Wordmark size={vertical ? 120 : 100} />
           {opts.showStreak && data.streakLabel ? <StreakBadge label={data.streakLabel} scale={1.3} /> : null}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-          <div style={{ fontSize: 34, letterSpacing: '0.32em', color: BLUE_BRIGHT, textTransform: 'uppercase' }}>Great Trade</div>
-          <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: vertical ? 230 : 190, color: BLUE_BRIGHT, lineHeight: 1, textShadow: `0 0 80px ${BLUE}88, 0 0 30px ${BLUE}66` }}>{heroValue(data, opts)}</div>
+        <div style={{ flex: '5 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
+          <div style={{ fontSize: 36, letterSpacing: '0.32em', color: BLUE_BRIGHT, textTransform: 'uppercase' }}>Great Trade</div>
+          <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: vertical ? 260 : 200, color: BLUE_BRIGHT, lineHeight: 1, textShadow: `0 0 80px ${BLUE}88, 0 0 30px ${BLUE}66` }}>{heroValue(data, opts)}</div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            {opts.showRR && <span style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 46, color: '#fff', background: 'rgba(79,143,255,0.18)', border: '1px solid rgba(107,159,255,0.5)', padding: '14px 34px', borderRadius: 16 }}>R:R {fmtRR(data.realRR)}</span>}
-            {opts.showScore && data.traceScore !== undefined && <span style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 46, color: '#fff', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', padding: '14px 34px', borderRadius: 16 }}>Score {data.traceScore}</span>}
+            {opts.showRR && <span style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 48, color: '#fff', background: 'rgba(79,143,255,0.18)', border: '1px solid rgba(107,159,255,0.5)', padding: '16px 36px', borderRadius: 16 }}>R:R {fmtRR(data.realRR)}</span>}
+            {opts.showScore && data.traceScore !== undefined && <span style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 48, color: '#fff', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', padding: '16px 36px', borderRadius: 16 }}>Score {data.traceScore}</span>}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 40, color: '#e0e8f5', textAlign: 'center' }}>{sub}</div>
-          {opts.note && <div style={{ fontStyle: 'italic', fontSize: 30, color: '#8ba3c7' }}>{opts.note}</div>}
+        <div style={{ flex: '2 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+          <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 44, color: '#e0e8f5', textAlign: 'center' }}>{sub}</div>
+          {opts.note && <div style={{ fontStyle: 'italic', fontSize: 32, color: '#8ba3c7' }}>{opts.note}</div>}
           {opts.showQR && <QRTag dataUrl={opts.qrDataUrl} scale={1} />}
-          <div style={{ fontSize: 26, color: '#6b86ad', letterSpacing: '0.1em' }}>traceetx.com{opts.showHandle && data.handle ? `  ·  ${data.handle}` : ''}</div>
+          <div style={{ fontSize: 28, color: '#6b86ad', letterSpacing: '0.1em' }}>traceetx.com{opts.showHandle && data.handle ? `  ·  ${data.handle}` : ''}</div>
         </div>
       </div>
     </div>

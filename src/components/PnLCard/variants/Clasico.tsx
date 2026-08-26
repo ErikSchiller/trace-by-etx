@@ -3,7 +3,7 @@ import {
   Wordmark, DirectionBadge, StreakBadge, QRTag,
 } from '../shared';
 
-export function Clasico({ data, opts, W, H }: { data: CardData; opts: CardOpts; W: number; H: number }) {
+export function Clasico({ data, opts, W }: { data: CardData; opts: CardOpts; W: number; H: number }) {
   const vertical = opts.format === 'vertical';
   const col = pnlColor(data.pnl);
   const pad = 80;
@@ -20,28 +20,28 @@ export function Clasico({ data, opts, W, H }: { data: CardData; opts: CardOpts; 
       </div>
 
       {vertical ? (
-        <div style={{ position: 'absolute', inset: 0, padding: pad, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Top: logo */}
-          <div style={{ marginTop: H * 0.10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Wordmark size={130} />
-            <div style={{ marginTop: 22, fontSize: 26, letterSpacing: '0.32em', color: '#6b7280', textTransform: 'uppercase' }}>Trading Journal</div>
+        <div style={{ position: 'absolute', inset: 0, padding: '100px 80px', display: 'flex', flexDirection: 'column' }}>
+          {/* Top region ~30%: logo */}
+          <div style={{ flex: '3 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22 }}>
+            <Wordmark size={150} />
+            <div style={{ fontSize: 30, letterSpacing: '0.32em', color: '#6b7280', textTransform: 'uppercase' }}>Trading Journal</div>
           </div>
 
-          {/* Middle: the trade */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
-            <DirectionBadge direction={data.direction} scale={1.5} />
-            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 92, color: '#fff', lineHeight: 1 }}>{data.asset}</div>
-            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 190, color: col, lineHeight: 1, textShadow: `0 0 60px ${col}44` }}>{heroValue(data, opts)}</div>
+          {/* Middle region ~50%: the trade */}
+          <div style={{ flex: '5 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 30 }}>
+            <DirectionBadge direction={data.direction} scale={1.7} />
+            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 128, color: '#fff', lineHeight: 1 }}>{data.asset}</div>
+            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 220, color: col, lineHeight: 1, textShadow: `0 0 70px ${col}55` }}>{heroValue(data, opts)}</div>
             {opts.showRR && <RRChip rr={data.realRR} />}
           </div>
 
-          {/* Bottom: meta */}
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            {opts.showSetup && data.setup && <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 46, color: '#e0e0e8' }}>{data.setup}</div>}
-            <div style={{ fontSize: 30, color: '#6b7280' }}>
+          {/* Bottom region ~20%: meta */}
+          <div style={{ flex: '2 1 0', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+            {opts.showSetup && data.setup && <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 52, color: '#e0e0e8' }}>{data.setup}</div>}
+            <div style={{ fontSize: 32, color: '#6b7280' }}>
               {[opts.showSession && SESSION_LABEL[data.session], opts.showDate && `${data.date}`, `${data.time}`].filter(Boolean).join(' · ')}
             </div>
-            {opts.note && <div style={{ fontStyle: 'italic', fontSize: 30, color: '#8a90a8', marginTop: 6 }}>{opts.note}</div>}
+            {opts.note && <div style={{ fontStyle: 'italic', fontSize: 32, color: '#8a90a8', marginTop: 4 }}>{opts.note}</div>}
             <Footer data={data} opts={opts} />
           </div>
         </div>
