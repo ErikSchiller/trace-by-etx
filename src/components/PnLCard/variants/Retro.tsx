@@ -32,9 +32,9 @@ export function Retro({ data, opts }: { data: CardData; opts: CardOpts; W: numbe
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 104, color: '#fff', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.08em' }}>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 104, color: '#fff', letterSpacing: '0.08em', display: 'flex', alignItems: 'flex-end', gap: '0.12em' }}>
                 <span>TR</span>
-                <svg viewBox="0 0 100 100" style={{ width: '0.75em', height: '1.15em', marginTop: '-0.15em', overflow: 'visible' }}><polyline points="50,8 15,88 85,88" fill="none" stroke={BLUE} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <svg viewBox="0 0 65 100" style={{ width: '0.78em', height: '1.2em', marginBottom: '-0.02em', overflow: 'visible' }}><polyline points="9,94 32.5,6 56,94" fill="none" stroke={BLUE} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" /></svg>
                 <span>CE</span>
               </div>
               <div style={{ fontSize: 40, color: BLUE, letterSpacing: '0.3em', marginTop: 6 }}>══════════</div>

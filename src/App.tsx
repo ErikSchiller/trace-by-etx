@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import { UpgradeModal } from './components/Modals/UpgradeModal';
 import { ScrollToTop } from './components/ScrollToTop';
+import { LogoMark } from './components/UI/LogoMark';
 import { useSettingsStore } from './store/settingsStore';
 import { applyAccentColor } from './utils/export';
 
@@ -43,9 +44,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 function LoadingScreen() {
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0a0a0c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="40" height="34" viewBox="0 0 40 34" fill="none">
-        <polyline points="20,4 4,30 36,30" stroke="#4f8fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <LogoMark symbolOnly size="xl" />
     </div>
   );
 }

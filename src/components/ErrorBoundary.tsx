@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { LogoMark } from './UI/LogoMark';
 
 interface Props { children: ReactNode }
 interface State { hasError: boolean; error: Error | null; showDetails: boolean }
@@ -26,9 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
       }}>
         <div style={{ maxWidth: 460, textAlign: 'center' }}>
-          <svg width="48" height="42" viewBox="0 0 40 34" fill="none" style={{ marginBottom: 20 }}>
-            <polyline points="20,4 4,30 36,30" stroke="#4f8fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}><LogoMark symbolOnly size="xl" /></div>
           <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.5rem', color: '#fff', marginBottom: 10 }}>
             Algo no ha ido como esperábamos
           </h1>

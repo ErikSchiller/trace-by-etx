@@ -87,10 +87,10 @@ export function subtitleParts(data: CardData, opts: CardOpts): string[] {
 export function Wordmark({ size, color = '#fff', accent = BLUE, byEtx = true, letterSpacing = '0.05em' }: { size: number; color?: string; accent?: string; byEtx?: boolean; letterSpacing?: string }) {
   return (
     <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', fontSize: size, lineHeight: 1 }}>
-      <span style={{ fontFamily: HEAD, fontWeight: 800, color, letterSpacing, display: 'inline-flex', alignItems: 'center', gap: '0.08em', lineHeight: 1 }}>
+      <span style={{ fontFamily: HEAD, fontWeight: 800, color, letterSpacing, display: 'inline-flex', alignItems: 'flex-end', gap: '0.12em', lineHeight: 1 }}>
         <span>TR</span>
-        <svg viewBox="0 0 100 100" style={{ width: '0.75em', height: '1.15em', display: 'inline-block', marginTop: '-0.15em', overflow: 'visible' }}>
-          <polyline points="50,8 15,88 85,88" fill="none" stroke={accent} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
+        <svg viewBox="0 0 65 100" style={{ width: '0.78em', height: '1.2em', display: 'inline-block', marginBottom: '-0.02em', overflow: 'visible' }}>
+          <polyline points="9,94 32.5,6 56,94" fill="none" stroke={accent} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span>CE</span>
       </span>
@@ -106,8 +106,8 @@ export function Wordmark({ size, color = '#fff', accent = BLUE, byEtx = true, le
 
 export function Chevron({ size, color = BLUE, opacity = 1 }: { size: number; color?: string; opacity?: number }) {
   return (
-    <svg viewBox="0 0 100 100" style={{ width: size * 0.75, height: size, display: 'block', fill: 'none', opacity, overflow: 'visible' }}>
-      <polyline points="50,10 15,88 85,88" fill="none" stroke={color} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 100 100" style={{ width: size * 0.78, height: size, display: 'block', fill: 'none', opacity, overflow: 'visible' }}>
+      <polyline points="10,90 50,10 90,90" fill="none" stroke={color} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

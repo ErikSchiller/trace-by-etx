@@ -307,7 +307,7 @@ export function Dashboard() {
       {!aiTeaserHidden && (
         <div style={{ background: 'linear-gradient(90deg, rgba(120,97,255,0.06), rgba(79,143,255,0.03))', border: '1px solid rgba(120,97,255,0.15)', borderRadius: 10, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
           <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(120,97,255,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg viewBox="0 0 28 32" style={{ width: 12, height: 14 }}><polyline points="14,2 2,30 26,30" stroke="#7861ff" strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+            <svg viewBox="0 0 100 100" style={{ width: 13, height: 15, overflow: 'visible' }}><polyline points="10,90 50,10 90,90" stroke="#7861ff" strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>🧠 TRACE IA llega este trimestre</div>

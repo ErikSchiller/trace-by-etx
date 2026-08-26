@@ -26,8 +26,8 @@ export function Ganador({ data, opts, W, H }: { data: CardData; opts: CardOpts; 
         {dots.map((d, i) => <circle key={i} cx={d.x * W} cy={d.y * H} r={d.r} fill={BLUE} opacity={0.18} />)}
       </svg>
       {/* corner chevrons */}
-      <svg style={{ position: 'absolute', top: 40, left: 40, width: 70, height: 80, opacity: 0.15 }} viewBox="0 0 28 32"><polyline points="14,2 2,30 26,30" stroke={BLUE} strokeWidth={4} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      <svg style={{ position: 'absolute', bottom: 40, right: 40, width: 70, height: 80, opacity: 0.15, transform: 'rotate(180deg)' }} viewBox="0 0 28 32"><polyline points="14,2 2,30 26,30" stroke={BLUE} strokeWidth={4} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <svg style={{ position: 'absolute', top: 40, left: 40, width: 66, height: 84, opacity: 0.15, overflow: 'visible' }} viewBox="0 0 100 100"><polyline points="10,90 50,10 90,90" stroke={BLUE} strokeWidth={12} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <svg style={{ position: 'absolute', bottom: 40, right: 40, width: 66, height: 84, opacity: 0.15, transform: 'rotate(180deg)', overflow: 'visible' }} viewBox="0 0 100 100"><polyline points="10,90 50,10 90,90" stroke={BLUE} strokeWidth={12} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
       <div style={{ position: 'absolute', inset: 0, padding: vertical ? '100px 80px' : 70, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: '3 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22 }}>

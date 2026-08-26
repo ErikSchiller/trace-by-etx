@@ -103,7 +103,7 @@ function AITeaserSection({ onWaitlist }: { onWaitlist: () => void }) {
       <div style={{ maxWidth: 720, margin: '40px auto 0', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(120,97,255,0.15)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg viewBox="0 0 28 32" style={{ width: 12, height: 14 }}><polyline points="14,2 2,30 26,30" stroke={C.indigo} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+            <svg viewBox="0 0 100 100" style={{ width: 13, height: 15, overflow: 'visible' }}><polyline points="10,90 50,10 90,90" stroke={C.indigo} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
           </span>
           <span style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>TRACE IA</span>
           <span style={{ background: 'rgba(120,97,255,0.12)', color: C.indigo, fontSize: '0.6rem', padding: '2px 8px', borderRadius: 5, fontWeight: 700, letterSpacing: '0.05em' }}>PRÓXIMAMENTE</span>
@@ -299,8 +299,8 @@ function HeroMockup() {
         boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <svg viewBox="0 0 28 32" style={{ width: 12, height: 14 }}>
-            <polyline points="14,2 2,30 26,30" stroke={C.blue} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <svg viewBox="0 0 100 100" style={{ width: 13, height: 15, overflow: 'visible' }}>
+            <polyline points="10,90 50,10 90,90" stroke={C.blue} strokeWidth={14} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
           <span style={{ fontFamily: fontHead, fontWeight: 800, fontSize: 11, color: '#fff' }}>TRACE IA</span>
           <span style={{ marginLeft: 'auto', background: 'rgba(79,143,255,0.15)', color: C.blue, fontSize: 7, padding: '2px 5px', borderRadius: 4, fontWeight: 600, letterSpacing: '0.05em' }}>PRÓXIMAMENTE</span>

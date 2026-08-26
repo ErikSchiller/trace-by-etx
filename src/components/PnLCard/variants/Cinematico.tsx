@@ -21,8 +21,8 @@ export function Cinematico({ data, opts, W }: { data: CardData; opts: CardOpts; 
         <img src={opts.screenshot} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.14, filter: 'grayscale(0.3)' }} />
       )}
       {/* huge decorative chevron behind */}
-      <svg viewBox="0 0 100 100" style={{ position: 'absolute', top: vertical ? '38%' : '42%', left: '50%', transform: 'translate(-50%,-50%)', width: W * 0.7, height: W * 0.8, opacity: 0.09, fill: 'none', overflow: 'visible' }}>
-        <polyline points="50,10 15,88 85,88" stroke={BLUE} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
+      <svg viewBox="0 0 100 100" style={{ position: 'absolute', top: vertical ? '38%' : '42%', left: '50%', transform: 'translate(-50%,-50%)', width: W * 0.6, height: W * 0.82, opacity: 0.09, fill: 'none', overflow: 'visible' }}>
+        <polyline points="10,90 50,10 90,90" stroke={BLUE} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
 
       {opts.showStreak && data.streakLabel ? (

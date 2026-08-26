@@ -4,28 +4,28 @@ export function Watermark() {
       className="panel-wm"
       style={{
         display: 'inline-flex',
-        alignItems: 'baseline',
+        alignItems: 'flex-end',
+        gap: '0.12em',
         lineHeight: 1,
       }}
     >
       <span>TR</span>
       <svg
-        viewBox="0 0 28 32"
+        viewBox="0 0 65 100"
         aria-hidden
         style={{
-          width: '0.72em',
-          height: '1em',
+          width: '0.78em',
+          height: '1.2em',
           display: 'inline-block',
-          verticalAlign: 'baseline',
-          position: 'relative',
-          top: '0.05em',
-          fill: 'none',
+          overflow: 'visible',
+          marginBottom: '-0.02em',
         }}
       >
         <polyline
-          points="14,2 2,30 26,30"
+          points="9,94 32.5,6 56,94"
+          fill="none"
           stroke="#252535"
-          strokeWidth={4.5}
+          strokeWidth={14}
           strokeLinecap="round"
           strokeLinejoin="round"
         />

@@ -9,17 +9,16 @@ interface LogoMarkProps {
 }
 
 const SIZES: Record<Size, string> = {
-  sm: '1rem',
-  md: '1.4rem',
-  lg: '2rem',
-  xl: '2.8rem',
+  sm: '1.1rem',
+  md: '1.5rem',
+  lg: '2.2rem',
+  xl: '3rem',
 };
 
 /**
- * TR∧CE wordmark. The ∧ (blue chevron) REPLACES the letter A — the A is never
- * drawn. The chevron is ~1.15x taller than the surrounding letters, its peak
- * rising above the cap-height, with clear spacing so it never touches TR / CE.
- * LogoMark.tsx is the single source of truth for the logo.
+ * TR∧CE wordmark — the blue chevron replaces the letter A. Symmetric upward
+ * wedge (peak at 50,10; wide base), taller than TR/CE with clear spacing.
+ * This file is the single source of truth for the logo.
  */
 export function LogoMark({
   size = 'md',
@@ -30,17 +29,16 @@ export function LogoMark({
 }: LogoMarkProps) {
   const fontSize = SIZES[size];
 
-  // Chevron alone (collapsed sidebar, favicons)
+  // Just the chevron alone (favicon, collapsed sidebar)
   if (symbolOnly) {
     return (
       <svg
-        viewBox="0 0 100 100"
+        viewBox="0 0 65 100"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="TRACE"
-        style={{ width: fontSize, height: fontSize, display: 'block' }}
+        style={{ width: fontSize, height: fontSize, display: 'block', overflow: 'visible' }}
       >
         <polyline
-          points="50,10 15,88 85,88"
+          points="9,94 32.5,6 56,94"
           fill="none"
           stroke={chevronColor}
           strokeWidth="14"
@@ -52,38 +50,39 @@ export function LogoMark({
   }
 
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-      {/* Wordmark row */}
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1, gap: '0.4em' }}>
+      {/* WORDMARK: TR + chevron + CE */}
       <div
         style={{
           fontFamily: "'Syne', sans-serif",
           fontWeight: 800,
           fontSize,
-          letterSpacing: '0.05em',
+          letterSpacing: '0.08em',
           color,
           display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.08em', // KEY: gap between TR, chevron, CE
+          alignItems: 'flex-end', // align to baseline
+          gap: '0.12em',
           lineHeight: 1,
         }}
       >
-        <span>TR</span>
+        <span style={{ lineHeight: 1 }}>TR</span>
+        {/* viewBox aspect (65:100) matches the SVG box (0.78em:1.2em) so the
+            chevron scales uniformly and fills the FULL 1.2em height — taller
+            than the letters — instead of being letterboxed to its width. */}
         <svg
-          viewBox="0 0 100 100"
+          viewBox="0 0 65 100"
           xmlns="http://www.w3.org/2000/svg"
-          aria-hidden
           style={{
-            // Chevron is TALLER than letters (~1.15x)
-            width: '0.75em',
-            height: '1.15em',
+            width: '0.78em',
+            height: '1.2em', // taller than letters
             display: 'inline-block',
-            // Shift up so peak rises above cap-height
-            marginTop: '-0.15em',
             overflow: 'visible',
+            marginBottom: '-0.02em',
           }}
         >
+          {/* Symmetric upward chevron. Narrow, tall wedge; peak at top-center. */}
           <polyline
-            points="50,8 15,88 85,88"
+            points="9,94 32.5,6 56,94"
             fill="none"
             stroke={chevronColor}
             strokeWidth="14"
@@ -91,21 +90,21 @@ export function LogoMark({
             strokeLinejoin="round"
           />
         </svg>
-        <span>CE</span>
+        <span style={{ lineHeight: 1 }}>CE</span>
       </div>
 
-      {/* "by ETX" tagline */}
+      {/* TAGLINE: "by ETX" with "by" in blue */}
       {showByEtx && (
         <div
           style={{
             fontFamily: "'Syne', sans-serif",
             fontWeight: 700,
-            fontSize: '0.32em', // relative to parent
-            letterSpacing: '0.2em',
+            fontSize: '0.3em',
+            letterSpacing: '0.25em',
             textTransform: 'uppercase',
-            marginTop: '0.6em',
             display: 'inline-flex',
-            gap: '0.4em', // gap between "by" and "ETX"
+            alignItems: 'center',
+            gap: '0.5em',
             lineHeight: 1,
           }}
         >
