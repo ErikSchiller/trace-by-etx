@@ -57,6 +57,19 @@ function fmtMoney(n: number) {
   const sign = n >= 0 ? '+' : '-';
   return `${sign}$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 }
+/** Compact signed money for calendar cells: "-$1.2K" / "$340". */
+function fmtCompact(n: number) {
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`;
+  return `${sign}$${Math.round(abs)}`;
+}
+/** Win rate as "100%" or "66.7%". */
+function fmtWinRate(wins: number, count: number) {
+  if (count === 0) return '0%';
+  const wr = (wins / count) * 100;
+  return wr === 100 ? '100%' : `${wr.toFixed(1)}%`;
+}
 
 type DeltaMode = 'pct' | 'pp' | 'abs';
 function formatDelta(cur: number, prev: number | undefined, mode: DeltaMode): { text: string; positive: boolean } | null {
@@ -206,8 +219,31 @@ export function Dashboard() {
   });
   const monthly = useMemo(() => getMonthlyPnL(trades, calMonth.y, calMonth.m), [trades, calMonth]);
   const monthLabel = `${MONTH_NAMES[calMonth.m]} ${calMonth.y}`;
-  const firstDay = new Date(calMonth.y, calMonth.m, 1).getDay();
-  const daysInMonth = new Date(calMonth.y, calMonth.m + 1, 0).getDate();
+
+  // Per-day aggregates (pnl / count / wins) for the visible month, plus a
+  // Monday-first 6-row grid including adjacent-month days.
+  const cal = useMemo(() => {
+    const prefix = `${calMonth.y}-${String(calMonth.m + 1).padStart(2, '0')}`;
+    const byDay: Record<string, { pnl: number; count: number; wins: number }> = {};
+    for (const t of trades) {
+      if (!t.date.startsWith(prefix)) continue;
+      const e = byDay[t.date] ?? { pnl: 0, count: 0, wins: 0 };
+      e.pnl += t.pnl; e.count += 1; if (t.pnl > 0) e.wins += 1;
+      byDay[t.date] = e;
+    }
+    const maxAbs = Math.max(1, ...Object.values(byDay).map(d => Math.abs(d.pnl)));
+    const first = new Date(calMonth.y, calMonth.m, 1);
+    const lead = (first.getDay() + 6) % 7; // Monday-first offset
+    const start = new Date(calMonth.y, calMonth.m, 1 - lead);
+    const cells: { date: Date; key: string; inMonth: boolean }[] = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      cells.push({ date: d, key, inMonth: d.getMonth() === calMonth.m });
+    }
+    return { byDay, maxAbs, cells, daysTraded: Object.keys(byDay).length };
+  }, [trades, calMonth]);
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   if (empty) {
     return (
@@ -424,56 +460,77 @@ export function Dashboard() {
       <div className="dash-row" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
         {/* Calendar */}
         <div style={card}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={() => setCalMonth(c => ({ y: c.m === 0 ? c.y - 1 : c.y, m: c.m === 0 ? 11 : c.m - 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}>‹</button>
-              <button onClick={() => setCalMonth(c => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}>›</button>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: '0.78rem', color: '#c8d4e8' }}>{monthLabel}</div>
-              <button
-                onClick={() => { const d = new Date(); setCalMonth({ y: d.getFullYear(), m: d.getMonth() }); }}
-                style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--blue)', fontSize: 10, padding: '3px 8px', borderRadius: 4, cursor: 'pointer' }}
-              >Este mes</button>
-            </div>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 11, color: 'var(--muted)' }}>
-              {monthly.trades} ops · <span style={{ color: monthly.pnl >= 0 ? 'var(--blue)' : 'var(--red)' }}>{fmtMoney(monthly.pnl)}</span>
-            </div>
+          {/* Month nav */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <button onClick={() => setCalMonth(c => ({ y: c.m === 0 ? c.y - 1 : c.y, m: c.m === 0 ? 11 : c.m - 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>‹</button>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: '#fff', minWidth: 120 }}>{monthLabel}</div>
+            <button onClick={() => setCalMonth(c => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>›</button>
+            <button onClick={() => { const d = new Date(); setCalMonth({ y: d.getFullYear(), m: d.getMonth() }); }} style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--blue)', fontSize: 10, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', marginLeft: 4 }}>Hoy</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-            {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(d => (
-              <div key={d} style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', fontFamily: "'Space Grotesk', sans-serif", padding: '4px 0' }}>{d}</div>
+          {/* Monthly stats badges */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--muted)' }}>
+              <span>Monthly stats:</span>
+              <span style={{ background: monthly.pnl >= 0 ? 'rgba(79,143,255,0.12)' : 'rgba(239,68,68,0.12)', color: monthly.pnl >= 0 ? 'var(--blue)' : 'var(--red)', borderRadius: 20, padding: '4px 12px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtMoney(monthly.pnl)}</span>
+            </div>
+            <span style={{ background: 'rgba(255,255,255,0.05)', color: '#c8d4e8', borderRadius: 20, padding: '4px 12px', fontWeight: 600, fontSize: '0.7rem' }}>{cal.daysTraded} {cal.daysTraded === 1 ? 'día' : 'días'}</span>
+          </div>
+          {/* Weekday header */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1e2029', paddingBottom: 6, marginBottom: 4 }}>
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
+              <div key={d} style={{ fontSize: '0.62rem', color: '#6b7280', textAlign: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{d}</div>
             ))}
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} style={{ height: 64 }} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const dateKey = `${calMonth.y}-${String(calMonth.m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const pnl = monthly.byDay[dateKey];
-              const has = pnl !== undefined;
-              const pos = has && pnl >= 0;
-              const neg = has && pnl < 0;
-              const opsCount = trades.filter(t => t.date === dateKey).length;
+          </div>
+          {/* Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+            {cal.cells.map(({ date, key, inMonth }) => {
+              const day = date.getDate();
+              const isToday = key === todayKey;
+              if (!inMonth) {
+                return <div key={key} style={{ height: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid transparent', margin: 2 }}><span style={{ fontSize: '0.72rem', color: '#33334a' }}>{day}</span></div>;
+              }
+              const d = cal.byDay[key];
+              const has = !!d;
+              const pos = has && d.pnl > 0;
+              const neg = has && d.pnl < 0;
+              const be = has && d.pnl === 0;
+              const mag = has ? 0.08 + (Math.abs(d.pnl) / cal.maxAbs) * 0.06 : 0;
+              const bg = pos ? `rgba(79,143,255,${mag})` : neg ? `rgba(239,68,68,${mag})` : be ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.02)';
+              const border = isToday ? '2px solid #4f8fff' : pos ? '1px solid rgba(79,143,255,0.2)' : neg ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.03)';
+              const dotColor = pos ? '#4f8fff' : neg ? '#ef4444' : be ? 'rgba(255,255,255,0.4)' : '';
               return (
                 <div
-                  key={day}
-                  onClick={() => has && navigate(`/journal?date=${dateKey}`)}
+                  key={key}
+                  onClick={() => has && navigate(`/journal?date=${key}`)}
+                  className={has ? 'cal-cell' : undefined}
                   style={{
-                    height: 64, padding: 6, borderRadius: 5,
-                    background: pos ? 'rgba(79,143,255,0.06)' : neg ? 'rgba(239,68,68,0.05)' : 'transparent',
-                    border: pos ? '1px solid rgba(79,143,255,0.12)' : neg ? '1px solid rgba(239,68,68,0.10)' : '1px solid transparent',
-                    cursor: has ? 'pointer' : 'default',
-                    display: 'flex', flexDirection: 'column', gap: 2,
+                    height: 90, padding: '8px 10px', position: 'relative', borderRadius: 8, border, margin: 2,
+                    background: bg, cursor: has ? 'pointer' : 'default',
+                    display: 'flex', flexDirection: 'column', transition: 'transform 0.1s, border-color 0.1s',
                   }}
                 >
-                  <div style={{ fontSize: 11, color: '#fff' }}>{day}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '0.72rem', color: has ? '#a1abbe' : '#4a4a60' }}>{day}</span>
+                    {isToday && has && <span style={{ fontSize: 8, fontWeight: 700, color: '#4f8fff', background: 'rgba(79,143,255,0.15)', borderRadius: 4, padding: '1px 4px' }}>HOY</span>}
+                  </div>
                   {has && (
-                    <>
-                      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 10, color: pos ? 'var(--blue)' : 'var(--red)' }}>{fmtMoney(pnl)}</div>
-                      <div style={{ fontSize: 9, color: 'var(--muted)' }}>{opsCount} op</div>
-                    </>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 1 }}>
+                      <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.05rem', color: pos ? '#4f8fff' : neg ? '#ef4444' : '#c8d4e8', lineHeight: 1 }}>{fmtCompact(d.pnl)}</div>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>{d.count} {d.count === 1 ? 'trade' : 'trades'}</div>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>{fmtWinRate(d.wins, d.count)}</div>
+                    </div>
                   )}
+                  {has && dotColor && <span style={{ position: 'absolute', bottom: 6, right: 6, width: 5, height: 5, borderRadius: '50%', background: dotColor }} />}
                 </div>
               );
             })}
           </div>
+          {monthly.trades === 0 && (
+            <div style={{ textAlign: 'center', padding: '14px 0 4px', fontSize: '0.75rem', color: 'var(--muted)' }}>
+              Este mes aún no tiene operaciones. <span onClick={() => window.dispatchEvent(new CustomEvent('trace:open-add-trade'))} style={{ color: 'var(--blue)', cursor: 'pointer', fontWeight: 600 }}>Añade la primera →</span>
+            </div>
+          )}
+          <style>{`.cal-cell:hover{ transform: scale(1.02); border-color: rgba(79,143,255,0.45) !important; }`}</style>
           <Watermark />
         </div>
 
