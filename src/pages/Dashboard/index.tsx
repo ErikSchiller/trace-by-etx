@@ -22,7 +22,8 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { getDailyPnL } from '../../store/tradeStore';
 import {
   useUserAccounts, getActiveAccounts, computeAccountStatus, getAccountAlerts,
-  type PropFirmAccount,
+  getAccountsGroupedByFirm,
+  type PropFirmAccount, type FirmGroup,
 } from '../../store/propFirmStore';
 
 const card: React.CSSProperties = {
@@ -245,6 +246,22 @@ export function Dashboard() {
   }, [trades, calMonth]);
   const todayKey = new Date().toISOString().slice(0, 10);
 
+  // Best/worst day (visible month) + trailing profitable-day streak (all trades).
+  const calSummary = useMemo(() => {
+    let best: { key: string; pnl: number } | null = null;
+    let worst: { key: string; pnl: number } | null = null;
+    for (const [key, d] of Object.entries(cal.byDay)) {
+      if (!best || d.pnl > best.pnl) best = { key, pnl: d.pnl };
+      if (!worst || d.pnl < worst.pnl) worst = { key, pnl: d.pnl };
+    }
+    const byDayAll = new Map<string, number>();
+    for (const t of trades) byDayAll.set(t.date, (byDayAll.get(t.date) || 0) + t.pnl);
+    const days = [...byDayAll.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    let streak = 0;
+    for (let i = days.length - 1; i >= 0; i--) { if (days[i][1] > 0) streak += 1; else break; }
+    return { best, worst, streak };
+  }, [cal, trades]);
+
   if (empty) {
     return (
       <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -404,7 +421,93 @@ export function Dashboard() {
         <Watermark />
       </div>
 
-      {/* Row 2 */}
+      {/* ── MONTHLY CALENDAR — hero (main focal point) ── */}
+      <div style={{ ...card, padding: '24px 28px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>Calendario mensual</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--muted)' }}>
+              <span>Monthly stats:</span>
+              <span style={{ background: monthly.pnl >= 0 ? 'rgba(79,143,255,0.12)' : 'rgba(239,68,68,0.12)', color: monthly.pnl >= 0 ? 'var(--blue)' : 'var(--red)', borderRadius: 20, padding: '4px 12px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtMoney(monthly.pnl)}</span>
+              <span style={{ background: 'rgba(255,255,255,0.05)', color: '#c8d4e8', borderRadius: 20, padding: '4px 12px', fontWeight: 600 }}>{cal.daysTraded} {cal.daysTraded === 1 ? 'día operado' : 'días operados'}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={() => setCalMonth(c => ({ y: c.m === 0 ? c.y - 1 : c.y, m: c.m === 0 ? 11 : c.m - 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>‹</button>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#fff', minWidth: 120, textAlign: 'center' }}>{monthLabel}</div>
+              <button onClick={() => setCalMonth(c => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>›</button>
+              <button onClick={() => { const d = new Date(); setCalMonth({ y: d.getFullYear(), m: d.getMonth() }); }} style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--blue)', fontSize: 10, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', marginLeft: 4 }}>Hoy</button>
+            </div>
+          </div>
+        </div>
+        {/* Weekday header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1e2029', paddingBottom: 8, marginBottom: 6 }}>
+          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
+            <div key={d} style={{ fontSize: '0.68rem', color: '#6b7280', textAlign: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{d}</div>
+          ))}
+        </div>
+        {/* Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+          {cal.cells.map(({ date, key, inMonth }) => {
+            const day = date.getDate();
+            const isToday = key === todayKey;
+            if (!inMonth) {
+              return <div key={key} style={{ minHeight: 100, padding: '8px 10px', borderRadius: 8, border: '1px solid transparent', margin: 2 }}><span style={{ fontSize: '0.72rem', color: '#33334a' }}>{day}</span></div>;
+            }
+            const d = cal.byDay[key];
+            const has = !!d;
+            const pos = has && d.pnl > 0;
+            const neg = has && d.pnl < 0;
+            const be = has && d.pnl === 0;
+            const mag = has ? 0.08 + (Math.abs(d.pnl) / cal.maxAbs) * 0.06 : 0;
+            const bg = pos ? `rgba(79,143,255,${mag})` : neg ? `rgba(239,68,68,${mag})` : be ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.02)';
+            const border = isToday ? '2px solid #4f8fff' : pos ? '1px solid rgba(79,143,255,0.2)' : neg ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.03)';
+            const dotColor = pos ? '#4f8fff' : neg ? '#ef4444' : be ? 'rgba(255,255,255,0.4)' : '';
+            return (
+              <div
+                key={key}
+                onClick={() => has && navigate(`/journal?date=${key}`)}
+                className={has ? 'cal-cell' : undefined}
+                style={{
+                  minHeight: 100, padding: '8px 10px', position: 'relative', borderRadius: 8, border, margin: 2,
+                  background: bg, cursor: has ? 'pointer' : 'default',
+                  display: 'flex', flexDirection: 'column', transition: 'transform 0.1s, border-color 0.1s',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '0.72rem', color: has ? '#a1abbe' : '#4a4a60' }}>{day}</span>
+                  {isToday && has && <span style={{ fontSize: 8, fontWeight: 700, color: '#4f8fff', background: 'rgba(79,143,255,0.15)', borderRadius: 4, padding: '1px 4px' }}>HOY</span>}
+                </div>
+                {has && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 2 }}>
+                    <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.15rem', color: pos ? '#4f8fff' : neg ? '#ef4444' : '#c8d4e8', lineHeight: 1 }}>{fmtCompact(d.pnl)}</div>
+                    <div style={{ fontSize: '0.64rem', color: 'var(--muted)' }}>{d.count} {d.count === 1 ? 'trade' : 'trades'}</div>
+                    <div style={{ fontSize: '0.64rem', color: 'var(--muted)' }}>{fmtWinRate(d.wins, d.count)}</div>
+                  </div>
+                )}
+                {has && dotColor && <span style={{ position: 'absolute', bottom: 6, right: 6, width: 5, height: 5, borderRadius: '50%', background: dotColor }} />}
+              </div>
+            );
+          })}
+        </div>
+        {monthly.trades === 0 ? (
+          <div style={{ textAlign: 'center', padding: '16px 0 4px', fontSize: '0.75rem', color: 'var(--muted)' }}>
+            Este mes aún no tiene operaciones. <span onClick={() => window.dispatchEvent(new CustomEvent('trace:open-add-trade'))} style={{ color: 'var(--blue)', cursor: 'pointer', fontWeight: 600 }}>Añade la primera →</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', marginTop: 14, paddingTop: 12, borderTop: '1px solid #1e2029', fontSize: '0.74rem', color: 'var(--muted)' }}>
+            {calSummary.best && <span>Mejor día: <b style={{ color: 'var(--blue)' }}>{fmtMoney(calSummary.best.pnl)}</b> el {calSummary.best.key.slice(5)}</span>}
+            {calSummary.worst && calSummary.worst.pnl < 0 && <span>·&nbsp;&nbsp;Peor día: <b style={{ color: 'var(--red)' }}>{fmtMoney(calSummary.worst.pnl)}</b> el {calSummary.worst.key.slice(5)}</span>}
+            <span>·&nbsp;&nbsp;Racha: <b style={{ color: calSummary.streak > 0 ? 'var(--blue)' : '#c8d4e8' }}>{calSummary.streak}</b> {calSummary.streak === 1 ? 'día profitable' : 'días profitable'}</span>
+          </div>
+        )}
+        <style>{`.cal-cell:hover{ transform: scale(1.02); border-color: rgba(79,143,255,0.45) !important; }`}</style>
+        <Watermark />
+      </div>
+
+      {/* ── PROP FIRM ACCOUNTS — grouped by firm ── */}
+      <PropFirmGroupsPanel trades={trades} />
+
+      {/* Row 2 — analytical panels */}
       <div className="dash-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1fr', gap: 12 }}>
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -453,89 +556,8 @@ export function Dashboard() {
         </ProLock>
       </div>
 
-      {/* Prop firms panel */}
-      <PropFirmsPanel trades={trades} />
-
-      {/* Row 3 */}
-      <div className="dash-row" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
-        {/* Calendar */}
-        <div style={card}>
-          {/* Month nav */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <button onClick={() => setCalMonth(c => ({ y: c.m === 0 ? c.y - 1 : c.y, m: c.m === 0 ? 11 : c.m - 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>‹</button>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: '#fff', minWidth: 120 }}>{monthLabel}</div>
-            <button onClick={() => setCalMonth(c => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }))} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}>›</button>
-            <button onClick={() => { const d = new Date(); setCalMonth({ y: d.getFullYear(), m: d.getMonth() }); }} style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--blue)', fontSize: 10, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', marginLeft: 4 }}>Hoy</button>
-          </div>
-          {/* Monthly stats badges */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--muted)' }}>
-              <span>Monthly stats:</span>
-              <span style={{ background: monthly.pnl >= 0 ? 'rgba(79,143,255,0.12)' : 'rgba(239,68,68,0.12)', color: monthly.pnl >= 0 ? 'var(--blue)' : 'var(--red)', borderRadius: 20, padding: '4px 12px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtMoney(monthly.pnl)}</span>
-            </div>
-            <span style={{ background: 'rgba(255,255,255,0.05)', color: '#c8d4e8', borderRadius: 20, padding: '4px 12px', fontWeight: 600, fontSize: '0.7rem' }}>{cal.daysTraded} {cal.daysTraded === 1 ? 'día' : 'días'}</span>
-          </div>
-          {/* Weekday header */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1e2029', paddingBottom: 6, marginBottom: 4 }}>
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
-              <div key={d} style={{ fontSize: '0.62rem', color: '#6b7280', textAlign: 'center', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{d}</div>
-            ))}
-          </div>
-          {/* Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-            {cal.cells.map(({ date, key, inMonth }) => {
-              const day = date.getDate();
-              const isToday = key === todayKey;
-              if (!inMonth) {
-                return <div key={key} style={{ height: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid transparent', margin: 2 }}><span style={{ fontSize: '0.72rem', color: '#33334a' }}>{day}</span></div>;
-              }
-              const d = cal.byDay[key];
-              const has = !!d;
-              const pos = has && d.pnl > 0;
-              const neg = has && d.pnl < 0;
-              const be = has && d.pnl === 0;
-              const mag = has ? 0.08 + (Math.abs(d.pnl) / cal.maxAbs) * 0.06 : 0;
-              const bg = pos ? `rgba(79,143,255,${mag})` : neg ? `rgba(239,68,68,${mag})` : be ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.02)';
-              const border = isToday ? '2px solid #4f8fff' : pos ? '1px solid rgba(79,143,255,0.2)' : neg ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(255,255,255,0.03)';
-              const dotColor = pos ? '#4f8fff' : neg ? '#ef4444' : be ? 'rgba(255,255,255,0.4)' : '';
-              return (
-                <div
-                  key={key}
-                  onClick={() => has && navigate(`/journal?date=${key}`)}
-                  className={has ? 'cal-cell' : undefined}
-                  style={{
-                    height: 90, padding: '8px 10px', position: 'relative', borderRadius: 8, border, margin: 2,
-                    background: bg, cursor: has ? 'pointer' : 'default',
-                    display: 'flex', flexDirection: 'column', transition: 'transform 0.1s, border-color 0.1s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '0.72rem', color: has ? '#a1abbe' : '#4a4a60' }}>{day}</span>
-                    {isToday && has && <span style={{ fontSize: 8, fontWeight: 700, color: '#4f8fff', background: 'rgba(79,143,255,0.15)', borderRadius: 4, padding: '1px 4px' }}>HOY</span>}
-                  </div>
-                  {has && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 1 }}>
-                      <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.05rem', color: pos ? '#4f8fff' : neg ? '#ef4444' : '#c8d4e8', lineHeight: 1 }}>{fmtCompact(d.pnl)}</div>
-                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>{d.count} {d.count === 1 ? 'trade' : 'trades'}</div>
-                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>{fmtWinRate(d.wins, d.count)}</div>
-                    </div>
-                  )}
-                  {has && dotColor && <span style={{ position: 'absolute', bottom: 6, right: 6, width: 5, height: 5, borderRadius: '50%', background: dotColor }} />}
-                </div>
-              );
-            })}
-          </div>
-          {monthly.trades === 0 && (
-            <div style={{ textAlign: 'center', padding: '14px 0 4px', fontSize: '0.75rem', color: 'var(--muted)' }}>
-              Este mes aún no tiene operaciones. <span onClick={() => window.dispatchEvent(new CustomEvent('trace:open-add-trade'))} style={{ color: 'var(--blue)', cursor: 'pointer', fontWeight: 600 }}>Añade la primera →</span>
-            </div>
-          )}
-          <style>{`.cal-cell:hover{ transform: scale(1.02); border-color: rgba(79,143,255,0.45) !important; }`}</style>
-          <Watermark />
-        </div>
-
-        {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* ── Recent activity ── */}
+      <div className="dash-row" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12, alignItems: 'start' }}>
           <div style={card}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 12, color: '#fff', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--dim)' }}>
               Operaciones recientes
@@ -579,7 +601,6 @@ export function Dashboard() {
             <Sparkline points={stats.equity} />
             <Watermark />
           </div>
-        </div>
       </div>
       </div>
       <TradeDetailModal trade={trades.find(t => t.id === detailId) ?? null} onClose={() => setDetailId(null)} />
@@ -615,78 +636,131 @@ function pfColor(firm: string) {
   return colors[Math.abs(h) % colors.length];
 }
 
-function PropFirmsPanel({ trades }: { trades: PanelTrade[] }) {
+const GROUPS_EXPANDED_KEY = 'dashboardFirmGroupsExpanded';
+function loadExpanded(): string[] { try { return JSON.parse(localStorage.getItem(GROUPS_EXPANDED_KEY) || '[]'); } catch { return []; } }
+
+function PropFirmGroupsPanel({ trades }: { trades: PanelTrade[] }) {
   const navigate = useNavigate();
   const accounts = useUserAccounts();
   const active = useMemo(() => getActiveAccounts(accounts), [accounts]);
   const tradesFor = (id: string) => trades.filter(t => t.accountId === id);
+  const groups = useMemo(() => getAccountsGroupedByFirm(active), [active]);
   const alerts = useMemo(() => getAccountAlerts(accounts, tradesFor), [accounts, trades]);
 
-  if (active.length === 0) return null;
+  const [expanded, setExpanded] = useState<string[]>(loadExpanded);
+  const toggle = (firm: string) => setExpanded(prev => {
+    const next = prev.includes(firm) ? prev.filter(f => f !== firm) : [...prev, firm];
+    try { localStorage.setItem(GROUPS_EXPANDED_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    return next;
+  });
 
   return (
     <ProLock feature="Prop Firm Hub" description="Cuentas, fees, payouts, pass rate y ROI por firma">
-      <div style={card}>
+      <div>
+        {/* Section header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#fff' }}>Tus prop firms</div>
-            <span style={{ background: 'rgba(79,143,255,0.1)', color: 'var(--blue)', fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>{active.length}</span>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#fff' }}>Mis prop firms</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => navigate('/prop-firms')} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 7, padding: '5px 12px', fontSize: '0.72rem', cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>+ Añadir cuenta</button>
+            <span onClick={() => navigate('/prop-firms')} style={{ fontSize: '0.72rem', color: 'var(--blue)', cursor: 'pointer' }}>Ver todas →</span>
           </div>
-          <span onClick={() => navigate('/prop-firms')} style={{ fontSize: '0.68rem', color: 'var(--blue)', cursor: 'pointer' }}>Ver hub →</span>
         </div>
 
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-            {alerts.map((al, i) => {
-              const isTarget = al.kind === 'target_reached';
-              const col = isTarget ? '#4f8fff' : al.kind === 'near_dd' ? '#ef4444' : '#f59e0b';
-              const icon = isTarget ? '🎯' : al.kind === 'near_dd' ? '⚠️' : '⚖️';
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: `${col}14`, border: `1px solid ${col}26`, borderRadius: 7, padding: '7px 11px', fontSize: '0.74rem', color: col }}>
-                  <span>{icon}</span><span>{al.message}</span>
-                </div>
-              );
-            })}
+        {active.length === 0 ? (
+          <div style={{ background: '#15171d', border: '1px dashed #1e2029', borderRadius: 12, padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>Aún no has añadido ninguna cuenta prop firm.</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '6px 0 16px' }}>Trackea tus cuentas en un solo lugar.</div>
+            <button onClick={() => navigate('/prop-firms')} style={{ background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}>Añadir primera cuenta →</button>
           </div>
+        ) : (
+          <>
+            {alerts.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                {alerts.map((al, i) => {
+                  const isTarget = al.kind === 'target_reached';
+                  const col = isTarget ? '#4f8fff' : al.kind === 'near_dd' ? '#ef4444' : '#f59e0b';
+                  const icon = isTarget ? '🎯' : al.kind === 'near_dd' ? '⚠️' : '⚖️';
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: `${col}14`, border: `1px solid ${col}26`, borderRadius: 7, padding: '7px 11px', fontSize: '0.74rem', color: col }}>
+                      <span>{icon}</span><span>{al.message}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {groups.map(g => (
+              <FirmFolderCard key={g.firm} group={g} trades={trades} expanded={expanded.includes(g.firm)} onToggle={() => toggle(g.firm)} onOpenAccount={id => navigate(`/prop-firms/${id}`)} />
+            ))}
+          </>
         )}
-
-        {/* Mini-cards */}
-        <div className="pf-mini-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(active.length, 3)}, 1fr)`, gap: 10 }}>
-          {active.map(a => <PropFirmMiniCard key={a.id} account={a} trades={tradesFor(a.id)} onOpen={() => navigate(`/prop-firms/${a.id}`)} />)}
-        </div>
       </div>
     </ProLock>
   );
 }
 
-function PropFirmMiniCard({ account: a, trades, onOpen }: { account: PropFirmAccount; trades: PanelTrade[]; onOpen: () => void }) {
+function FirmKpi({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div style={{ textAlign: 'center', minWidth: 70 }}>
+      <div style={{ fontSize: '0.56rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontSize: '0.82rem', color: color || '#fff', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginTop: 2 }}>{value}</div>
+    </div>
+  );
+}
+
+function FirmFolderCard({ group, trades, expanded, onToggle, onOpenAccount }: { group: FirmGroup; trades: PanelTrade[]; expanded: boolean; onToggle: () => void; onOpenAccount: (id: string) => void }) {
+  const { firm, accounts, totals } = group;
+  return (
+    <div style={{ background: '#15171d', border: '1px solid #1e2029', borderRadius: 12, padding: '18px 22px', marginBottom: 12 }}>
+      {/* Header row */}
+      <div onClick={onToggle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, cursor: 'pointer', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 7, background: pfColor(firm), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{pfInitials(firm)}</div>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>{firm}</div>
+          <span style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', fontSize: '0.68rem', padding: '2px 8px', borderRadius: 10 }}>{totals.count} {totals.count === 1 ? 'cuenta' : 'cuentas'}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <FirmKpi label="Net" value={fmtMoney(totals.net)} color={totals.net >= 0 ? 'var(--blue)' : 'var(--red)'} />
+          <FirmKpi label="Payouts" value={`$${Math.round(totals.payouts).toLocaleString('en-US')}`} />
+          <FirmKpi label="ROI" value={`${Math.round(totals.roi)}%`} color={totals.roi >= 0 ? 'var(--blue)' : 'var(--red)'} />
+          <span style={{ color: 'var(--muted)', fontSize: 14, display: 'inline-flex', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▸</span>
+        </div>
+      </div>
+
+      {/* Expanded accounts */}
+      {expanded && (
+        <div className="firm-accts-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginTop: 16 }}>
+          {accounts.map(a => <FirmAccountMiniCard key={a.id} account={a} trades={trades.filter(t => t.accountId === a.id)} onOpen={() => onOpenAccount(a.id)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function daysSince(iso: string) {
+  const ms = Date.now() - new Date(`${iso}T00:00:00`).getTime();
+  return Math.max(0, Math.floor(ms / 86400000));
+}
+
+function FirmAccountMiniCard({ account: a, trades, onOpen }: { account: PropFirmAccount; trades: PanelTrade[]; onOpen: () => void }) {
   const st = computeAccountStatus(a, trades);
   const progressPct = Math.max(0, Math.min(100, st.progressPct * 100));
-  const ddPct = st.ddBufferPct * 100;
+  const ddPct = Math.max(0, Math.min(100, st.ddBufferPct * 100));
   const ddColor = st.ddBufferPct > 0.5 ? 'var(--blue)' : st.ddBufferPct > 0.25 ? '#f59e0b' : 'var(--red)';
   const phase = PF_PHASE_COLOR[a.phase] ?? { bg: 'var(--dim2)', c: 'var(--muted)' };
   return (
-    <div
-      onClick={onOpen}
-      style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 9, padding: '12px 14px', cursor: 'pointer', transition: 'border-color 0.15s' }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(79,143,255,0.25)')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-    >
+    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e2029', borderRadius: 8, padding: '14px 16px' }}>
+      {/* Top row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 24, height: 24, borderRadius: 6, background: pfColor(a.firm), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>{pfInitials(a.firm)}</div>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 600, lineHeight: 1.1 }}>{a.firm}</div>
-            <div style={{ fontSize: '0.62rem', color: 'var(--muted)' }}>${Math.round(a.accountSize / 1000)}K</div>
-          </div>
+          <span style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 600 }}>${Math.round(a.accountSize / 1000)}K</span>
+          <span style={{ background: phase.bg, color: phase.c, fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>{PF_PHASE_LABEL[a.phase] ?? a.phase}</span>
         </div>
-        <span style={{ background: phase.bg, color: phase.c, fontSize: 8, padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>{PF_PHASE_LABEL[a.phase] ?? a.phase}</span>
+        <button onClick={onOpen} title="Ver cuenta" style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>⋯</button>
       </div>
 
       {/* Progress to target */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: 'var(--muted)', marginBottom: 4 }}>
-        <span>Target</span>
+        <span>Hacia target</span>
         <span style={{ color: st.targetReached ? 'var(--blue)' : '#c8d4e8' }}>{fmtMoney(st.pnl)} / {fmtMoney(a.profitTarget).replace('+', '')}</span>
       </div>
       <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
@@ -695,14 +769,18 @@ function PropFirmMiniCard({ account: a, trades, onOpen }: { account: PropFirmAcc
 
       {/* DD buffer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: 'var(--muted)', margin: '8px 0 4px' }}>
-        <span>Margen a max DD</span>
+        <span>Distancia a max DD</span>
         <span style={{ color: ddColor }}>{fmtMoney(st.ddBuffer).replace('+', '')}</span>
       </div>
       <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ width: `${ddPct}%`, height: '100%', background: ddColor }} />
       </div>
 
-      <div style={{ fontSize: '0.6rem', color: 'var(--muted)', marginTop: 9 }}>{st.tradeCount} {st.tradeCount === 1 ? 'op vinculada' : 'ops vinculadas'}</div>
+      {/* Footer */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, fontSize: '0.72rem' }}>
+        <span style={{ color: 'var(--muted)' }}>{st.tradeCount} ops · {daysSince(a.purchaseDate)} días</span>
+        <span onClick={onOpen} style={{ color: 'var(--blue)', cursor: 'pointer', fontWeight: 600 }}>Ver →</span>
+      </div>
     </div>
   );
 }

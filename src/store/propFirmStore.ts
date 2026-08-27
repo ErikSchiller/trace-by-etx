@@ -254,6 +254,33 @@ export function getAccountsByFirm(accounts: PropFirmAccount[]) {
     roi: getTotalInvested(list) === 0 ? 0 : (getNetPnL(list) / getTotalInvested(list)) * 100,
   })).sort((a, b) => b.roi - a.roi);
 }
+
+export interface FirmGroup {
+  firm: string;
+  accounts: PropFirmAccount[];
+  totals: { count: number; invested: number; payouts: number; net: number; roi: number };
+}
+/**
+ * Groups the given (active) accounts by firm and computes firm-level totals,
+ * sorted by total invested descending. Reuses the existing cost/payout helpers.
+ */
+export function getAccountsGroupedByFirm(accounts: PropFirmAccount[]): FirmGroup[] {
+  const map = new Map<string, PropFirmAccount[]>();
+  for (const a of accounts) {
+    if (!map.has(a.firm)) map.set(a.firm, []);
+    map.get(a.firm)!.push(a);
+  }
+  return [...map.entries()].map(([firm, list]) => {
+    const invested = getTotalInvested(list);
+    const payouts = getTotalPayouts(list);
+    const net = getNetPnL(list);
+    return {
+      firm,
+      accounts: list,
+      totals: { count: list.length, invested, payouts, net, roi: invested === 0 ? 0 : (net / invested) * 100 },
+    };
+  }).sort((a, b) => b.totals.invested - a.totals.invested);
+}
 /* ============ Live account status (from linked trades) ============ */
 
 export type AccountAlertKind = 'near_dd' | 'target_reached' | 'consistency_risk';
