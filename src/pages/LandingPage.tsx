@@ -4,6 +4,7 @@ import { LogoMark } from '../components/UI/LogoMark';
 import { Navbar } from '../components/Marketing/Navbar';
 import { Footer } from '../components/Marketing/Footer';
 import { CookiesBanner } from '../components/CookiesBanner';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { AiWaitlistModal } from '../components/UI/AiWaitlistModal';
 
 const C = {
@@ -26,6 +27,7 @@ const fontBody = "'Space Grotesk', sans-serif";
 
 export default function LandingPage() {
   const [waitlistOpen, setWaitlistOpen] = useState(false);
+  usePageTitle();
   useEffect(() => {
     document.documentElement.style.scrollBehavior = 'smooth';
     return () => { document.documentElement.style.scrollBehavior = ''; };

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { LogoMark } from '../components/UI/LogoMark';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { joinAiWaitlist } from '../config/tracer-ai-content';
 
 const C = {
@@ -67,6 +68,7 @@ const PROP_FIRMS = [
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  usePageTitle('Bienvenido');
   const setOnboardingComplete = useAuthStore(s => s.setOnboardingComplete);
   const logout = useAuthStore(s => s.logout);
   const userEmail = useAuthStore(s => s.user?.email);

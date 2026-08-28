@@ -3,7 +3,7 @@ import { LegalLayout, legalH2, legalP } from '../../components/Marketing/primiti
 
 export default function Terms() {
   return (
-    <MarketingLayout title="Términos">
+    <MarketingLayout title="Términos y condiciones">
       <LegalLayout title="Términos y condiciones" updated="13 de junio de 2026">
         <p style={legalP}>Bienvenido a TRACE by ETX. Al usar nuestro servicio aceptas estos términos. Por favor léelos con atención.</p>
 

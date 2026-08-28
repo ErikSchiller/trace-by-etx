@@ -41,7 +41,7 @@ export default function BrokersLanding() {
   };
 
   return (
-    <MarketingLayout title="Brokers">
+    <MarketingLayout title="Brokers compatibles">
       <PageHero title="Brokers " blue="compatibles." sub="Conecta tu broker favorito y sincroniza tus operaciones automáticamente. (Próximamente — durante el lanzamiento puedes importar tus trades manualmente vía CSV.)" />
 
       {/* Status banner */}

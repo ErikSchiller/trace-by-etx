@@ -11,6 +11,7 @@ import { Watermark } from '../../components/UI/Watermark';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { DeleteAccountDialog } from './AccountModals';
 import { useToast } from '../../components/UI/ToastProvider';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -34,6 +35,7 @@ export default function PropFirmDetail() {
   const allTrades = useUserTrades();
   const setPhase = usePropFirmStore(s => s.setPhase);
   const { push } = useToast();
+  usePageTitle(account ? account.firm : 'Prop Firms');
 
   const [tab, setTab] = useState<Tab>('trades');
   const [payoutOpen, setPayoutOpen] = useState(false);

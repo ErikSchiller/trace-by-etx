@@ -121,8 +121,10 @@ export function AppLayout() {
   }, [trades]);
   const atLimit = isAtTradeLimit(thisMonthCount);
 
-  const pageTitle = titleMap[location.pathname] || 'TRACE';
-  usePageTitle(titleMap[location.pathname]);
+  // Dynamic subroutes (e.g. /prop-firms/:id) own their own title — defer to them.
+  const isPropFirmDetail = location.pathname.startsWith('/prop-firms/');
+  const pageTitle = titleMap[location.pathname] || (isPropFirmDetail ? 'Prop Firms' : 'TRACE');
+  usePageTitle(isPropFirmDetail ? null : titleMap[location.pathname]);
   const userName = user?.name ?? 'Usuario';
   const userPlan = PLAN_LABEL[user?.plan ?? 'free'];
   const initials = getInitials(userName);
