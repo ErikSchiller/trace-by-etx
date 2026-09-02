@@ -14,6 +14,7 @@ import { Watermark } from '../../components/UI/Watermark';
 import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
 import { useToast } from '../../components/UI/ToastProvider';
 import { MarkFundedModal, DeleteAccountDialog } from './AccountModals';
+import { AffiliateCodeCard, AffiliatePill } from './AffiliateCode';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -89,6 +90,9 @@ export default function PropFirms() {
               <Cell label="TIEMPO A FUNDED" value={`${days.mean} días`} valColor="#fff" sub={`Mediana: ${days.median} días`} last />
               <Watermark />
             </div>
+
+            {/* Affiliate discounts for the user's firms */}
+            {[...new Set(accounts.map(a => a.firm))].map(f => <AffiliateCodeCard key={f} firm={f} />)}
 
             {/* Active accounts */}
             {active.length > 0 && (
@@ -380,6 +384,7 @@ function AddAccountModal({ open, onClose, editAccount }: { open: boolean; onClos
               ))}
             </div>
             {firm === 'Otro' && <input value={customFirm} onChange={e => setCustomFirm(e.target.value)} placeholder="Nombre de la firma" style={{ ...inp, marginTop: 8 }} />}
+            <div style={{ marginTop: 10 }}><AffiliatePill firm={firm === 'Otro' ? customFirm : firm} /></div>
           </div>
 
           {/* Preset / size */}

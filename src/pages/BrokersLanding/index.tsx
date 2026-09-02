@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MarketingLayout } from '../../components/Marketing/MarketingLayout';
 import { PageHero, CTABanner } from '../../components/Marketing/primitives';
 import { C, fontHead } from '../../components/Marketing/theme';
+import { getActiveAffiliates, trackAffiliateEvent } from '../../config/affiliates';
 
 const BROKERS = [
   { name: 'Tradovate', init: 'TV', color: '#3b82f6' },
@@ -25,6 +26,13 @@ export default function BrokersLanding() {
   const [waitlist, setWaitlist] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('trace_broker_waitlist') || '[]'); } catch { return []; }
   });
+  const [copied, setCopied] = useState<string | null>(null);
+  const affiliates = getActiveAffiliates();
+  const copyAff = (code: string, firm: string) => {
+    try { navigator.clipboard?.writeText(code); } catch { /* ignore */ }
+    trackAffiliateEvent('copy', firm);
+    setCopied(firm); setTimeout(() => setCopied(c => (c === firm ? null : c)), 1600);
+  };
 
   const notify = (name: string) => {
     const next = [...new Set([...waitlist, name])];
@@ -54,6 +62,25 @@ export default function BrokersLanding() {
           <Link to="/register" style={{ fontSize: '0.82rem', color: C.amber, textDecoration: 'none', fontWeight: 600 }}>Notifícame cuando esté listo →</Link>
         </div>
       </div>
+
+      {/* Descuentos exclusivos */}
+      {affiliates.length > 0 && (
+        <div id="descuentos" style={{ maxWidth: 1000, margin: '48px auto 0', padding: '0 24px', scrollMarginTop: 90 }}>
+          <h2 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.5rem', color: '#fff', textAlign: 'center', marginBottom: 6 }}>Descuentos exclusivos con TRACE</h2>
+          <p style={{ fontSize: '0.85rem', color: C.text2, textAlign: 'center', marginBottom: 24 }}>Códigos negociados para la comunidad. Aplícalos al comprar tu evaluación.</p>
+          <div className="lp-aff-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(affiliates.length, 3)}, 1fr)`, gap: 14, maxWidth: affiliates.length < 3 ? 640 : undefined, margin: '0 auto' }}>
+            {affiliates.map(a => (
+              <div key={a.firm} style={{ background: 'linear-gradient(135deg, rgba(79,143,255,0.08), rgba(120,97,255,0.06))', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 14, padding: 24, textAlign: 'center' }}>
+                <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1rem', color: '#fff' }}>{a.displayName}</div>
+                <div style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.8rem', color: '#7861ff', margin: '10px 0 4px' }}>{a.discount}</div>
+                {a.description && <div style={{ fontSize: '0.74rem', color: C.text3, marginBottom: 14 }}>{a.description}</div>}
+                <button onClick={() => copyAff(a.code, a.firm)} style={{ display: 'block', width: '100%', background: '#0a0a0c', border: '1px solid rgba(79,143,255,0.3)', borderRadius: 8, padding: '10px', color: '#4f8fff', fontWeight: 700, letterSpacing: '0.05em', cursor: 'pointer', marginBottom: 10, fontFamily: "'Space Grotesk', sans-serif" }}>{copied === a.firm ? '¡Copiado! ✓' : a.code}</button>
+                {a.url && <a href={a.url} target="_blank" rel="noopener noreferrer" onClick={() => trackAffiliateEvent('click', a.firm)} style={{ display: 'block', background: '#4f8fff', color: '#fff', borderRadius: 8, padding: '10px', fontSize: '0.84rem', fontWeight: 600, textDecoration: 'none' }}>Aprovechar descuento →</a>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Broker grid */}
       <div style={{ maxWidth: 1000, margin: '40px auto 0', padding: '0 24px' }}>

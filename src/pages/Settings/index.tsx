@@ -13,6 +13,7 @@ import { Toggle } from '../../components/UI/Toggle';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { exportToCSV, exportToJSON, parseCSV, applyAccentColor } from '../../utils/export';
 import { previewSound } from '../../utils/sounds';
+import { isAffiliateVisible, setAffiliateVisible } from '../../config/affiliates';
 import i18n, { useTranslation } from '../../i18n/i18n';
 
 /** Resize an image data URL to a square 200x200 JPEG. */
@@ -138,6 +139,7 @@ export default function Settings() {
     push({ kind: 'success', text: i18n.t('toast.languageUpdated') });
   };
 
+  const [affVisible, setAffVisible] = useState(isAffiliateVisible());
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDeleteAcct, setConfirmDeleteAcct] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -349,7 +351,7 @@ export default function Settings() {
                     <Toggle checked={false} onChange={() => {}} disabled />
                   </div>
                 </Row>
-                <Row label="Sonidos de la interfaz" desc="Sonidos sutiles al ganar un trade, completar la rutina o pasar una eval." last>
+                <Row label="Sonidos de la interfaz" desc="Sonidos sutiles al ganar un trade, completar la rutina o pasar una eval.">
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                     <Toggle checked={settings.soundsEnabled} onChange={v => settings.updateSettings({ soundsEnabled: v })} />
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -358,6 +360,9 @@ export default function Settings() {
                       ))}
                     </div>
                   </div>
+                </Row>
+                <Row label="Mostrar descuentos de afiliados" desc="TRACE tiene acuerdos con firmas prop. Si lo desactivas, no verás los códigos de descuento." last>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Toggle checked={affVisible} onChange={v => { setAffiliateVisible(v); setAffVisible(v); }} /></div>
                 </Row>
               </Section>
             )}
