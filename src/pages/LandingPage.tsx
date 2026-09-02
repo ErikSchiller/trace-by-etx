@@ -5,6 +5,7 @@ import { Navbar } from '../components/Marketing/Navbar';
 import { Footer } from '../components/Marketing/Footer';
 import { CookiesBanner } from '../components/CookiesBanner';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { getFounderSpotsRemaining } from '../config/plans';
 import { AiWaitlistModal } from '../components/UI/AiWaitlistModal';
 
 const C = {
@@ -188,6 +189,11 @@ function Hero() {
               <span style={{ color: C.blue }}>Gratis para siempre</span> · Sin tarjeta
             </div>
           </div>
+          {getFounderSpotsRemaining() > 0 && (
+            <Link to="/precios#founder" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(120,97,255,0.08)', border: '1px solid rgba(120,97,255,0.25)', color: '#a99bff', borderRadius: 20, padding: '6px 14px', fontSize: '0.74rem', textDecoration: 'none', marginBottom: 18 }}>
+              🏆 Oferta fundador: <b style={{ color: '#c7bcff' }}>€249 lifetime</b> → Solo {getFounderSpotsRemaining()} plazas
+            </Link>
+          )}
           <div style={{ fontSize: '0.65rem', color: C.text3, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10 }}>
             Todo en un solo lugar · 6 herramientas
           </div>

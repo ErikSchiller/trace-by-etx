@@ -69,7 +69,7 @@ const titleMap: Record<string, string> = {
   '/gallery': 'Galería', '/brokers': 'Brokers', '/settings': 'Ajustes',
 };
 
-const PLAN_LABEL: Record<string, string> = { free: 'Plan Gratis', pro: 'Plan Pro' };
+const PLAN_LABEL: Record<string, string> = { free: 'Plan Gratis', pro: 'Plan Pro', pro_ai: 'Plan Pro AI', founder: 'Fundador' };
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -306,14 +306,14 @@ export function AppLayout() {
             borderRadius: 8, padding: '10px 12px',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: 'var(--blue)', fontWeight: 600 }}>✦ Plan Pro</span>
+              <span style={{ fontSize: 11, color: 'var(--blue)', fontWeight: 600 }}>✦ Actualiza a Pro</span>
               <span style={{ fontSize: 11, color: 'var(--blue)' }}>→</span>
             </div>
             <div style={{ fontSize: 11, color: '#33334a', marginTop: 2 }}>
-              Desbloquea analíticas, brokers y más
+              Desde €9.92/mes. Analíticas, brokers y más.
             </div>
             <button
-              onClick={() => openUpgrade()}
+              onClick={() => navigate('/precios')}
               style={{
                 width: '100%', marginTop: 8,
                 background: 'var(--blue)', color: '#fff',
@@ -321,7 +321,7 @@ export function AppLayout() {
                 padding: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 fontFamily: "'Space Grotesk', sans-serif",
               }}
-            >Actualizar →</button>
+            >Ver planes →</button>
           </div>
         )}
 

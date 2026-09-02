@@ -17,7 +17,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  plan: 'free' | 'pro';
+  plan: 'free' | 'pro' | 'pro_ai' | 'founder';
   planExpiresAt?: string;
   billingCycle?: 'monthly' | 'annual';
   createdAt: string;
@@ -54,6 +54,7 @@ interface AuthState {
   updateAvatar: (dataUrl: string | undefined) => void;
   recordGeneratedCard: (meta: Omit<GeneratedCard, 'id' | 'ts'>) => void;
   upgradeToPro: (cycle: 'monthly' | 'annual') => void;
+  upgradeToTier: (tier: 'pro' | 'pro_ai' | 'founder', cycle?: 'monthly' | 'annual') => void;
   downgradeToFree: () => void;
 }
 
@@ -156,22 +157,29 @@ export const useAuthStore = create<AuthState>()(
         get().updateUser({ generatedCards, stats });
       },
 
-      upgradeToPro: (cycle) => {
+      upgradeToPro: (cycle) => { get().upgradeToTier('pro', cycle); },
+
+      upgradeToTier: (tier, cycle = 'annual') => {
         const cur = get().user;
         if (!cur) return;
-        const ms = cycle === 'annual' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
-        const updates: Partial<User> = {
-          plan: 'pro',
-          billingCycle: cycle,
-          planExpiresAt: new Date(Date.now() + ms).toISOString(),
-        };
+        const updates: Partial<User> = { plan: tier };
+        if (tier === 'founder') {
+          // One-time payment: no billing cycle, no expiry. Claim a spot.
+          updates.billingCycle = undefined;
+          updates.planExpiresAt = undefined;
+          try {
+            const claimed = parseInt(localStorage.getItem('founder_claimed') || '0', 10) || 0;
+            localStorage.setItem('founder_claimed', String(claimed + 1));
+          } catch { /* ignore */ }
+        } else {
+          const ms = cycle === 'annual' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+          updates.billingCycle = cycle;
+          updates.planExpiresAt = new Date(Date.now() + ms).toISOString();
+        }
         const updated = { ...cur, ...updates };
         const users = loadUsers();
         const idx = users.findIndex(u => u.id === cur.id);
-        if (idx >= 0) {
-          users[idx] = { ...users[idx], ...updates };
-          saveUsers(users);
-        }
+        if (idx >= 0) { users[idx] = { ...users[idx], ...updates }; saveUsers(users); }
         set({ user: updated });
       },
 
