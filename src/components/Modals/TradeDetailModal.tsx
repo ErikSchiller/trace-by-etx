@@ -6,6 +6,7 @@ import { useUserAccounts, getActiveAccounts } from '../../store/propFirmStore';
 import { useToast } from '../UI/ToastProvider';
 import { AddTradeModal } from './AddTradeModal';
 import { ConfirmDialog } from '../UI/ConfirmDialog';
+import { ImageLightbox } from '../UI/ImageLightbox';
 
 const mono: React.CSSProperties = { fontFamily: "'Space Grotesk', sans-serif" };
 function firmColor(firm: string) {
@@ -49,6 +50,8 @@ export function TradeDetailModal({ trade, onClose }: { trade: Trade | null; onCl
   const [deleteScope, setDeleteScope] = useState<'one' | 'group'>('one');
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySel, setCopySel] = useState<string[]>([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const groupMembers = useMemo(() => (trade?.groupId ? allTrades.filter(t => t.groupId === trade.groupId) : []), [trade?.groupId, allTrades]);
   const firmById = useMemo(() => { const m = new Map<string, string>(); allAccounts.forEach(a => m.set(a.id, a.firm)); return m; }, [allAccounts]);
@@ -175,12 +178,22 @@ export function TradeDetailModal({ trade, onClose }: { trade: Trade | null; onCl
 
         {trade.screenshots.length > 0 && (
           <div style={{ marginBottom: 14 }}>
+            <style>{`.trace-shot:hover .trace-shot-ov{opacity:1}`}</style>
             <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
               Capturas
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
               {trade.screenshots.map((src, i) => (
-                <img key={i} src={src} alt="" style={{ width: 120, height: 80, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--border)' }} />
+                <div
+                  key={i}
+                  className="trace-shot"
+                  onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}
+                  title="Ver captura"
+                  style={{ position: 'relative', aspectRatio: '16 / 9', borderRadius: 8, overflow: 'hidden', background: '#1a1c22', border: '1px solid #1e2029', cursor: 'pointer' }}
+                >
+                  <img src={src} alt={`Captura ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div className="trace-shot-ov" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', opacity: 0, transition: 'opacity 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 }}>🔍</div>
+                </div>
               ))}
             </div>
           </div>
@@ -228,6 +241,14 @@ export function TradeDetailModal({ trade, onClose }: { trade: Trade | null; onCl
         </div>
       </div>
       <div onClick={e => e.stopPropagation()}>
+        <ImageLightbox
+          images={trade.screenshots ?? []}
+          initialIndex={lightboxIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          caption={`${trade.asset} ${trade.direction.toUpperCase()} — ${trade.date}`}
+          tradeId={trade.id}
+        />
         <AddTradeModal open={editOpen} onClose={() => setEditOpen(false)} mode="edit" tradeId={trade.id} />
 
         {/* Delete: grouped → radio modal, else simple confirm */}

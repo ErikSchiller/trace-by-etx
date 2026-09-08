@@ -11,6 +11,10 @@ import { useUserAccounts, getActiveAccounts } from '../../store/propFirmStore';
 import { useNotebookStore } from '../../store/notebookStore';
 import { checkTradeMilestones } from '../../utils/milestones';
 import { playSound } from '../../utils/sounds';
+import { processImageForUpload } from '../../utils/imageProcessing';
+import { ImageLightbox } from '../UI/ImageLightbox';
+
+const MAX_SCREENSHOTS = 5;
 
 const PHASE_SHORT: Record<string, string> = { eval_p1: 'Eval', eval_p2: 'Eval 2', funded: 'Funded', passed_pending: 'Passed' };
 function firmColor(firm: string) {
@@ -118,6 +122,9 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const [isPlanBased, setIsPlanBased] = useState(true);
   const [errorTags, setErrorTags] = useState<string[]>([]);
   const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [uploadingShots, setUploadingShots] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDragOver, setIsDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -164,10 +171,10 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   // Esc to close
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !lightboxOpen) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, lightboxOpen]);
 
   const switchMode = (m: InputMode) => {
     setInputMode(m);
@@ -302,11 +309,24 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const closeAfterSave = () => { resetForm(); onClose(); };
   const openCardFor = (id: string) => { closeAfterSave(); setTimeout(() => window.dispatchEvent(new CustomEvent('trace:open-pnl-card', { detail: { tradeId: id } })), 60); };
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    Promise.all(Array.from(files).filter(f => f.type.startsWith('image/')).map(f => new Promise<string>((res, rej) => {
-      const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(f);
-    }))).then(arr => setScreenshots(s => [...s, ...arr]));
+    const images = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (!images.length) return;
+    const remaining = MAX_SCREENSHOTS - screenshots.length;
+    if (remaining <= 0) { push({ kind: 'error', text: `Máximo ${MAX_SCREENSHOTS} imágenes por operación` }); return; }
+    if (images.length > remaining) { push({ kind: 'error', text: `Solo puedes añadir ${remaining} imagen${remaining === 1 ? '' : 'es'} más (máx ${MAX_SCREENSHOTS})` }); }
+
+    setUploadingShots(true);
+    for (const file of images.slice(0, remaining)) {
+      try {
+        const processed = await processImageForUpload(file);
+        setScreenshots(s => (s.length >= MAX_SCREENSHOTS ? s : [...s, processed]));
+      } catch (err) {
+        push({ kind: 'error', text: err instanceof Error ? err.message : 'Error al procesar imagen' });
+      }
+    }
+    setUploadingShots(false);
   };
 
   const pnlPreviewColor = directValid ? (directPnl > 0 ? '#4f8fff' : directPnl < 0 ? '#ef4444' : '#888898') : '#fff';
@@ -611,13 +631,15 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
                   <div style={{ fontSize: '0.7rem', color: '#4a4a60' }}>o <span style={{ color: '#4f8fff', textDecoration: 'underline' }}>busca archivos</span></div>
                 </>
               ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', alignItems: 'center' }}>
                   {screenshots.map((src, i) => (
                     <div key={i} style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                      <img src={src} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #1e1e20', display: 'block' }} />
-                      <button type="button" onClick={() => setScreenshots(s => s.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', fontSize: 9, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                      <img src={src} alt={`Captura ${i + 1}`} title="Ver captura" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #1e1e20', display: 'block', cursor: 'pointer' }} />
+                      <button type="button" aria-label="Quitar captura" onClick={() => setScreenshots(s => s.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', fontSize: 9, cursor: 'pointer', lineHeight: 1 }}>✕</button>
                     </div>
                   ))}
+                  {uploadingShots && <span style={{ fontSize: '0.66rem', color: '#4f8fff', width: '100%' }}>Procesando…</span>}
+                  {screenshots.length < MAX_SCREENSHOTS && <span style={{ fontSize: '0.6rem', color: '#4a4a60', width: '100%' }}>+ añadir ({screenshots.length}/{MAX_SCREENSHOTS})</span>}
                 </div>
               )}
               <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
@@ -629,6 +651,14 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
             >{saving ? 'Guardando…' : (editTrade ? 'Guardar cambios' : 'Guardar →')}</button>
           </div>
         </div>
+        <ImageLightbox
+          images={screenshots}
+          initialIndex={lightboxIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          caption={asset ? `${asset} — captura` : 'Captura'}
+          tradeId={tradeId}
+        />
       </form>
     </div>
   );
