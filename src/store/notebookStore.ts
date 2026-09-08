@@ -98,13 +98,32 @@ interface NotebookStore {
 
 export const DEFAULT_FOLDER_NAMES = ['Diario de trading', 'Playbooks', 'Psicología', 'Revisión semanal'];
 
-// New default collections (matches the redesign reference).
+// New default collections (icons are lucide names — see pages/Notebook/icons).
 const DEFAULT_FOLDERS = [
-  { name: 'Diario de trading', icon: '📓' },
-  { name: 'Playbooks',         icon: '📖' },
-  { name: 'Psicología',        icon: '🧠' },
-  { name: 'Revisión semanal',  icon: '📅' },
+  { name: 'Diario de trading', icon: 'BookOpen' },
+  { name: 'Playbooks',         icon: 'BookMarked' },
+  { name: 'Psicología',        icon: 'Brain' },
+  { name: 'Revisión semanal',  icon: 'CalendarDays' },
 ];
+
+// Best-effort legacy emoji → lucide-name map (kept in sync with pages/Notebook/icons).
+const EMOJI_TO_ICON: Record<string, string> = {
+  '📓': 'BookOpen', '📖': 'BookMarked', '📕': 'Book', '📗': 'Book', '📘': 'Book',
+  '🧠': 'Brain', '🎯': 'Target', '📈': 'TrendingUp', '📉': 'TrendingDown',
+  '📊': 'BarChart3', '⚡': 'Zap', '🔥': 'Flame', '⭐': 'Star', '🌟': 'Star',
+  '🏆': 'Trophy', '🥇': 'Award', '📅': 'CalendarDays', '📆': 'Calendar',
+  '⏰': 'Clock', '⚠️': 'AlertTriangle', 'ℹ️': 'Info', '✅': 'CheckSquare',
+  '📋': 'ClipboardList', '💡': 'Lightbulb', '✨': 'Sparkles', '🧭': 'Compass',
+  '🚩': 'Flag', '🗂️': 'Folder', '🗂': 'Folder', '📁': 'Folder', '📂': 'FolderOpen',
+  '🔖': 'Bookmark', '☕': 'Coffee', '🌅': 'Sunrise', '🌇': 'Sunset', '🌙': 'Moon',
+  '📎': 'FileText', '📌': 'Bookmark', '📝': 'StickyNote',
+};
+const KNOWN_ICON_NAMES = new Set(Object.values(EMOJI_TO_ICON).concat(['Notebook', 'Activity', 'LineChart', 'AlertCircle', 'HelpCircle', 'ListChecks', 'Map', 'Archive', 'Timer']));
+function iconName(raw: string | undefined): string {
+  if (!raw) return 'Folder';
+  if (KNOWN_ICON_NAMES.has(raw)) return raw;
+  return EMOJI_TO_ICON[raw] ?? 'Folder';
+}
 
 /* ── Block helpers ──────────────────────────────────────────────────────── */
 
@@ -204,7 +223,7 @@ export const useNotebookStore = create<NotebookStore>()(
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';
         const existing = get().folders.find(f => f.userId === userId && f.name === DIARIO_FOLDER_NAME);
         if (existing) return existing;
-        const folder: Folder = { id: nanoid(), userId, name: DIARIO_FOLDER_NAME, icon: '📓', order: -1, system: true };
+        const folder: Folder = { id: nanoid(), userId, name: DIARIO_FOLDER_NAME, icon: 'BookOpen', order: -1, system: true };
         set(s => ({ folders: [...s.folders, folder] }));
         return folder;
       },
@@ -213,7 +232,7 @@ export const useNotebookStore = create<NotebookStore>()(
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';
         const existing = get().folders.find(f => f.userId === userId && f.name === 'Trade Notes');
         if (existing) return existing;
-        const folder: Folder = { id: nanoid(), userId, name: 'Trade Notes', icon: '📎', order: 90, isDefault: true };
+        const folder: Folder = { id: nanoid(), userId, name: 'Trade Notes', icon: 'FileText', order: 90, isDefault: true };
         set(s => ({ folders: [...s.folders, folder] }));
         return folder;
       },
@@ -370,28 +389,31 @@ export const useNotebookStore = create<NotebookStore>()(
     }),
     {
       name: 'trace_notebook',
-      version: 1,
-      // v0 → v1: give every legacy note a blocks[] + meta, and refresh the old
-      // default-folder names/icons to the new collection set (non-destructive:
-      // notes keep their folderId, 'Trade Notes' + system folders untouched).
+      version: 2,
+      // v0 → v1: give every legacy note a blocks[] + meta, refresh old default-folder
+      //          names to the new collection set (non-destructive: notes keep their
+      //          folderId; 'Trade Notes' + system folders untouched).
+      // v1 → v2: convert every folder's emoji icon to a lucide icon name.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { folders?: Folder[]; notes?: Note[] };
         if (!state) return state as unknown as NotebookStore;
         if (version < 1) {
-          const rename: Record<string, { name: string; icon: string }> = {
-            'Sessions Recap': { name: 'Revisión semanal', icon: '📅' },
-            'Estrategias':    { name: 'Playbooks', icon: '📖' },
-            'Mis notas':      { name: 'Diario de trading', icon: '📓' },
-            'Psicología':     { name: 'Psicología', icon: '🧠' },
+          const rename: Record<string, string> = {
+            'Sessions Recap': 'Revisión semanal',
+            'Estrategias': 'Playbooks',
+            'Mis notas': 'Diario de trading',
           };
           state.folders = (state.folders ?? []).map(f =>
-            !f.system && rename[f.name] ? { ...f, ...rename[f.name] } : f,
+            !f.system && rename[f.name] ? { ...f, name: rename[f.name] } : f,
           );
           state.notes = (state.notes ?? []).map(n => ({
             ...n,
             blocks: n.blocks && n.blocks.length ? n.blocks : blocksFromContent(n.content ?? ''),
             meta: n.meta ?? { date: n.date, tradesCount: 0 },
           }));
+        }
+        if (version < 2) {
+          state.folders = (state.folders ?? []).map(f => ({ ...f, icon: iconName(f.icon) }));
         }
         return state as unknown as NotebookStore;
       },

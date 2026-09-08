@@ -3,27 +3,33 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { nanoid } from 'nanoid';
+import {
+  FileText, GripVertical, MoreHorizontal, Type, Heading2, Heading3, Quote,
+  Lightbulb, ListChecks, TrendingUp, Image as ImageIcon, Minus, Code2,
+  type LucideIcon,
+} from 'lucide-react';
 import { type Block, type BlockType, type ChecklistItem, newBlock } from '../../store/notebookStore';
 import type { Trade } from '../../store/tradeStore';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
 const C = {
-  bg: '#0a0a0c', card: '#15171d', border: '#1e2029', blue: '#4f8fff', red: '#ef4444',
-  text: '#f7f8fa', text2: '#c8c8d8', muted: '#6b7280', olive: '#a1ab88',
+  bg: '#0a0a0c', card: '#151519', card2: '#131418', border: '#1e2029', borderEl: '#2a2c33',
+  blue: '#4f8fff', red: '#ef4444',
+  text: '#f7f8fa', text2: '#d0d0dc', text3: '#8a8a99', muted: '#6b7280', olive: '#a1ab88',
 };
 
-const SLASH_OPTIONS: { type: BlockType; label: string; icon: string; level?: 2 | 3 }[] = [
-  { type: 'heading', label: 'Encabezado 2', icon: 'H₂', level: 2 },
-  { type: 'heading', label: 'Encabezado 3', icon: 'H₃', level: 3 },
-  { type: 'paragraph', label: 'Texto', icon: '📝' },
-  { type: 'quote', label: 'Cita', icon: '❝' },
-  { type: 'callout', label: 'Callout', icon: '💡' },
-  { type: 'checklist', label: 'Checklist', icon: '✅' },
-  { type: 'trade', label: 'Operación', icon: '📈' },
-  { type: 'image', label: 'Imagen', icon: '🖼' },
-  { type: 'divider', label: 'Separador', icon: '―' },
-  { type: 'code', label: 'Código', icon: '{ }' },
+const SLASH_OPTIONS: { type: BlockType; label: string; Icon: LucideIcon; level?: 2 | 3 }[] = [
+  { type: 'heading', label: 'Encabezado 2', Icon: Heading2, level: 2 },
+  { type: 'heading', label: 'Encabezado 3', Icon: Heading3, level: 3 },
+  { type: 'paragraph', label: 'Texto', Icon: Type },
+  { type: 'quote', label: 'Cita', Icon: Quote },
+  { type: 'callout', label: 'Callout', Icon: Lightbulb },
+  { type: 'checklist', label: 'Checklist', Icon: ListChecks },
+  { type: 'trade', label: 'Operación', Icon: TrendingUp },
+  { type: 'image', label: 'Imagen', Icon: ImageIcon },
+  { type: 'divider', label: 'Separador', Icon: Minus },
+  { type: 'code', label: 'Código', Icon: Code2 },
 ];
 
 /* ── EditableText: uncontrolled contentEditable with key events ──────────── */
@@ -89,12 +95,12 @@ function Sparkline({ trade }: { trade?: Trade }) {
     <svg width={140} height={60} viewBox="0 0 140 60" style={{ flexShrink: 0 }}>
       <defs>
         <linearGradient id={`sg-${win ? 'w' : 'l'}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon points={`${pts} 140,60 0,60`} fill={`url(#sg-${win ? 'w' : 'l'})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -107,19 +113,19 @@ function TradeBlock({ tradeId, trades, onOpen }: { tradeId?: string; trades: Tra
   const pnlColor = pnl >= 0 ? C.blue : C.red;
   const fmtPnl = (n: number) => `${n >= 0 ? '+' : '-'}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '16px 20px', margin: '24px 0', display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flex: 1, minWidth: 220 }}>
-        <span style={{ fontSize: 20, flexShrink: 0 }}>📄</span>
+    <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 22px', margin: '24px 0', display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 24, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', minWidth: 0 }}>
+        <FileText size={16} color={C.muted} style={{ flexShrink: 0, marginTop: 2 }} />
         <div style={{ minWidth: 0 }}>
           {trade ? (
             <>
-              <div style={{ fontFamily: fontHead, fontSize: '0.95rem', color: C.text, fontWeight: 700 }}>
+              <div style={{ fontFamily: fontBody, fontSize: '0.95rem', color: C.text, fontWeight: 700 }}>
                 {trade.asset} · <span style={{ color: dirColor }}>{trade.direction.toUpperCase()}</span> · <span style={{ color: pnlColor, fontWeight: 800 }}>{fmtPnl(pnl)}</span>
               </div>
-              <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 3 }}>
+              <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 4 }}>
                 {trade.date} {trade.time} · R:R {trade.realRR.toFixed(2)}{trade.setup ? ` · ${trade.setup}` : ''}
               </div>
-              {trade.quickNote && <div style={{ fontSize: '0.72rem', color: C.text2, marginTop: 4, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{trade.quickNote}</div>}
+              {trade.quickNote && <div style={{ fontSize: '0.78rem', color: C.olive, marginTop: 6, fontStyle: 'italic', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{trade.quickNote}</div>}
             </>
           ) : (
             <div style={{ fontSize: '0.85rem', color: C.muted }}>Operación no encontrada</div>
@@ -127,14 +133,14 @@ function TradeBlock({ tradeId, trades, onOpen }: { tradeId?: string; trades: Tra
         </div>
       </div>
       <Sparkline trade={trade} />
-      {trade && (
+      {trade ? (
         <button
           onClick={() => onOpen(trade.id)}
           style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '8px 14px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: fontBody, whiteSpace: 'nowrap' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = C.borderEl; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = C.border; }}
         >Ver operación →</button>
-      )}
+      ) : <span />}
     </div>
   );
 }
@@ -175,7 +181,7 @@ function BlockRow(p: BlockRowProps) {
             onChange={t => p.onChange({ ...b, content: { ...b.content, text: t } })}
             onEnter={p.onEnterAfter} onBackspaceEmpty={p.onDelete} onSlash={p.onSlash}
             registerFocus={p.registerFocus}
-            style={{ fontFamily: fontHead, fontWeight: 800, fontSize: lvl === 2 ? '1.8rem' : '1.35rem', color: C.text, margin: lvl === 2 ? '32px 0 16px' : '24px 0 12px', lineHeight: 1.2 }}
+            style={{ fontFamily: fontHead, fontWeight: 800, fontSize: lvl === 2 ? '1.5rem' : '1.2rem', letterSpacing: '-0.01em', color: C.text, margin: lvl === 2 ? '32px 0 16px' : '24px 0 10px', lineHeight: 1.25 }}
           />
         );
       }
@@ -186,23 +192,23 @@ function BlockRow(p: BlockRowProps) {
             onChange={t => p.onChange({ ...b, content: { ...b.content, text: t } })}
             onEnter={p.onEnterAfter} onBackspaceEmpty={p.onDelete} onSlash={p.onSlash} multiline
             registerFocus={p.registerFocus}
-            style={{ fontSize: '1rem', color: C.text2, lineHeight: 1.7, margin: '0 0 20px' }}
+            style={{ fontSize: '1rem', color: C.text2, lineHeight: 1.75, margin: '0 0 20px' }}
           />
         );
       case 'callout':
         return (
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.blue}`, borderRadius: 8, padding: '20px 24px', margin: '24px 0' }}>
+          <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.blue}`, borderRadius: 8, padding: '20px 24px', margin: '24px 0' }}>
             <EditableText
               value={b.content.heading ?? ''} placeholder="Título del callout"
               onChange={t => p.onChange({ ...b, content: { ...b.content, heading: t } })}
               registerFocus={p.registerFocus}
-              style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.15rem', color: C.text, marginBottom: 8 }}
+              style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.15rem', color: C.text, marginBottom: 12 }}
             />
             <EditableText
               value={b.content.text ?? ''} placeholder="Escribe el contenido…" multiline
               onChange={t => p.onChange({ ...b, content: { ...b.content, text: t } })}
               onBackspaceEmpty={!b.content.heading && !b.content.text ? p.onDelete : undefined}
-              style={{ fontSize: '0.95rem', color: C.text2, lineHeight: 1.6 }}
+              style={{ fontSize: '0.95rem', color: C.text2, lineHeight: 1.7 }}
             />
           </div>
         );
@@ -215,7 +221,7 @@ function BlockRow(p: BlockRowProps) {
               <div key={it.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                 <button
                   onClick={() => setItems(items.map(x => x.id === it.id ? { ...x, checked: !x.checked } : x))}
-                  style={{ width: 20, height: 20, flexShrink: 0, marginTop: 2, borderRadius: 5, border: `1px solid ${it.checked ? C.blue : '#2a2a35'}`, background: it.checked ? C.blue : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+                  style={{ width: 20, height: 20, flexShrink: 0, marginTop: 2, borderRadius: 5, border: `1px solid ${it.checked ? C.blue : C.borderEl}`, background: it.checked ? C.blue : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
                 >{it.checked ? '✓' : ''}</button>
                 <EditableText
                   value={it.text} placeholder="Elemento…"
@@ -223,7 +229,7 @@ function BlockRow(p: BlockRowProps) {
                   onChange={t => setItems(items.map(x => x.id === it.id ? { ...x, text: t } : x))}
                   onEnter={() => { const ni = { id: nanoid(), text: '', checked: false }; const next = [...items]; next.splice(i + 1, 0, ni); setItems(next); }}
                   onBackspaceEmpty={() => { if (items.length === 1) p.onDelete(); else setItems(items.filter(x => x.id !== it.id)); }}
-                  style={{ flex: 1, fontSize: '0.9rem', color: it.checked ? C.muted : C.text, textDecoration: it.checked ? 'line-through' : 'none', lineHeight: 1.5 }}
+                  style={{ flex: 1, fontSize: '0.92rem', color: it.checked ? C.muted : C.text2, textDecoration: it.checked ? 'line-through' : 'none', lineHeight: 1.5 }}
                 />
               </div>
             ))}
@@ -254,7 +260,7 @@ function BlockRow(p: BlockRowProps) {
             value={b.content.text ?? ''} placeholder="Código…" multiline
             onChange={t => p.onChange({ ...b, content: { ...b.content, text: t } })}
             onBackspaceEmpty={p.onDelete} registerFocus={p.registerFocus}
-            style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px 20px', fontFamily: "'Space Grotesk', ui-monospace, monospace", fontSize: '0.85rem', color: C.text2, margin: '24px 0', overflowX: 'auto' }}
+            style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px 20px', fontFamily: "ui-monospace, 'Space Grotesk', monospace", fontSize: '0.85rem', color: C.text2, margin: '24px 0', overflowX: 'auto' }}
           />
         );
       case 'quote':
@@ -274,19 +280,19 @@ function BlockRow(p: BlockRowProps) {
   return (
     <div ref={setNodeRef} style={style} className="nb-block">
       {!p.focusMode && (
-        <div className="nb-block-gutter" style={{ position: 'absolute', left: -46, top: 2, display: 'flex', gap: 2, opacity: 0, transition: 'opacity 0.12s' }}>
-          <span {...attributes} {...listeners} title="Arrastrar" style={{ cursor: 'grab', color: C.muted, fontSize: 14, padding: '2px 3px', touchAction: 'none', lineHeight: 1 }}>⋮⋮</span>
-          <button onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); setConvertOpen(false); }} title="Opciones" style={{ background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 14, padding: '0 3px', lineHeight: 1 }}>⋯</button>
+        <div className="nb-block-gutter" style={{ position: 'absolute', left: -48, top: 2, display: 'flex', gap: 1, alignItems: 'center', opacity: 0, transition: 'opacity 0.12s' }}>
+          <span {...attributes} {...listeners} title="Arrastrar" style={{ cursor: 'grab', color: C.muted, display: 'inline-flex', padding: '2px', touchAction: 'none' }}><GripVertical size={15} /></span>
+          <button onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); setConvertOpen(false); }} title="Opciones" style={{ background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', display: 'inline-flex', padding: '2px' }}><MoreHorizontal size={15} /></button>
         </div>
       )}
       {menuOpen && (
-        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', left: -46, top: 24, zIndex: 30, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 4, minWidth: 180, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
+        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', left: -48, top: 26, zIndex: 30, background: C.card, border: `1px solid ${C.borderEl}`, borderRadius: 10, padding: 4, minWidth: 180, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
           <MiniRow onClick={() => { p.onDuplicate(); setMenuOpen(false); }}>Duplicar</MiniRow>
           <MiniRow onClick={() => setConvertOpen(v => !v)}>Convertir a ▸</MiniRow>
           {convertOpen && (
             <div style={{ maxHeight: 220, overflowY: 'auto', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, margin: '4px 0' }}>
               {SLASH_OPTIONS.filter(o => o.type !== 'trade' && o.type !== 'image').map(o => (
-                <MiniRow key={o.label} onClick={() => { p.onConvert(o.type, o.level); setMenuOpen(false); setConvertOpen(false); }}>{o.icon}  {o.label}</MiniRow>
+                <MiniRow key={o.label} Icon={o.Icon} onClick={() => { p.onConvert(o.type, o.level); setMenuOpen(false); setConvertOpen(false); }}>{o.label}</MiniRow>
               ))}
             </div>
           )}
@@ -298,11 +304,13 @@ function BlockRow(p: BlockRowProps) {
   );
 }
 
-function MiniRow({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
+function MiniRow({ children, onClick, danger, Icon }: { children: React.ReactNode; onClick: () => void; danger?: boolean; Icon?: LucideIcon }) {
   return (
-    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', color: danger ? C.red : C.text2, padding: '8px 10px', fontSize: '0.78rem', cursor: 'pointer', borderRadius: 6, fontFamily: fontBody, display: 'flex', gap: 8, alignItems: 'center' }}
+    <button onClick={onClick} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', color: danger ? C.red : C.text2, padding: '8px 10px', fontSize: '0.78rem', cursor: 'pointer', borderRadius: 6, fontFamily: fontBody, display: 'flex', gap: 9, alignItems: 'center' }}
       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{children}</button>
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+      {Icon && <Icon size={15} color={danger ? C.red : C.muted} />}{children}
+    </button>
   );
 }
 
@@ -405,9 +413,9 @@ export function BlockList(p: BlockListProps) {
       {slashMenu && (
         <>
           <div onClick={() => setSlashMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 45 }} />
-          <div style={{ position: 'fixed', left: Math.min(slashMenu.x, window.innerWidth - 220), top: slashMenu.y, zIndex: 46, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 4, minWidth: 200, maxHeight: 300, overflowY: 'auto', boxShadow: '0 16px 40px rgba(0,0,0,0.55)' }}>
+          <div style={{ position: 'fixed', left: Math.min(slashMenu.x, window.innerWidth - 220), top: slashMenu.y, zIndex: 46, background: C.card, border: `1px solid ${C.borderEl}`, borderRadius: 10, padding: 4, minWidth: 200, maxHeight: 300, overflowY: 'auto', boxShadow: '0 16px 40px rgba(0,0,0,0.55)' }}>
             {SLASH_OPTIONS.map(o => (
-              <MiniRow key={o.label} onClick={() => pickSlash(o.type, o.level)}>{o.icon}  {o.label}</MiniRow>
+              <MiniRow key={o.label} Icon={o.Icon} onClick={() => pickSlash(o.type, o.level)}>{o.label}</MiniRow>
             ))}
           </div>
         </>
