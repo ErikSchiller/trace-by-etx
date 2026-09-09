@@ -4,16 +4,22 @@ export { PnLCard } from './PnLCard';
 export type { CardData, CardOpts, VariantId, CardFormat } from './shared';
 
 export const VARIANTS: { id: VariantId; name: string }[] = [
-  { id: 'clasico', name: 'Clásico' },
-  { id: 'minimo', name: 'Mínimo' },
-  { id: 'ganador', name: 'Ganador' },
-  { id: 'retro', name: 'Retro' },
-  { id: 'cinematico', name: 'Cinemático' },
+  { id: 'radar', name: 'Radar' },
+  { id: 'terminal', name: 'Terminal' },
+  { id: 'bold', name: 'Bold' },
+  { id: 'editorial', name: 'Editorial' },
+  { id: 'eclipse', name: 'Eclipse' },
+  { id: 'dossier', name: 'Dossier' },
 ];
+
+/** True when v is one of the current (non-legacy) variants. */
+export function isCurrentVariant(v: string): v is VariantId {
+  return VARIANTS.some(x => x.id === v);
+}
 
 export function defaultOpts(partial?: Partial<CardOpts>): CardOpts {
   const base: CardOpts = {
-    variant: 'clasico',
+    variant: 'radar',
     format: 'vertical',
     pnlMode: 'abs',
     showSetup: true,

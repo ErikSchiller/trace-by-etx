@@ -13,7 +13,7 @@ import { computeStreaks } from '../../utils/streaks';
 import { nodeToPngBlob } from '../../utils/domImage';
 import { DIMS } from '../PnLCard/shared';
 import { buildCardData } from '../PnLCard/buildCardData';
-import { PnLCard, VARIANTS, defaultOpts, type CardData, type CardOpts } from '../PnLCard';
+import { PnLCard, VARIANTS, defaultOpts, isCurrentVariant, type CardData, type CardOpts } from '../PnLCard';
 
 const HEAD = "'Syne', sans-serif";
 const BODY = "'Space Grotesk', sans-serif";
@@ -32,12 +32,12 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
   const dailyLossLimit = useSettingsStore(s => s.dailyLossLimit);
   const { push } = useToast();
 
-  const [opts, setOpts] = useState<CardOpts>(() => defaultOpts({ variant: settings.cardDefaultVariant, format: settings.cardDefaultFormat, ...initialOpts }));
+  const [opts, setOpts] = useState<CardOpts>(() => defaultOpts({ variant: isCurrentVariant(settings.cardDefaultVariant) ? settings.cardDefaultVariant : 'radar', format: settings.cardDefaultFormat, ...initialOpts }));
   const [busy, setBusy] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) setOpts(defaultOpts({ variant: settings.cardDefaultVariant, format: settings.cardDefaultFormat, ...initialOpts }));
+    if (open) setOpts(defaultOpts({ variant: isCurrentVariant(settings.cardDefaultVariant) ? settings.cardDefaultVariant : 'radar', format: settings.cardDefaultFormat, ...initialOpts }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, trade?.id]);
 
@@ -156,17 +156,21 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
             </Section>
 
             <Section title="Diseño">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-                {VARIANTS.map(v => (
-                  <button key={v.id} onClick={() => set({ variant: v.id })} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                    <div style={{ width: '100%', aspectRatio: opts.format === 'vertical' ? '9/16' : '1', borderRadius: 8, overflow: 'hidden', border: opts.variant === v.id ? '2px solid #4f8fff' : '1px solid #2a2d38', position: 'relative', background: '#0a0a0c' }}>
-                      <div style={{ position: 'absolute', top: 0, left: 0, transform: `scale(${(opts.format === 'vertical' ? 48 : 60) / 1080})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
-                        <PnLCard data={data} opts={{ ...opts, variant: v.id }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {VARIANTS.map(v => {
+                  const thumbW = opts.format === 'vertical' ? 84 : 100;
+                  const thumbH = opts.format === 'vertical' ? thumbW * (1920 / 1080) : thumbW;
+                  return (
+                    <button key={v.id} onClick={() => set({ variant: v.id })} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                      <div style={{ width: thumbW, height: thumbH, borderRadius: 8, overflow: 'hidden', border: opts.variant === v.id ? '2px solid #4f8fff' : '1px solid #2a2d38', position: 'relative', background: '#0a0a0c' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, transform: `scale(${thumbW / 1080})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
+                          <PnLCard data={data} opts={{ ...opts, variant: v.id }} />
+                        </div>
                       </div>
-                    </div>
-                    <span style={{ fontSize: '0.6rem', color: opts.variant === v.id ? '#4f8fff' : '#6b7280' }}>{v.name}</span>
-                  </button>
-                ))}
+                      <span style={{ fontSize: '0.62rem', color: opts.variant === v.id ? '#4f8fff' : '#6b7280' }}>{v.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </Section>
 
@@ -182,22 +186,6 @@ export function PnLCardModal({ open, onClose, trade, initialOpts }: Props) {
               <Toggle label="Código QR (traceetx.com)" checked={opts.showQR} onChange={c => set({ showQR: c })} />
               {data.handle && <Toggle label={`Mostrar handle (${data.handle})`} checked={opts.showHandle} onChange={c => set({ showHandle: c })} />}
             </Section>
-
-            {data.screenshots && data.screenshots.length > 0 && (
-              <Section title="Captura de pantalla (opcional)">
-                <Toggle label="Incluir captura del trade" checked={!!opts.screenshot} onChange={c => set({ screenshot: c ? (data.screenshots![0]) : undefined })} />
-                {opts.screenshot && data.screenshots.length > 1 && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                    {data.screenshots.map((s, i) => (
-                      <button key={i} onClick={() => set({ screenshot: s })} style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', border: opts.screenshot === s ? '2px solid #4f8fff' : '1px solid #2a2d38', padding: 0, cursor: 'pointer', background: '#0d0d0f' }}>
-                        <img src={s} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div style={{ fontSize: '0.62rem', color: '#6b7280' }}>Se usa como fondo sutil en el diseño Cinemático.</div>
-              </Section>
-            )}
 
             <Section title="Nota corta (opcional)">
               <input value={opts.note} maxLength={60} onChange={e => set({ note: e.target.value })} placeholder="Mi mejor entrada del mes 🎯" style={{ width: '100%', background: '#0d0d0f', border: '1px solid #1e2029', borderRadius: 8, padding: '9px 12px', color: '#e0e0e8', fontSize: '0.82rem', fontFamily: BODY, boxSizing: 'border-box' }} />

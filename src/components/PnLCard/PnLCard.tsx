@@ -1,10 +1,11 @@
 import { forwardRef } from 'react';
-import { type CardData, type CardOpts, DIMS, isWin } from './shared';
-import { Clasico } from './variants/Clasico';
-import { Minimo } from './variants/Minimo';
-import { Ganador } from './variants/Ganador';
-import { Retro } from './variants/Retro';
-import { Cinematico } from './variants/Cinematico';
+import { type CardData, type CardOpts, DIMS } from './shared';
+import { Radar } from './variants/Radar';
+import { Terminal } from './variants/Terminal';
+import { Bold } from './variants/Bold';
+import { Editorial } from './variants/Editorial';
+import { Eclipse } from './variants/Eclipse';
+import { Dossier } from './variants/Dossier';
 
 /** Renders the PnL card at native export resolution. Attach a ref for html-to-image. */
 export const PnLCard = forwardRef<HTMLDivElement, { data: CardData; opts: CardOpts }>(({ data, opts }, ref) => {
@@ -19,11 +20,13 @@ PnLCard.displayName = 'PnLCard';
 
 function Variant({ data, opts, W, H }: { data: CardData; opts: CardOpts; W: number; H: number }) {
   switch (opts.variant) {
-    case 'minimo': return <Minimo data={data} opts={opts} W={W} H={H} />;
-    case 'ganador': return isWin(data.pnl) ? <Ganador data={data} opts={opts} W={W} H={H} /> : <Clasico data={data} opts={opts} W={W} H={H} />;
-    case 'retro': return <Retro data={data} opts={opts} W={W} H={H} />;
-    case 'cinematico': return <Cinematico data={data} opts={opts} W={W} H={H} />;
-    default: return <Clasico data={data} opts={opts} W={W} H={H} />;
+    case 'terminal': return <Terminal data={data} opts={opts} W={W} H={H} />;
+    case 'bold': return <Bold data={data} opts={opts} W={W} H={H} />;
+    case 'editorial': return <Editorial data={data} opts={opts} W={W} H={H} />;
+    case 'eclipse': return <Eclipse data={data} opts={opts} W={W} H={H} />;
+    case 'dossier': return <Dossier data={data} opts={opts} W={W} H={H} />;
+    case 'radar':
+    default: return <Radar data={data} opts={opts} W={W} H={H} />; // legacy ids fall back to Radar
   }
 }
 

@@ -1,4 +1,9 @@
-export type VariantId = 'clasico' | 'minimo' | 'ganador' | 'retro' | 'cinematico';
+// New editorial variants. Legacy ids are kept in the union (deprecated) so
+// out-of-scope consumers (Gallery, settingsStore) keep compiling; they render
+// as the default (Radar) and are no longer offered in the picker.
+export type NewVariantId = 'radar' | 'terminal' | 'bold' | 'editorial' | 'eclipse' | 'dossier';
+export type LegacyVariantId = 'clasico' | 'minimo' | 'ganador' | 'retro' | 'cinematico';
+export type VariantId = NewVariantId | LegacyVariantId;
 export type CardFormat = 'square' | 'vertical';
 
 export interface CardData {
@@ -137,5 +142,50 @@ export function QRTag({ dataUrl, scale = 1 }: { dataUrl?: string; scale?: number
   const size = 96 * scale;
   return (
     <img src={dataUrl} alt="traceetx.com" style={{ width: size, height: size, borderRadius: 8 * scale, background: '#fff', padding: 4 * scale }} />
+  );
+}
+
+/* ── Shared atoms for the editorial variants (all sized in native px) ── */
+
+export function rrText(rr: number) { return fmtRR(rr); }
+export function sessionTime(data: CardData) { return `${SESSION_LABEL[data.session] ?? data.session} · ${data.time}`; }
+export function dirColor(direction: 'long' | 'short') { return direction === 'long' ? BLUE : RED; }
+
+export function Kicker({ children, size = 22, color = 'rgba(255,255,255,0.42)', ls = '0.22em', align = 'left' as const, weight = 600 }:
+  { children: React.ReactNode; size?: number; color?: string; ls?: string; align?: 'left' | 'center' | 'right'; weight?: number }) {
+  return <div style={{ fontFamily: BODY, fontWeight: weight, fontSize: size, letterSpacing: ls, textTransform: 'uppercase', color, textAlign: align }}>{children}</div>;
+}
+
+export function ScoreTag({ score, scale = 1, align = 'right' as const }: { score?: number; scale?: number; align?: 'left' | 'right' | 'center' }) {
+  if (score === undefined) return null;
+  return (
+    <div style={{ textAlign: align }}>
+      <div style={{ fontFamily: BODY, fontWeight: 600, fontSize: 22 * scale, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.42)' }}>TRACE SCORE</div>
+      <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 56 * scale, color: '#fff', lineHeight: 1, marginTop: 4 * scale }}>{score}</div>
+    </div>
+  );
+}
+
+/** QR + traceetx.com lockup used at the foot of most variants. */
+export function QRBlock({ dataUrl, scale = 1, align = 'center' as const, url = 'traceetx.com' }:
+  { dataUrl?: string; scale?: number; align?: 'left' | 'center' | 'right'; url?: string }) {
+  if (!dataUrl) return null;
+  const items = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: items, gap: 14 * scale }}>
+      <img src={dataUrl} alt="traceetx.com" style={{ width: 108 * scale, height: 108 * scale, borderRadius: 10 * scale, background: '#fff', padding: 6 * scale }} />
+      <div style={{ fontFamily: BODY, fontWeight: 500, fontSize: 22 * scale, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.5)' }}>{url}</div>
+    </div>
+  );
+}
+
+/** Foot mantra stacked vertically (JOURNAL / ANALYZE / IMPROVE / REPEAT). */
+export function Mantra({ scale = 1, align = 'right' as const }: { scale?: number; align?: 'left' | 'right' | 'center' }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 * scale, textAlign: align }}>
+      {['Journal', 'Analyze', 'Improve', 'Repeat'].map(w => (
+        <div key={w} style={{ fontFamily: BODY, fontWeight: 600, fontSize: 20 * scale, letterSpacing: '0.34em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{w}</div>
+      ))}
+    </div>
   );
 }
