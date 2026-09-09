@@ -2,9 +2,9 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 /**
- * First-pass i18n. Infrastructure is ready; only a subset of strings is
- * migrated (sidebar, section headers, settings sections, common buttons).
- * The rest of the app stays Spanish for both languages until fully migrated.
+ * App i18n (react-i18next). Migrated in tranches, namespaced by surface.
+ * Tranche 1 covers the persistent chrome: sidebar, topbar, user menus,
+ * upgrade banner, sync label, page titles, plan labels and common buttons.
  */
 const es = {
   translation: {
@@ -21,8 +21,32 @@ const es = {
       notifications: 'Notificaciones', language: 'Idioma y región', security: 'Seguridad',
       data: 'Datos y exportación', danger: 'Zona de peligro',
     },
-    common: { save: 'Guardar', cancel: 'Cancelar', delete: 'Eliminar', add: 'Añadir', apply: 'Aplicar' },
-    toast: { languageUpdated: 'Idioma actualizado' },
+    plan: { free: 'Plan Gratis', pro: 'Plan Pro', pro_ai: 'Plan Pro AI', founder: 'Fundador', freeShort: 'Gratis', proBadge: 'Pro ✓' },
+    chrome: {
+      version: 'v0.1.0 · Beta',
+      syncNone: 'Sin datos aún',
+      syncNow: 'Sincronizado ahora mismo',
+      syncMin: 'Sincronizado hace {{n}} min',
+      syncHour: 'Sincronizado hace {{n}} h',
+      syncDay: 'Sincronizado hace {{n}} d',
+    },
+    topbar: {
+      searchTitle: 'Buscar (Cmd+K)', searchAria: 'Buscar',
+      filters: 'Filtros', dates: 'Fechas',
+    },
+    upgrade: { cta: '✦ Actualiza a Pro', sub: 'Desde €9.92/mes. Analíticas, brokers y más.', seePlans: 'Ver planes →' },
+    userMenu: {
+      profile: 'Mi perfil', appearance: 'Apariencia', plan: 'Plan y facturación',
+      data: 'Datos y exportación', settings: 'Ajustes', upgrade: 'Actualizar a Pro',
+      help: 'Ayuda y soporte', discord: 'Discord', logout: 'Cerrar sesión',
+    },
+    auth: {
+      logoutConfirmTitle: '¿Cerrar sesión?',
+      logoutConfirmDesc: 'Volverás a la pantalla de inicio de sesión.',
+      sessionClosed: 'Sesión cerrada',
+    },
+    common: { save: 'Guardar', cancel: 'Cancelar', delete: 'Eliminar', add: 'Añadir', apply: 'Aplicar', close: 'Cerrar' },
+    toast: { languageUpdated: 'Idioma actualizado a Español' },
   },
 };
 
@@ -41,8 +65,32 @@ const en = {
       notifications: 'Notifications', language: 'Language & region', security: 'Security',
       data: 'Data & export', danger: 'Danger zone',
     },
-    common: { save: 'Save', cancel: 'Cancel', delete: 'Delete', add: 'Add', apply: 'Apply' },
-    toast: { languageUpdated: 'Language updated' },
+    plan: { free: 'Free plan', pro: 'Pro plan', pro_ai: 'Pro AI plan', founder: 'Founder', freeShort: 'Free', proBadge: 'Pro ✓' },
+    chrome: {
+      version: 'v0.1.0 · Beta',
+      syncNone: 'No data yet',
+      syncNow: 'Synced just now',
+      syncMin: 'Synced {{n}} min ago',
+      syncHour: 'Synced {{n}} h ago',
+      syncDay: 'Synced {{n}} d ago',
+    },
+    topbar: {
+      searchTitle: 'Search (Cmd+K)', searchAria: 'Search',
+      filters: 'Filters', dates: 'Dates',
+    },
+    upgrade: { cta: '✦ Upgrade to Pro', sub: 'From €9.92/mo. Analytics, brokers and more.', seePlans: 'See plans →' },
+    userMenu: {
+      profile: 'My profile', appearance: 'Appearance', plan: 'Plan & billing',
+      data: 'Data & export', settings: 'Settings', upgrade: 'Upgrade to Pro',
+      help: 'Help & support', discord: 'Discord', logout: 'Log out',
+    },
+    auth: {
+      logoutConfirmTitle: 'Log out?',
+      logoutConfirmDesc: "You'll return to the login screen.",
+      sessionClosed: 'Logged out',
+    },
+    common: { save: 'Save', cancel: 'Cancel', delete: 'Delete', add: 'Add', apply: 'Apply', close: 'Close' },
+    toast: { languageUpdated: 'Language changed to English' },
   },
 };
 

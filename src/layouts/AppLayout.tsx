@@ -62,14 +62,13 @@ const sections: { title: string; tKey: string; items: NavItem[] }[] = [
   ]},
 ];
 
-const titleMap: Record<string, string> = {
-  '/dashboard': 'Dashboard', '/journal': 'Diario Diario', '/trades': 'Operaciones',
-  '/notebook': 'Notebook', '/reports': 'Reportes', '/progress': 'Progress Tracker',
-  '/replay': 'Trade Replay', '/simulator': 'Simulador', '/prop-firms': 'Prop Firms',
-  '/gallery': 'Galería', '/brokers': 'Brokers', '/settings': 'Ajustes',
+// Path → nav translation key (page title mirrors the sidebar label).
+const PATH_NAV: Record<string, string> = {
+  '/dashboard': 'nav.dashboard', '/journal': 'nav.journal', '/trades': 'nav.trades',
+  '/notebook': 'nav.notebook', '/reports': 'nav.reports', '/progress': 'nav.progress',
+  '/replay': 'nav.replay', '/simulator': 'nav.simulator', '/prop-firms': 'nav.propFirms',
+  '/gallery': 'nav.gallery', '/brokers': 'nav.brokers', '/settings': 'nav.settings',
 };
-
-const PLAN_LABEL: Record<string, string> = { free: 'Plan Gratis', pro: 'Plan Pro', pro_ai: 'Plan Pro AI', founder: 'Fundador' };
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -78,16 +77,16 @@ function getInitials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function syncLabel(latestCreatedAt: string | null) {
-  if (!latestCreatedAt) return 'Sin datos aún';
+function syncLabel(latestCreatedAt: string | null, t: (k: string, o?: Record<string, unknown>) => string) {
+  if (!latestCreatedAt) return t('chrome.syncNone');
   const diff = Date.now() - new Date(latestCreatedAt).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'Sincronizado ahora mismo';
-  if (m < 60) return `Sincronizado hace ${m} min`;
+  if (m < 1) return t('chrome.syncNow');
+  if (m < 60) return t('chrome.syncMin', { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `Sincronizado hace ${h} h`;
+  if (h < 24) return t('chrome.syncHour', { n: h });
   const d = Math.floor(h / 24);
-  return `Sincronizado hace ${d} d`;
+  return t('chrome.syncDay', { n: d });
 }
 
 export function AppLayout() {
@@ -123,10 +122,11 @@ export function AppLayout() {
 
   // Dynamic subroutes (e.g. /prop-firms/:id) own their own title — defer to them.
   const isPropFirmDetail = location.pathname.startsWith('/prop-firms/');
-  const pageTitle = titleMap[location.pathname] || (isPropFirmDetail ? 'Prop Firms' : 'TRACE');
-  usePageTitle(isPropFirmDetail ? null : titleMap[location.pathname]);
+  const navKey = PATH_NAV[location.pathname];
+  const pageTitle = navKey ? t(navKey) : (isPropFirmDetail ? t('nav.propFirms') : 'TRACE');
+  usePageTitle(isPropFirmDetail ? null : (navKey ? t(navKey) : null));
   const userName = user?.name ?? 'Usuario';
-  const userPlan = PLAN_LABEL[user?.plan ?? 'free'];
+  const userPlan = t(`plan.${user?.plan ?? 'free'}`);
   const initials = getInitials(userName);
   const avatar = user?.avatar;
 
@@ -211,7 +211,7 @@ export function AppLayout() {
 
   const onLogout = () => {
     logout();
-    push({ kind: 'success', text: 'Sesión cerrada' });
+    push({ kind: 'success', text: t('auth.sessionClosed') });
     // Hard navigation avoids React/router race: ProtectedRoute would
     // otherwise re-render and redirect to /login before / mounts.
     window.location.href = '/';
@@ -306,11 +306,11 @@ export function AppLayout() {
             borderRadius: 8, padding: '10px 12px',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: 'var(--blue)', fontWeight: 600 }}>✦ Actualiza a Pro</span>
+              <span style={{ fontSize: 11, color: 'var(--blue)', fontWeight: 600 }}>{t('upgrade.cta')}</span>
               <span style={{ fontSize: 11, color: 'var(--blue)' }}>→</span>
             </div>
             <div style={{ fontSize: 11, color: '#33334a', marginTop: 2 }}>
-              Desde €9.92/mes. Analíticas, brokers y más.
+              {t('upgrade.sub')}
             </div>
             <button
               onClick={() => navigate('/precios')}
@@ -321,7 +321,7 @@ export function AppLayout() {
                 padding: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 fontFamily: "'Space Grotesk', sans-serif",
               }}
-            >Ver planes →</button>
+            >{t('upgrade.seePlans')}</button>
           </div>
         )}
 
@@ -335,10 +335,10 @@ export function AppLayout() {
                 borderRadius: 10, padding: 4, boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 50,
               }}
             >
-              <MenuItem onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}>Mi perfil</MenuItem>
-              <MenuItem onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}>Ajustes</MenuItem>
+              <MenuItem onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}>{t('userMenu.profile')}</MenuItem>
+              <MenuItem onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}>{t('userMenu.settings')}</MenuItem>
               <div style={{ height: 1, background: 'var(--divider)', margin: '4px 0' }} />
-              <MenuItem onClick={() => { setUserMenuOpen(false); onLogout(); }} danger>Cerrar sesión</MenuItem>
+              <MenuItem onClick={() => { setUserMenuOpen(false); onLogout(); }} danger>{t('userMenu.logout')}</MenuItem>
             </div>
           )}
           <div
@@ -376,7 +376,7 @@ export function AppLayout() {
             title="Ver novedades"
             style={{ padding: '6px 12px 10px', fontSize: '0.6rem', color: '#33334a', cursor: 'pointer', fontFamily: "'Space Grotesk', sans-serif" }}
           >
-            v0.1.0 · Beta
+            {t('chrome.version')}
           </div>
           )}
         </div>
@@ -387,13 +387,13 @@ export function AppLayout() {
         <header style={{ height: 50, flexShrink: 0, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#fff', letterSpacing: '-0.01em' }}>{pageTitle}</div>
-            <div style={{ fontSize: '0.68rem', color: '#33334a' }}>{syncLabel(latestCreatedAt)}</div>
+            <div style={{ fontSize: '0.68rem', color: '#33334a' }}>{syncLabel(latestCreatedAt, t)}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('trace:open-command-palette'))}
-              title="Buscar (Cmd+K)"
-              aria-label="Buscar"
+              title={t('topbar.searchTitle')}
+              aria-label={t('topbar.searchAria')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#5a6080', fontSize: '0.75rem', padding: '6px 10px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; }}
@@ -406,13 +406,13 @@ export function AppLayout() {
               style={{ position: 'relative', background: filterCount ? 'rgba(79,143,255,0.1)' : 'transparent', border: `1px solid ${filterCount ? 'rgba(79,143,255,0.3)' : 'rgba(255,255,255,0.08)'}`, color: filterCount ? 'var(--blue)' : '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease' }}
               onMouseEnter={e => { if (!filterCount) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; } }}
               onMouseLeave={e => { if (!filterCount) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; } }}
-            >Filtros{filterCount > 0 && <span style={{ marginLeft: 6, background: 'var(--blue)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, borderRadius: 8, padding: '1px 6px' }}>{filterCount}</span>}</button>
+            >{t('topbar.filters')}{filterCount > 0 && <span style={{ marginLeft: 6, background: 'var(--blue)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, borderRadius: 8, padding: '1px 6px' }}>{filterCount}</span>}</button>
             <button
               onClick={() => setDateOpen(true)}
               style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: datePreset !== 'all' ? 'var(--blue)' : '#5a6080', fontSize: '0.75rem', padding: '6px 14px', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s ease', borderBottom: datePreset !== 'all' ? '2px solid var(--blue)' : '1px solid rgba(255,255,255,0.08)' }}
               onMouseEnter={e => { if (datePreset === 'all') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#8a90a8'; } }}
               onMouseLeave={e => { if (datePreset === 'all') { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#5a6080'; } }}
-            >{datePreset !== 'all' ? `Fechas: ${PRESET_LABEL[datePreset]}` : 'Fechas'}</button>
+            >{t('topbar.dates')}{datePreset !== 'all' ? `: ${PRESET_LABEL[datePreset]}` : ''}</button>
 
             <div style={{ position: 'relative' }}>
               <button
@@ -438,27 +438,27 @@ export function AppLayout() {
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</span>
-                          <span style={{ flexShrink: 0, background: isPro ? 'rgba(79,143,255,0.12)' : 'rgba(255,255,255,0.06)', color: isPro ? 'var(--blue)' : 'var(--text-secondary)', fontSize: 9, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>{isPro ? 'Pro ✓' : 'Gratis'}</span>
+                          <span style={{ flexShrink: 0, background: isPro ? 'rgba(79,143,255,0.12)' : 'rgba(255,255,255,0.06)', color: isPro ? 'var(--blue)' : 'var(--text-secondary)', fontSize: 9, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>{isPro ? t('plan.proBadge') : t('plan.freeShort')}</span>
                         </div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
                       </div>
                     </div>
-                    <UserRow icon="👤" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Mi perfil</UserRow>
-                    <UserRow icon="🎨" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Apariencia</UserRow>
-                    <UserRow icon="⚡" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Plan y facturación</UserRow>
-                    <UserRow icon="📊" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Datos y exportación</UserRow>
-                    <UserRow icon="⚙️" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>Ajustes</UserRow>
+                    <UserRow icon="👤" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>{t('userMenu.profile')}</UserRow>
+                    <UserRow icon="🎨" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>{t('userMenu.appearance')}</UserRow>
+                    <UserRow icon="⚡" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>{t('userMenu.plan')}</UserRow>
+                    <UserRow icon="📊" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>{t('userMenu.data')}</UserRow>
+                    <UserRow icon="⚙️" onClick={() => { setTopMenuOpen(false); navigate('/settings'); }}>{t('userMenu.settings')}</UserRow>
                     <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 0' }} />
                     {isFree && (
                       <>
-                        <UserRow icon="✨" accent onClick={() => { setTopMenuOpen(false); openUpgrade(); }}>Actualizar a Pro</UserRow>
+                        <UserRow icon="✨" accent onClick={() => { setTopMenuOpen(false); openUpgrade(); }}>{t('userMenu.upgrade')}</UserRow>
                         <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 0' }} />
                       </>
                     )}
-                    <UserRow icon="📚" onClick={() => { setTopMenuOpen(false); navigate('/faq'); }}>Ayuda y soporte</UserRow>
-                    <UserRow icon="💬" onClick={() => { setTopMenuOpen(false); window.open(SOCIAL.discord, '_blank', 'noopener'); }}>Discord</UserRow>
+                    <UserRow icon="📚" onClick={() => { setTopMenuOpen(false); navigate('/faq'); }}>{t('userMenu.help')}</UserRow>
+                    <UserRow icon="💬" onClick={() => { setTopMenuOpen(false); window.open(SOCIAL.discord, '_blank', 'noopener'); }}>{t('userMenu.discord')}</UserRow>
                     <div style={{ height: 1, background: 'var(--border-subtle)', margin: '6px 0' }} />
-                    <UserRow icon="🚪" danger onClick={() => { setTopMenuOpen(false); setConfirmLogout(true); }}>Cerrar sesión</UserRow>
+                    <UserRow icon="🚪" danger onClick={() => { setTopMenuOpen(false); setConfirmLogout(true); }}>{t('userMenu.logout')}</UserRow>
                   </div>
                 </>
               )}
@@ -477,9 +477,9 @@ export function AppLayout() {
       <DateRangeModal open={dateOpen} onClose={() => setDateOpen(false)} />
       <ConfirmDialog
         open={confirmLogout}
-        title="¿Cerrar sesión?"
-        description="Volverás a la pantalla de inicio de sesión."
-        confirmText="Cerrar sesión"
+        title={t('auth.logoutConfirmTitle')}
+        description={t('auth.logoutConfirmDesc')}
+        confirmText={t('userMenu.logout')}
         destructive
         onConfirm={() => { setConfirmLogout(false); logout(); window.location.href = '/login'; }}
         onCancel={() => setConfirmLogout(false)}
