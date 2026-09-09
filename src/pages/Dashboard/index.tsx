@@ -53,17 +53,17 @@ const kpiSub: React.CSSProperties = {
   fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 5,
   fontFamily: "'Space Grotesk', sans-serif",
 };
-function fmtMoney(n: number) {
-  if (!isFinite(n)) return '$0';
+function fmtMoney(n: number, sym = '$') {
+  if (!isFinite(n)) return `${sym}0`;
   const sign = n >= 0 ? '+' : '-';
-  return `${sign}$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+  return `${sign}${sym}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 }
 /** Compact signed money for calendar cells: "-$1.2K" / "$340". */
-function fmtCompact(n: number) {
+function fmtCompact(n: number, sym = '$') {
   const sign = n < 0 ? '-' : '';
   const abs = Math.abs(n);
-  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`;
-  return `${sign}$${Math.round(abs)}`;
+  if (abs >= 1000) return `${sign}${sym}${(abs / 1000).toFixed(1)}K`;
+  return `${sign}${sym}${Math.round(abs)}`;
 }
 /** Win rate as "100%" or "66.7%". */
 function fmtWinRate(wins: number, count: number) {
@@ -197,6 +197,12 @@ export function Dashboard() {
   const { isFree } = usePlan();
   const dailyLossLimit = useSettingsStore(s => s.dailyLossLimit);
   const currencySymbol = useSettingsStore(s => s.currencySymbol);
+  const accountSize = useSettingsStore(s => s.accountSize);
+  // Trader-facing money formatters bound to the current currency (reactive).
+  const money = (n: number) => fmtMoney(n, currencySymbol);
+  const moneyC = (n: number) => fmtCompact(n, currencySymbol);
+  // Return over configured account size (updates live when account size changes).
+  const returnPct = accountSize > 0 ? (stats.cum / accountSize) * 100 : 0;
   const today = new Date().toISOString().slice(0, 10);
   const todayPnl = getDailyPnL(trades, today);
   const lossSeverity: 'over' | 'near' | 'ok' =
@@ -358,9 +364,9 @@ export function Dashboard() {
       <div className="dash-kpi-strip" style={{ background: 'var(--card)', border: '1px solid var(--border-subtle)', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', position: 'relative' }}>
         <div style={kpiCell}>
           <div style={kpiLabel}><span>NET PNL</span><span style={{ color: '#2a2a35', fontSize: '0.6rem' }}>ⓘ</span></div>
-          <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : 'var(--text-primary)' }}><AnimatedNumber value={stats.cum} format={fmtMoney} /></div>
+          <div style={{ ...kpiValue, color: stats.cum >= 0 ? 'var(--blue)' : stats.cum < 0 ? 'var(--red)' : 'var(--text-primary)' }}><AnimatedNumber value={stats.cum} format={money} /></div>
           {canCompare && <Delta res={formatDelta(stats.cum, prevStats?.cum, 'pct')} label={compareLabel} />}
-          <div style={kpiSub}>{trades.length} operaciones</div>
+          <div style={kpiSub}>{trades.length} operaciones · <span style={{ color: returnPct >= 0 ? 'var(--blue)' : 'var(--red)' }}>{returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%</span> de cuenta</div>
           {isFree && (
             <div style={{ marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#4a4a60', marginBottom: 4 }}>
@@ -413,9 +419,9 @@ export function Dashboard() {
             <div style={{ flex: Math.max(0.1, 1 / (stats.ratio + 1)), background: 'var(--red)' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'Space Grotesk', sans-serif", fontSize: '0.62rem' }}>
-            <span style={{ color: 'var(--blue)' }}>{fmtMoney(stats.aw)}</span>
+            <span style={{ color: 'var(--blue)' }}>{money(stats.aw)}</span>
             <span style={{ color: '#4a4a60' }}>R:R medio: {stats.ratio.toFixed(1)}</span>
-            <span style={{ color: 'var(--red)' }}>{fmtMoney(-stats.al)}</span>
+            <span style={{ color: 'var(--red)' }}>{money(-stats.al)}</span>
           </div>
         </div>
         <Watermark />
@@ -428,7 +434,7 @@ export function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--muted)' }}>
               <span>Monthly stats:</span>
-              <span style={{ background: monthly.pnl >= 0 ? 'rgba(79,143,255,0.12)' : 'rgba(239,68,68,0.12)', color: monthly.pnl >= 0 ? 'var(--blue)' : 'var(--red)', borderRadius: 20, padding: '4px 12px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{fmtMoney(monthly.pnl)}</span>
+              <span style={{ background: monthly.pnl >= 0 ? 'rgba(79,143,255,0.12)' : 'rgba(239,68,68,0.12)', color: monthly.pnl >= 0 ? 'var(--blue)' : 'var(--red)', borderRadius: 20, padding: '4px 12px', fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{money(monthly.pnl)}</span>
               <span style={{ background: 'rgba(255,255,255,0.05)', color: '#c8d4e8', borderRadius: 20, padding: '4px 12px', fontWeight: 600 }}>{cal.daysTraded} {cal.daysTraded === 1 ? 'día operado' : 'días operados'}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -479,7 +485,7 @@ export function Dashboard() {
                 </div>
                 {has && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 2 }}>
-                    <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.15rem', color: pos ? '#4f8fff' : neg ? '#ef4444' : '#c8d4e8', lineHeight: 1 }}>{fmtCompact(d.pnl)}</div>
+                    <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.15rem', color: pos ? '#4f8fff' : neg ? '#ef4444' : '#c8d4e8', lineHeight: 1 }}>{moneyC(d.pnl)}</div>
                     <div style={{ fontSize: '0.64rem', color: 'var(--muted)' }}>{d.count} {d.count === 1 ? 'trade' : 'trades'}</div>
                     <div style={{ fontSize: '0.64rem', color: 'var(--muted)' }}>{fmtWinRate(d.wins, d.count)}</div>
                   </div>
@@ -495,8 +501,8 @@ export function Dashboard() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 20px', marginTop: 14, paddingTop: 12, borderTop: '1px solid #1e2029', fontSize: '0.74rem', color: 'var(--muted)' }}>
-            {calSummary.best && <span>Mejor día: <b style={{ color: 'var(--blue)' }}>{fmtMoney(calSummary.best.pnl)}</b> el {calSummary.best.key.slice(5)}</span>}
-            {calSummary.worst && calSummary.worst.pnl < 0 && <span>·&nbsp;&nbsp;Peor día: <b style={{ color: 'var(--red)' }}>{fmtMoney(calSummary.worst.pnl)}</b> el {calSummary.worst.key.slice(5)}</span>}
+            {calSummary.best && <span>Mejor día: <b style={{ color: 'var(--blue)' }}>{money(calSummary.best.pnl)}</b> el {calSummary.best.key.slice(5)}</span>}
+            {calSummary.worst && calSummary.worst.pnl < 0 && <span>·&nbsp;&nbsp;Peor día: <b style={{ color: 'var(--red)' }}>{money(calSummary.worst.pnl)}</b> el {calSummary.worst.key.slice(5)}</span>}
             <span>·&nbsp;&nbsp;Racha: <b style={{ color: calSummary.streak > 0 ? 'var(--blue)' : '#c8d4e8' }}>{calSummary.streak}</b> {calSummary.streak === 1 ? 'día profitable' : 'días profitable'}</span>
           </div>
         )}
@@ -548,7 +554,7 @@ export function Dashboard() {
                 )}
               </div>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: stats.cum >= 0 ? 'var(--blue)' : 'var(--red)' }}>
-                {fmtMoney(stats.cum)}
+                {money(stats.cum)}
               </div>
             </div>
             <PnLAreaChart curve={stats.equity} overlay={showPrevCurve && prevStats ? prevStats.equity : undefined} /><Watermark />
@@ -582,7 +588,7 @@ export function Dashboard() {
                         }}
                       >{status}</span>
                     </div>
-                    <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, color: t.pnl >= 0 ? 'var(--blue)' : 'var(--red)' }}>{fmtMoney(t.pnl)}</div>
+                    <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, color: t.pnl >= 0 ? 'var(--blue)' : 'var(--red)' }}>{money(t.pnl)}</div>
                   </div>
                 );
               })
@@ -593,10 +599,10 @@ export function Dashboard() {
           <div style={card}>
             <div style={kpiLabel}>Saldo de cuenta</div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, color: '#fff', fontWeight: 500, margin: '4px 0' }}>
-              ${(100000 + stats.cum).toLocaleString('en-US')}
+              {currencySymbol}{Math.round(accountSize + stats.cum).toLocaleString('en-US')}
             </div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 11, color: stats.cum >= 0 ? 'var(--blue)' : 'var(--red)' }}>
-              {stats.cum >= 0 ? '↑' : '↓'} {fmtMoney(stats.cum)} · {(stats.cum / 1000).toFixed(1)}%
+              {stats.cum >= 0 ? '↑' : '↓'} {money(stats.cum)} · {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
             </div>
             <Sparkline points={stats.equity} />
             <Watermark />

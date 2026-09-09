@@ -158,11 +158,13 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       setIsPlanBased(editTrade.isPlanBased);
       setErrorTags(editTrade.errorTags);
       setScreenshots(editTrade.screenshots);
-    } else if (activeAccounts.length === 1) {
-      // Auto-select the only active account.
-      setAccountIds([activeAccounts[0].id]);
     } else {
-      setAccountIds([]);
+      // New trade: re-sync commission/multiplier to the CURRENT settings defaults.
+      // (They are only seeded once at mount, so later Settings changes were stale.)
+      setCommission(String(defaultCommission ?? 0));
+      setMultiplier(String(defaultMultiplier ?? 1));
+      // Auto-select the only active account, if there is exactly one.
+      setAccountIds(activeAccounts.length === 1 ? [activeAccounts[0].id] : []);
     }
     setTimeout(() => assetRef.current?.focus(), 60);
     // eslint-disable-next-line react-hooks/exhaustive-deps
