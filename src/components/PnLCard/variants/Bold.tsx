@@ -1,76 +1,91 @@
-import { type CardData, type CardOpts, HEAD, BODY, isWin, pnlColor, heroValue, dirColor, rrText, sessionTime, Wordmark, Kicker, Mantra } from '../shared';
+import { type CardData, type CardOpts, HEAD, BODY, pnlColor, heroValue, dirColor, rrText, sessionTime, Wordmark, Kicker, Mantra } from '../shared';
 import { SynthLineChart } from '../graphics';
 
 export function Bold({ data, opts, W, H }: { data: CardData; opts: CardOpts; W: number; H: number }) {
   const sq = opts.format === 'square';
-  const win = isWin(data.pnl);
+  const win = data.pnl >= 0;
   const accent = pnlColor(data.pnl);
-  const k = sq ? 0.66 : 1;
-  const pad = sq ? 64 : 80;
+  const k = sq ? 0.72 : 1;
+  const padX = sq ? 50 : 60;
+  const padY = sq ? 60 : 80;
   const longShort = data.direction === 'long' ? 'LONG' : 'SHORT';
+  const hero = heroValue(data, opts);
+
+  // Auto-fit the hero so it stays big but never clips: target = card width minus
+  // a right gutter for the editorial tagline. 0.62em is a safe Syne-800 advance.
+  const rightGutter = sq ? 170 : 220;
+  // Reserve the left bleed + a gap so the number ends clear of the tagline column.
+  const targetW = W - rightGutter - (sq ? 60 : 90);
+  const heroSize = Math.max(sq ? 148 : 172, Math.min(sq ? 244 : 308, targetW / (hero.length * 0.62)));
+  const assetSize = Math.min(sq ? 150 : 200, heroSize * 0.82); // asset stays under the PnL
+
+  const chartW = sq ? 300 : 400;
+  const chartH = sq ? 120 : 180;
+
+  const VBar = () => <div style={{ width: 1, height: 30 * k, background: 'rgba(255,255,255,0.15)' }} />;
 
   return (
-    <div style={{ width: W, height: H, background: '#0a0a0c', position: 'relative', overflow: 'hidden', fontFamily: BODY }}>
-      {/* diagonal accent streak behind the hero */}
-      <div style={{ position: 'absolute', top: sq ? '26%' : '30%', left: '-10%', width: '120%', height: sq ? 220 : 300, background: `linear-gradient(100deg, transparent, ${accent}22 40%, transparent)`, transform: 'rotate(-8deg)', pointerEvents: 'none' }} />
+    <div style={{ width: W, height: H, background: '#0a0a0c', position: 'relative', overflow: 'hidden', fontFamily: BODY, boxSizing: 'border-box', padding: `${padY}px ${padX}px`, display: 'flex', flexDirection: 'column' }}>
+      {/* diagonal accent streak behind hero */}
+      <div style={{ position: 'absolute', top: sq ? '30%' : '32%', left: '-10%', width: '120%', height: sq ? 220 : 320, background: `linear-gradient(100deg, transparent, ${accent}1f 42%, transparent)`, transform: 'rotate(-7deg)', pointerEvents: 'none' }} />
 
-      <div style={{ position: 'absolute', inset: 0, padding: pad, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-        {/* top */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 * k }}>
-            <Wordmark size={64 * k} byEtx />
-            <Kicker size={19 * k} ls="0.26em">Trading Journal</Kicker>
+      {/* ── REGION 1 · HEADER ── */}
+      <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Wordmark size={68 * k} byEtx />
+        {opts.showScore && (
+          <div style={{ textAlign: 'right' }}>
+            <Kicker size={26 * k} ls="0.2em" align="right" color="rgba(255,255,255,0.5)">Trace Score</Kicker>
+            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 62 * k, color: '#fff', lineHeight: 1, marginTop: 6 * k }}>{data.traceScore}</div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 18 * k }}>
-            {opts.showScore && (
-              <div style={{ textAlign: 'right' }}>
-                <Kicker size={21 * k} ls="0.16em" align="right">Trace Score</Kicker>
-                <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 56 * k, color: '#fff', lineHeight: 1 }}>{data.traceScore}</div>
-              </div>
-            )}
-            <div style={{ textAlign: 'right' }}>
-              <Kicker size={20 * k} ls="0.22em" align="right">Same process</Kicker>
-              <Kicker size={20 * k} ls="0.22em" align="right">a stronger trader</Kicker>
-            </div>
+        )}
+      </div>
+
+      {/* ── REGION 2 · MAIN ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: sq ? 44 : 64, minHeight: 0 }}>
+        {/* 2A · huge PnL (left-anchored, bottom) + editorial tagline (top-right) */}
+        <div style={{ position: 'relative', minHeight: heroSize * 1.16 }}>
+          <div style={{ position: 'absolute', top: 0, right: 0, textAlign: 'right', width: rightGutter - 30 }}>
+            <Kicker size={24 * k} ls="0.2em" align="right">Same process</Kicker>
+            <Kicker size={24 * k} ls="0.2em" align="right">a stronger</Kicker>
+            <Kicker size={24 * k} ls="0.2em" align="right">trader</Kicker>
           </div>
+          <div style={{ position: 'absolute', left: -(padX - (sq ? 14 : 20)), bottom: 0, fontFamily: HEAD, fontWeight: 800, fontSize: heroSize, color: accent, lineHeight: 1, letterSpacing: '-0.04em', whiteSpace: 'nowrap', textShadow: `0 0 ${44 * k}px ${accent}26` }}>{hero}</div>
         </div>
 
-        {/* overflowing hero */}
-        <div style={{ marginTop: sq ? 40 : 96, overflow: 'visible' }}>
-          <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 268 * k, color: accent, lineHeight: 0.9, letterSpacing: '-0.03em', whiteSpace: 'nowrap', marginLeft: -pad * 0.7, textShadow: `0 0 ${80 * k}px ${accent}55` }}>{heroValue(data, opts)}</div>
-        </div>
-
-        {/* asset + line */}
-        <div style={{ position: 'relative', marginTop: sq ? 24 : 60 }}>
-          {opts.showSession && (
-            <div style={{ position: 'absolute', left: 0, right: 0, top: sq ? 40 : 70, opacity: 0.9 }}>
-              <SynthLineChart w={W - pad * 2} h={sq ? 150 : 220} seed={`${data.asset}${data.pnl}${data.time}`} win={win} color="#4f8fff" strokeWidth={3 * k} fill />
-            </div>
-          )}
-          <div style={{ position: 'relative' }}>
-            <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 52 * k, color: dirColor(data.direction) }}>{longShort}</div>
-            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 240 * k, color: '#fff', lineHeight: 0.9, letterSpacing: '-0.01em' }}>{data.asset}</div>
+        {/* 2B · LONG / NQ + equity chart */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 40 * k }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 68 * k, color: dirColor(data.direction), lineHeight: 1 }}>{longShort}</div>
+            <div style={{ fontFamily: HEAD, fontWeight: 800, fontSize: assetSize, color: '#fff', lineHeight: 1, letterSpacing: '-0.03em', marginTop: 6 * k }}>{data.asset}</div>
+          </div>
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 * k }}>
+            <SynthLineChart w={chartW} h={chartH} seed={`${data.asset}${data.pnl}${data.time}`} win={win} strokeWidth={4} fill dot />
+            {opts.showRR && <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 40 * k, color: '#fff' }}>{rrText(data.realRR)}</div>}
           </div>
         </div>
+      </div>
 
-        {/* meta row */}
-        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 26 * k, fontFamily: BODY }}>
-          {opts.showRR && <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 40 * k, color: '#fff' }}>{rrText(data.realRR)}</div>}
-          {opts.showRR && opts.showSession && <div style={{ width: 1, height: 40 * k, background: 'rgba(255,255,255,0.18)' }} />}
-          {opts.showSession && <div style={{ fontSize: 32 * k, color: 'rgba(255,255,255,0.6)' }}>{sessionTime(data)}</div>}
-          {opts.showScore && <><div style={{ width: 1, height: 40 * k, background: 'rgba(255,255,255,0.18)' }} /><div style={{ fontFamily: BODY, fontSize: 30 * k, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>SCORE {data.traceScore}</div></>}
+      {/* ── REGION 3 · FOOTER ── */}
+      <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20 * k }}>
+        {/* left meta */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 * k, flexWrap: 'nowrap' }}>
+          {opts.showRR && <div style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 34 * k, color: '#fff' }}>{rrText(data.realRR)}</div>}
+          {opts.showRR && opts.showSession && <VBar />}
+          {opts.showSession && <div style={{ fontFamily: BODY, fontWeight: 500, fontSize: 28 * k, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}>{sessionTime(data)}</div>}
+          {opts.showScore && (opts.showRR || opts.showSession) && <VBar />}
+          {opts.showScore && <div style={{ fontFamily: BODY, fontWeight: 700, fontSize: 28 * k, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>Score {data.traceScore}</div>}
         </div>
 
-        {/* foot */}
-        <div style={{ marginTop: sq ? 28 : 48, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          {opts.showQR && opts.qrDataUrl ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 * k }}>
-              <img src={opts.qrDataUrl} alt="traceetx.com" style={{ width: 100 * k, height: 100 * k, borderRadius: 10 * k, background: '#fff', padding: 6 * k }} />
-              <div style={{ fontFamily: BODY, fontWeight: 500, fontSize: 20 * k, letterSpacing: '0.2em', color: 'rgba(255,255,255,0.5)' }}>traceetx.com</div>
-            </div>
-          ) : <span />}
-          <Mantra scale={k} align="right" />
-        </div>
+        {/* center QR */}
+        {opts.showQR && opts.qrDataUrl && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 * k, flexShrink: 0 }}>
+            <img src={opts.qrDataUrl} alt="traceetx.com" style={{ width: 130 * k, height: 130 * k, borderRadius: 8 * k, background: '#fff', padding: 6 * k }} />
+            <div style={{ fontFamily: BODY, fontWeight: 500, fontSize: 22 * k, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.5)' }}>traceetx.com</div>
+          </div>
+        )}
+
+        {/* right mantra */}
+        <Mantra scale={k} align="right" />
       </div>
     </div>
   );
