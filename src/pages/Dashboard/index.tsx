@@ -13,7 +13,8 @@ import { RecapPrompt } from '../../components/WeeklyRecap/RecapPrompt';
 import { tradingDaysLast7 } from '../../utils/recap';
 import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
-import { RadarChart } from '../../components/Charts/RadarChart';
+import { TraceScorePanel } from '../../components/Dashboard/TraceScorePanel';
+import { PRESET_LABEL } from '../../store/dateRangeStore';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
 import { AiWaitlistModal } from '../../components/UI/AiWaitlistModal';
 import { hasJoinedAiWaitlist } from '../../config/tracer-ai-content';
@@ -102,11 +103,6 @@ function Sparkline({ points }: { points: { date: string; cumPnl: number }[] }) {
       <LineChart data={points.map(p => ({ value: p.cumPnl }))} height={28} showGrid={false} showPeak={false} />
     </div>
   );
-}
-
-function HexagonRadar({ score, breakdown }: { score: number; breakdown: number[] }) {
-  const labels = ['Win %', 'Profit Factor', 'Avg Win/Loss', 'Recovery', 'Max DD', 'Consistency'];
-  return <RadarChart values={breakdown} labels={labels} size={180} centerLabel={score} />;
 }
 
 function PnLAreaChart({ curve, overlay }: { curve: { date: string; cumPnl: number }[]; overlay?: { date: string; cumPnl: number }[] }) {
@@ -515,20 +511,7 @@ export function Dashboard() {
 
       {/* Row 2 — analytical panels */}
       <div className="dash-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1fr', gap: 12 }}>
-        <div style={card}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: '0.78rem', color: '#c8d4e8' }}>TRACE Score</div>
-            <span onClick={() => navigate('/reports')} style={{ fontSize: '0.68rem', color: 'var(--blue)', cursor: 'pointer' }}>Ver detalle →</span>
-          </div>
-          <HexagonRadar score={stats.score} breakdown={stats.breakdown} />
-          <div
-            style={{ position: 'relative', height: 6, borderRadius: 3, marginTop: 10,
-              background: 'linear-gradient(to right, var(--red), #f59e0b, var(--blue))' }}
-          >
-            <div style={{ position: 'absolute', left: `${stats.score}%`, top: -3, width: 4, height: 12, background: '#fff', borderRadius: 2, transform: 'translateX(-50%)' }} />
-          </div>
-          <Watermark />
-        </div>
+        <TraceScorePanel trades={trades} prevTrades={prevTrades} rangeLabel={PRESET_LABEL[preset]} />
 
         <ProLock feature="Progress Tracker" description="Visualiza tu progreso diario">
           <div style={card}>
