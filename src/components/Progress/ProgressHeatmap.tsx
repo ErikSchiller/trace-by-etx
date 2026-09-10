@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useRoutineStore, dayRatio } from '../../store/routineStore';
 import { useUserTrades } from '../../store/tradeStore';
+import { useInsightPanel } from '../../store/insightPanelStore';
 
 const HEAD = "'Syne', sans-serif";
 const BODY = "'Space Grotesk', sans-serif";
@@ -29,7 +29,7 @@ export function ProgressHeatmap({ initialView = 'year' }: { initialView?: View }
   const routine = useRoutineStore(s => s.routine);
   const completions = useRoutineStore(s => s.completions);
   const trades = useUserTrades();
-  const navigate = useNavigate();
+  const openInsight = useInsightPanel(s => s.open);
   const [view, setView] = useState<View>(initialView);
   const [hover, setHover] = useState<{ info: DayInfo; x: number; y: number } | null>(null);
 
@@ -153,7 +153,7 @@ export function ProgressHeatmap({ initialView = 'year' }: { initialView?: View }
                         onMouseEnter={e => setHover({ info: day, x: e.clientX, y: e.clientY })}
                         onMouseMove={e => setHover(h => h ? { ...h, x: e.clientX, y: e.clientY } : h)}
                         onMouseLeave={() => setHover(null)}
-                        onClick={() => !day.future && navigate(`/journal?date=${day.date}`)}
+                        onClick={() => !day.future && openInsight({ type: 'routine_day', value: day.date })}
                         style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(day.ratio, !day.future), border: day.date === key(new Date()) ? `1px solid ${C.blue}` : '1px solid transparent', cursor: day.future ? 'default' : 'pointer', opacity: day.future ? 0.4 : 1, transition: 'transform 0.1s' }}
                         onMouseOver={e => { if (!day.future) e.currentTarget.style.transform = 'scale(1.18)'; }}
                         onMouseOut={e => (e.currentTarget.style.transform = 'none')}

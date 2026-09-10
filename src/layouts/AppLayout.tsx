@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LogoMark } from '../components/UI/LogoMark';
 import { AddTradeModal } from '../components/Modals/AddTradeModal';
@@ -13,6 +13,7 @@ import { SupportWidget } from '../components/UI/SupportWidget';
 import { UndoToast } from '../components/UndoToast';
 import { WeeklyRecapModal } from '../components/WeeklyRecap/WeeklyRecapModal';
 import { CommandPalette } from '../components/CommandPalette/CommandPalette';
+const ChartInsightPanel = lazy(() => import('../components/UI/ChartInsightPanel').then(m => ({ default: m.ChartInsightPanel })));
 import { PnLCardModal } from '../components/Modals/PnLCardModal';
 import { FilterModal } from '../components/Modals/FilterModal';
 import { DateRangeModal } from '../components/Modals/DateRangeModal';
@@ -490,6 +491,7 @@ export function AppLayout() {
       <WeeklyRecapModal open={recapOpen} onClose={() => setRecapOpen(false)} />
       <PnLCardModal open={pnlOpen} trade={pnlTrade} initialOpts={pnlInitial as unknown as Partial<import('../components/PnLCard').CardOpts> | undefined} onClose={() => setPnlOpen(false)} />
       <CommandPalette />
+      <Suspense fallback={null}><ChartInsightPanel /></Suspense>
     </div>
   );
 }
