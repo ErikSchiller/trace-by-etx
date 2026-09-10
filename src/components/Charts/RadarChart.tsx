@@ -4,10 +4,12 @@ interface RadarChartProps {
   labels: string[];
   size?: number;
   centerLabel?: string | number;
+  /** When set, axis labels become clickable (passes the axis index). */
+  onAxisClick?: (index: number) => void;
 }
 
 /** Hex/radar for TRACE Score dimensions. Subtle rings, blue polygon, outside labels. */
-export function RadarChart({ values, labels, size = 200, centerLabel }: RadarChartProps) {
+export function RadarChart({ values, labels, size = 200, centerLabel, onAxisClick }: RadarChartProps) {
   const cx = size / 2, cy = size / 2;
   const rMax = size * 0.35;
   const n = labels.length;
@@ -32,8 +34,9 @@ export function RadarChart({ values, labels, size = 200, centerLabel }: RadarCha
       {angles.map((a, i) => {
         const lx = cx + (rMax + 16) * Math.cos(a), ly = cy + (rMax + 16) * Math.sin(a);
         return (
-          <text key={i} x={lx} y={ly} fontSize="7.5" fill="var(--text-muted)"
-            fontFamily="'Space Grotesk', sans-serif" textAnchor="middle" dominantBaseline="middle">
+          <text key={i} x={lx} y={ly} fontSize="7.5" fill={onAxisClick ? 'var(--text-secondary)' : 'var(--text-muted)'}
+            fontFamily="'Space Grotesk', sans-serif" textAnchor="middle" dominantBaseline="middle"
+            onClick={onAxisClick ? () => onAxisClick(i) : undefined} style={onAxisClick ? { cursor: 'pointer' } : undefined}>
             {labels[i]}
           </text>
         );

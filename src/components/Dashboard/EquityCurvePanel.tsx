@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 import type { Trade } from '../../store/tradeStore';
 import { formatDate } from '../../utils/formatIntl';
+import { useInsightPanel } from '../../store/insightPanelStore';
 
 const HEAD = "'Syne', sans-serif";
 const BODY = "'Space Grotesk', sans-serif";
@@ -81,7 +82,7 @@ export function EquityCurvePanel({ trades, prevTrades, currencySymbol }: { trade
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%" minHeight={260}>
-            <AreaChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+            <AreaChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }} onClick={(st: { activeLabel?: string | number }) => { if (st && st.activeLabel) useInsightPanel.getState().open({ type: 'date', value: String(st.activeLabel) }); }} style={{ cursor: 'pointer' }}>
               <defs>
                 <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />

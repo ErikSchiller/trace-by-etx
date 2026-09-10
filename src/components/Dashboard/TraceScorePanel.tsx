@@ -8,6 +8,7 @@ import { getUserTrades } from '../../store/tradeStore';
 import { computeStreaks } from '../../utils/streaks';
 import { traceBreakdown, type TraceCtx } from '../../utils/traceScore';
 import { TraceScoreModal } from '../Modals/TraceScoreModal';
+import { useInsightPanel } from '../../store/insightPanelStore';
 
 const HEAD = "'Syne', sans-serif";
 const BODY = "'Space Grotesk', sans-serif";
@@ -36,6 +37,7 @@ export function TraceScorePanel({ trades, prevTrades }: { trades: Trade[]; prevT
   const completions = useRoutineStore(s => s.completions);
   const notes = useUserNotes();
   const habitRate01 = useHabitRate();
+  const openInsight = useInsightPanel(s => s.open);
   const [modalOpen, setModalOpen] = useState(false);
 
   const streaks = useMemo(
@@ -62,7 +64,7 @@ export function TraceScorePanel({ trades, prevTrades }: { trades: Trade[]; prevT
       {/* body split: radar left, score + grade + bar right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: '0 0 150px' }}>
-          <RadarChart values={values} labels={labels} size={168} centerLabel={bd.total} />
+          <RadarChart values={values} labels={labels} size={168} centerLabel={bd.total} onAxisClick={i => openInsight({ type: 'score_dimension', value: bd.dims[i].key, label: bd.dims[i].label })} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '0.6rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: C.muted, fontWeight: 600 }}>Tu puntuación</div>

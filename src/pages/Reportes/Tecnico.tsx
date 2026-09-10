@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import type { Trade } from '../../store/tradeStore';
-import { useFilterStore } from '../../store/filterStore';
-import { useToast } from '../../components/UI/ToastProvider';
+import { useInsightPanel } from '../../store/insightPanelStore';
 import { Watermark } from '../../components/UI/Watermark';
 import { LineChart } from '../../components/Charts/LineChart';
 import {
@@ -27,7 +26,6 @@ export function Tecnico({ trades }: Props) {
 /* ── Setups ── */
 type SetupSort = 'pnl' | 'n' | 'wr' | 'pf' | 'exp';
 function SetupsBlock({ trades }: { trades: Trade[] }) {
-  const { push } = useToast();
   const [sort, setSort] = useState<SetupSort>('pnl');
   const rows = useMemo(() => {
     const groups = groupBy(trades, t => t.setup || 'Sin setup');
@@ -36,7 +34,6 @@ function SetupsBlock({ trades }: { trades: Trade[] }) {
     return arr;
   }, [trades, sort]);
   const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl)), 1);
-  const filterBySetup = (setup: string) => { useFilterStore.getState().setFilters({ setups: [setup] }); push({ kind: 'success', text: `Filtrado por ${setup}` }); };
 
   const cols: [string, SetupSort | null][] = [['Setup', null], ['Ops', 'n'], ['Win %', 'wr'], ['PF', 'pf'], ['Avg Win', null], ['Avg Loss', null], ['Net PnL', 'pnl'], ['Exp (R)', 'exp'], ['Mejor / Peor', null]];
   return (
@@ -55,7 +52,7 @@ function SetupsBlock({ trades }: { trades: Trade[] }) {
             {rows.map((r, i) => {
               const top = i === 0 && r.pnl > 0 && sort === 'pnl';
               return (
-                <tr key={r.setup} onClick={() => filterBySetup(r.setup)} style={{ borderTop: '1px solid #1a1a1c', cursor: 'pointer' }}
+                <tr key={r.setup} onClick={() => useInsightPanel.getState().open({ type: 'setup', value: r.setup })} style={{ borderTop: '1px solid #1a1a1c', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <td style={{ padding: '9px 14px', color: top ? 'var(--blue)' : '#fff', fontWeight: 600 }}>{r.setup}</td>
@@ -104,7 +101,9 @@ function SessionsBlock({ trades }: { trades: Trade[] }) {
         {rows.map(({ sess, list }) => {
           const s = statsFor(list);
           return (
-            <div key={sess} style={card}>
+            <div key={sess} onClick={() => list.length && useInsightPanel.getState().open({ type: 'session', value: sess })} style={{ ...card, cursor: list.length ? 'pointer' : 'default' }}
+              onMouseEnter={e => { if (list.length) e.currentTarget.style.borderColor = 'rgba(79,143,255,0.4)'; }}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = '')}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <span style={{ fontSize: 18 }}>{SESSION_FLAG[sess]}</span>
                 <span style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>{SESSION_LABEL[sess]}</span>
@@ -208,7 +207,7 @@ function TimingBlock({ trades }: { trades: Trade[] }) {
             <Fragment key={d}>
               <div style={{ fontSize: 10, color: '#4a4a60', paddingRight: 8, alignSelf: 'center' }}>{WEEKDAYS[d].slice(0, 3)}</div>
               {row.map((c, h) => (
-                <div key={h} title={c.n ? `${WEEKDAYS[d]} ${HOURS[h]}h · ${c.n} ops · ${fmt(c.sum)}` : ''} style={{ height: 32, background: cellColor(cellMetric(c)), borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: c.n ? '#fff' : 'transparent', fontFamily: fontBody }}>{c.n ? fmtMetric(c) : ''}</div>
+                <div key={h} onClick={() => c.n && useInsightPanel.getState().open({ type: 'hourslot', value: `${d}-${HOURS[h]}` })} title={c.n ? `${WEEKDAYS[d]} ${HOURS[h]}h · ${c.n} ops · ${fmt(c.sum)}` : ''} style={{ height: 32, background: cellColor(cellMetric(c)), borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: c.n ? '#fff' : 'transparent', fontFamily: fontBody, cursor: c.n ? 'pointer' : 'default' }}>{c.n ? fmtMetric(c) : ''}</div>
               ))}
             </Fragment>
           ))}
@@ -237,7 +236,7 @@ function TimingBlock({ trades }: { trades: Trade[] }) {
           <div style={label}>Net PnL por día</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 120, paddingTop: 10 }}>
             {dayAgg.map(d => (
-              <div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }} title={`${WEEKDAYS[d.day]} · ${fmt(d.pnl)}`}>
+              <div key={d.day} onClick={() => d.n && useInsightPanel.getState().open({ type: 'weekday', value: d.day })} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', cursor: d.n ? 'pointer' : 'default' }} title={`${WEEKDAYS[d.day]} · ${fmt(d.pnl)}`}>
                 <div style={{ width: '60%', height: Math.max(2, (Math.abs(d.pnl) / maxDayPnl) * 90), background: d.n === 0 ? '#1a1a1c' : pnlColor(d.pnl), borderRadius: 3 }} />
                 <div style={{ fontSize: 8, color: '#4a4a60', marginTop: 3 }}>{WEEKDAYS[d.day].slice(0, 1)}</div>
               </div>

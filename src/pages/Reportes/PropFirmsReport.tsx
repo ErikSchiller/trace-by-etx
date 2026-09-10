@@ -6,6 +6,7 @@ import {
   getAccountsByFirm, getPastAccounts,
 } from '../../store/propFirmStore';
 import { Watermark } from '../../components/UI/Watermark';
+import { useInsightPanel } from '../../store/insightPanelStore';
 import { card, label, fontHead, fmt, fmtPlain, pnlColor, SectionEmpty, Mini } from './shared';
 
 interface Props { trades: Trade[]; prevTrades: Trade[] | null; compareOn: boolean; accounts: PropFirmAccount[] }
@@ -76,7 +77,8 @@ function RoiBlock({ accounts }: { accounts: PropFirmAccount[] }) {
             {firms.map((f, i) => {
               const color = i === 0 ? 'var(--blue)' : i === firms.length - 1 && firms.length > 1 ? 'var(--red)' : '#fff';
               return (
-                <tr key={f.firm} style={{ borderTop: '1px solid #1a1a1c' }}>
+                <tr key={f.firm} onClick={() => useInsightPanel.getState().open({ type: 'firm', value: f.firm })} style={{ borderTop: '1px solid #1a1a1c', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <td style={{ padding: '9px 14px', color, fontWeight: 600 }}>{f.firm}</td>
                   <td style={{ padding: '9px 14px', textAlign: 'right', color: '#888898' }}>{f.count}</td>
                   <td style={{ padding: '9px 14px', textAlign: 'right', color: '#888898' }}>{fmtPlain(f.invested)}</td>

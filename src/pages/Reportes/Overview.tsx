@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getWinRate, getProfitFactor, getCumulativePnL, type Trade } from '../../store/tradeStore';
 import type { PropFirmAccount } from '../../store/propFirmStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useInsightPanel } from '../../store/insightPanelStore';
 import { Watermark } from '../../components/UI/Watermark';
 import { LineChart } from '../../components/Charts/LineChart';
 import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
@@ -166,7 +167,7 @@ function MonthlyBars({ trades }: { trades: Trade[] }) {
         {months.map(([m, v]) => {
           const h = (Math.abs(v) / maxAbs) * 80;
           return (
-            <div key={m} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }} title={`${m}: ${fmt(v)}`}>
+            <div key={m} onClick={() => useInsightPanel.getState().open({ type: 'month', value: m })} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', cursor: 'pointer' }} title={`${m}: ${fmt(v)}`}>
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: v >= 0 ? 'flex-end' : 'flex-start', height: '50%', width: '100%', alignItems: 'center' }}>
                 {v >= 0 && <div style={{ width: '60%', maxWidth: 40, height: `${h}%`, background: 'var(--blue)', borderRadius: '4px 4px 0 0' }} />}
               </div>
@@ -227,7 +228,7 @@ function RDistributionCard({ trades }: { trades: Trade[] }) {
       <div style={label}>Distribución de R</div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 90, marginTop: 8 }}>
         {counts.map((c, i) => (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }} title={`${c} trades`}>
+          <div key={i} onClick={() => c && useInsightPanel.getState().open({ type: 'rbucket', value: R_BUCKETS[i] })} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', cursor: c ? 'pointer' : 'default' }} title={`${c} trades`}>
             <div style={{ width: '70%', height: `${Math.max(3, (c / max) * 78)}px`, background: R_BUCKETS[i] < 0 ? 'var(--red)' : R_BUCKETS[i] === 0 ? '#33334a' : 'var(--blue)', borderRadius: '3px 3px 0 0' }} />
             <div style={{ fontSize: 8, color: '#4a4a60', marginTop: 3 }}>{R_BUCKETS[i] === 3 ? '3+' : `${R_BUCKETS[i]}`}</div>
           </div>

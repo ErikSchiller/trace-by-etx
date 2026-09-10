@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Trade } from '../../store/tradeStore';
 import { useRoutineStore, dayRatio } from '../../store/routineStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useInsightPanel } from '../../store/insightPanelStore';
 import { Watermark } from '../../components/UI/Watermark';
 import {
   card, label, fontHead, fmt, pnlColor, EMOJIS, EMOTION_LABEL, statsFor, Mini,
@@ -35,7 +36,7 @@ function EmotionalBlock({ trades }: { trades: Trade[] }) {
         {data.map(d => {
           const isBest = best && d.e === best.e && d.n > 0;
           return (
-            <div key={d.e} style={{ ...card, textAlign: 'center', borderColor: isBest ? 'rgba(79,143,255,0.4)' : 'var(--border)' }}>
+            <div key={d.e} onClick={() => d.n && useInsightPanel.getState().open({ type: 'emotional', value: d.e })} style={{ ...card, textAlign: 'center', borderColor: isBest ? 'rgba(79,143,255,0.4)' : 'var(--border)', cursor: d.n ? 'pointer' : 'default' }}>
               <div style={{ fontSize: 26 }}>{EMOJIS[d.e]}</div>
               <div style={{ fontSize: '0.62rem', color: '#888898', marginTop: 2 }}>{EMOTION_LABEL[d.e]}</div>
               {d.n === 0 ? <div style={{ fontSize: 11, color: '#33334a', marginTop: 8 }}>Sin trades</div> : (
@@ -77,7 +78,7 @@ function ErrorsBlock({ trades }: { trades: Trade[] }) {
         <div style={label}>Frecuencia de errores</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
           {[...rows].sort((a, b) => b.n - a.n).map(r => (
-            <div key={r.tag} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div key={r.tag} onClick={() => useInsightPanel.getState().open({ type: 'errortag', value: r.tag })} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
               <div style={{ width: 110, fontSize: '0.72rem', color: '#c8d4e8', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tag}</div>
               <div style={{ flex: 1, height: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 4 }}>
                 <div style={{ width: `${(r.n / maxN) * 100}%`, height: '100%', background: 'var(--red)', borderRadius: 4, opacity: 0.8 }} />
