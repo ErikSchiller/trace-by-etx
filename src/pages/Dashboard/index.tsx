@@ -14,6 +14,7 @@ import { tradingDaysLast7 } from '../../utils/recap';
 import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
 import { TraceScorePanel } from '../../components/Dashboard/TraceScorePanel';
+import { EquityCurvePanel } from '../../components/Dashboard/EquityCurvePanel';
 import { PRESET_LABEL } from '../../store/dateRangeStore';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
 import { AiWaitlistModal } from '../../components/UI/AiWaitlistModal';
@@ -105,16 +106,6 @@ function Sparkline({ points }: { points: { date: string; cumPnl: number }[] }) {
   );
 }
 
-function PnLAreaChart({ curve, overlay }: { curve: { date: string; cumPnl: number }[]; overlay?: { date: string; cumPnl: number }[] }) {
-  return (
-    <LineChart
-      data={curve.map(p => ({ label: p.date, value: p.cumPnl }))}
-      overlay={overlay ? overlay.map(p => ({ value: p.cumPnl })) : undefined}
-      height={130} showGrid showPeak
-    />
-  );
-}
-
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 export function Dashboard() {
@@ -172,7 +163,6 @@ export function Dashboard() {
   const preset = useDateRangeStore(s => s.preset);
   const compareLabel = COMPARE_LABEL[preset];
   const [compareOn, setCompareOn] = useState(() => localStorage.getItem('dash_compare') !== '0');
-  const [showPrevCurve, setShowPrevCurve] = useState(false);
   const toggleCompare = () => setCompareOn(v => { const n = !v; localStorage.setItem('dash_compare', n ? '1' : '0'); return n; });
   const prevStats = useMemo(() => {
     if (!prevTrades) return null;
@@ -526,22 +516,7 @@ export function Dashboard() {
         </ProLock>
 
         <ProLock feature="Equity curve" description="Tu PnL acumulado en el tiempo">
-          <div style={card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: '0.78rem', color: '#c8d4e8' }}>Net PnL Acumulado</div>
-                {prevStats && prevStats.equity.length > 1 && compareLabel && (
-                  <span onClick={() => setShowPrevCurve(v => !v)} style={{ fontSize: '0.62rem', color: showPrevCurve ? 'var(--blue)' : 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    {showPrevCurve ? '● ' : '○ '}Ver periodo anterior
-                  </span>
-                )}
-              </div>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, color: stats.cum >= 0 ? 'var(--blue)' : 'var(--red)' }}>
-                {money(stats.cum)}
-              </div>
-            </div>
-            <PnLAreaChart curve={stats.equity} overlay={showPrevCurve && prevStats ? prevStats.equity : undefined} /><Watermark />
-          </div>
+          <EquityCurvePanel trades={trades} prevTrades={prevTrades} currencySymbol={currencySymbol} />
         </ProLock>
       </div>
 
