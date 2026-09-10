@@ -4,13 +4,13 @@ import { useAuthStore } from '../../store/authStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useRoutineStore, TEMPLATES, SUGGESTED_HABITS, type Template, type Habit } from '../../store/routineStore';
 import { ProLock } from '../../components/UI/ProLock';
-import { Watermark } from '../../components/UI/Watermark';
 import { Button } from '../../components/UI/Button';
 import { AnimatedNumber } from '../../components/UI/AnimatedNumber';
 import { useToast } from '../../components/UI/ToastProvider';
 import { useUserNotes } from '../../store/notebookStore';
 import { celebrateRoutineComplete, celebrateStreakMilestone } from '../../utils/milestones';
 import { computeStreaks, detectStreakEvents, STREAK_META, type StreakInfo, type StreakKey } from '../../utils/streaks';
+import { ProgressHeatmap } from '../../components/Progress/ProgressHeatmap';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -43,7 +43,6 @@ export default function Progress() {
   const [editOpen, setEditOpen] = useState(false);
   const [goals, setGoals] = useState<Goal[]>(() => loadGoals(userId));
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [year, setYear] = useState(new Date().getFullYear());
   useEffect(() => { saveGoals(userId, goals); }, [goals, userId]);
 
   const notes = useUserNotes();
@@ -150,23 +149,8 @@ export default function Progress() {
             {STREAK_META.map(m => <StreakCard key={m.key} icon={m.icon} name={m.name} info={allStreaks[m.key]} />)}
           </div>
 
-          {/* Year heatmap */}
-          <div style={{ ...card, overflowX: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ ...syne(700), fontSize: '0.85rem', color: 'var(--text-primary)' }}>Tu año</div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {[year - 1, year].map(y => (
-                  <button key={y} onClick={() => setYear(y)} style={{
-                    background: y === year ? 'rgba(79,143,255,0.1)' : 'transparent', color: y === year ? 'var(--blue)' : 'var(--text-muted)',
-                    border: '1px solid', borderColor: y === year ? 'rgba(79,143,255,0.25)' : 'var(--border-subtle)',
-                    borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600,
-                  }}>{y}</button>
-                ))}
-              </div>
-            </div>
-            <YearHeatmap year={year} routineLen={routine.habits.length} habitIds={habitIds} completions={completions} />
-            <Watermark />
-          </div>
+          {/* Routine activity heatmap */}
+          <ProgressHeatmap />
 
           {/* Goals */}
           <div style={card}>
@@ -252,34 +236,6 @@ function StreakCard({ icon, name, info }: { icon: string; name: string; info: St
           <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: on ? 'var(--blue)' : 'var(--border)', flexShrink: 0 }} />
         ))}
       </div>
-    </div>
-  );
-}
-
-function YearHeatmap({ year, routineLen, habitIds, completions }: { year: number; routineLen: number; habitIds: Set<string>; completions: Record<string, string[]> }) {
-  const cells: { date: string; ratio: number; done: number }[] = [];
-  const d = new Date(year, 0, 1);
-  while (d.getFullYear() === year) {
-    const key = d.toISOString().slice(0, 10);
-    const done = (completions[key] ?? []).filter(id => habitIds.has(id)).length;
-    cells.push({ date: key, ratio: routineLen ? done / routineLen : 0, done });
-    d.setDate(d.getDate() + 1);
-  }
-  const colorFor = (r: number) => r === 0 ? '#1a1c22' : r < 0.34 ? 'rgba(79,143,255,0.2)' : r < 0.67 ? 'rgba(79,143,255,0.45)' : r < 1 ? 'rgba(79,143,255,0.7)' : '#4f8fff';
-  const weeks: { date: string; ratio: number; done: number }[][] = [];
-  let week: typeof cells = [];
-  for (const c of cells) { const day = new Date(`${c.date}T00:00:00`).getDay(); if (day === 0 && week.length) { weeks.push(week); week = []; } week.push(c); }
-  if (week.length) weeks.push(week);
-  return (
-    <div style={{ display: 'flex', gap: 3, minWidth: 750 }}>
-      {weeks.map((w, wi) => (
-        <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {Array.from({ length: 7 }, (_, di) => {
-            const cell = w.find(c => new Date(`${c.date}T00:00:00`).getDay() === di);
-            return <div key={di} title={cell ? `${cell.date}: ${cell.done}/${routineLen} hábitos` : ''} style={{ width: 12, height: 12, borderRadius: 3, background: cell ? colorFor(cell.ratio) : 'transparent' }} />;
-          })}
-        </div>
-      ))}
     </div>
   );
 }
