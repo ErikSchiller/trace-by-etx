@@ -54,6 +54,8 @@ export interface Trade {
   inputMode: InputMode;
   /** Optional link to a prop firm account (propFirmStore). */
   accountId?: string;
+  /** Which lifecycle phase of the account this trade belongs to (propFirmStore). */
+  accountPhaseId?: string;
   /** Free-text note written when adding the trade (max 500 chars). */
   quickNote?: string;
   /** Links trades logged together across multiple accounts (same entry). */

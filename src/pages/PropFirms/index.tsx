@@ -5,6 +5,7 @@ import {
   getActiveAccounts, getPastAccounts, getTotalInvested, getTotalPayouts, getNetPnL,
   getPassRate, getAvgDaysToFund, getAccountsByFirm, getPendingActivation,
   accountTotalCost, accountTotalPayouts, accountNetResult, accountPendingCost,
+  computeAccountStatus, getPhaseTrades, currentPhase, PHASE_TYPE_LABEL,
   type PropFirmAccount, type Phase, type DrawdownType,
 } from '../../store/propFirmStore';
 import { PROP_FIRM_PRESETS, FIRMS, presetsForFirm } from '../../config/propFirmPresets';
@@ -165,9 +166,12 @@ function Cell({ label, value, animatedValue, format, valColor, sub, sub2, last }
 }
 
 function AccountMenu({ account: a, onEdit, onMarkFunded, onDelete, onClose }: { account: PropFirmAccount; onEdit: () => void; onMarkFunded: () => void; onDelete: () => void; onClose: () => void }) {
-  const setPhase = usePropFirmStore(s => s.setPhase);
+  const passToPhase = usePropFirmStore(s => s.passToPhase);
+  const closeAccount = usePropFirmStore(s => s.closeAccount);
   const { push } = useToast();
   const navigate = useNavigate();
+  const today = new Date().toISOString().slice(0, 10);
+  const isEvalP1 = a.phase === 'eval_p1';
   const isEval = a.phase === 'eval_p1' || a.phase === 'eval_p2';
   const Item = ({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) => (
     <button onClick={() => { onClick(); onClose(); }} style={{ ...menuItem, color: danger ? '#ef4444' : '#c8d4e8' }}>{children}</button>
@@ -177,9 +181,10 @@ function AccountMenu({ account: a, onEdit, onMarkFunded, onDelete, onClose }: { 
       <Item onClick={onEdit}>Editar detalles</Item>
       <Item onClick={() => navigate(`/prop-firms/${a.id}`)}>Registrar payout</Item>
       <Item onClick={() => navigate(`/prop-firms/${a.id}`)}>Registrar reset</Item>
+      {isEvalP1 && <Item onClick={() => { passToPhase(a.id, 'eval_p2', today); push({ kind: 'success', text: 'Pasaste a Eval Fase 2 — empezando fresh' }); }}>Pasar a Eval Fase 2</Item>}
       {isEval && <Item onClick={onMarkFunded}>Marcar como funded</Item>}
-      <Item onClick={() => { setPhase(a.id, 'blown'); push({ kind: 'success', text: 'Cuenta actualizada' }); }} danger>Marcar como blown</Item>
-      <Item onClick={() => { setPhase(a.id, 'expired'); push({ kind: 'success', text: 'Cuenta actualizada' }); }}>Marcar como expired</Item>
+      <Item onClick={() => { closeAccount(a.id, 'blown', today); push({ kind: 'success', text: 'Cuenta marcada como blown' }); }} danger>Marcar como blown</Item>
+      <Item onClick={() => { closeAccount(a.id, 'expired', today); push({ kind: 'success', text: 'Cuenta marcada como expired' }); }}>Marcar como expired</Item>
       <div style={{ height: 1, background: '#1e1e20', margin: '4px 0' }} />
       <Item onClick={onDelete} danger>Eliminar cuenta</Item>
     </div>
@@ -194,11 +199,13 @@ function AccountCard({ account: a, trades, onEdit }: { account: PropFirmAccount;
   const paidNow = accountTotalCost(a);
   const pending = accountPendingCost(a);
 
-  // Approximate equity from linked payouts isn't enough; use placeholder progress from phase.
-  // Real equity tracking would come from linked trades; here we show target rules.
-  const currentProgress = a.phase === 'funded' || a.phase === 'passed_pending' ? 1 : 0.45;
-  const towardTarget = a.profitTarget * currentProgress;
-  const ddSafePct = 0.7; // placeholder distance to DD (safe)
+  // Live status from the trades of the CURRENT phase only (fresh after funding/reset).
+  const phaseTrades = getPhaseTrades(a.id, a.currentPhaseId);
+  const st = computeAccountStatus(a, phaseTrades);
+  const cur = currentPhase(a);
+  const currentProgress = Math.max(0, Math.min(1, st.progressPct));
+  const towardTarget = st.pnl;
+  const ddSafePct = st.ddBufferPct;
   const ddColor = ddSafePct > 0.5 ? '#4f8fff' : ddSafePct > 0.25 ? '#f59e0b' : '#ef4444';
 
   return (
@@ -221,15 +228,22 @@ function AccountCard({ account: a, trades, onEdit }: { account: PropFirmAccount;
         </div>
       </div>
 
+      {/* current phase line */}
+      {cur && (
+        <div style={{ marginTop: 12, fontSize: '0.7rem', color: '#888898' }}>
+          Fase actual: <b style={{ color: '#c8d4e8' }}>{PHASE_TYPE_LABEL[cur.type]}</b> · desde {cur.startDate}
+        </div>
+      )}
+
       {/* progress */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: '0.7rem', color: '#888898', marginBottom: 5 }}>Hacia target: {fmtPlain(towardTarget)} / {fmtPlain(a.profitTarget)}</div>
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontSize: '0.7rem', color: '#888898', marginBottom: 5 }}>Hacia target: <span style={{ color: towardTarget >= 0 ? '#4f8fff' : '#ef4444' }}>{fmt(towardTarget)}</span> / {fmtPlain(a.profitTarget)}</div>
         <div style={{ height: 6, background: '#1e1e20', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ width: `${Math.min(100, currentProgress * 100)}%`, height: '100%', background: '#4f8fff' }} />
+          <div style={{ width: `${Math.min(100, currentProgress * 100)}%`, height: '100%', background: st.targetReached ? '#10b981' : '#4f8fff' }} />
         </div>
       </div>
       <div style={{ marginTop: 10 }}>
-        <div style={{ fontSize: '0.7rem', color: '#888898', marginBottom: 5 }}>Distancia a max DD: {fmtPlain(a.maxDrawdown * ddSafePct)}</div>
+        <div style={{ fontSize: '0.7rem', color: '#888898', marginBottom: 5 }}>Distancia a max DD: {fmtPlain(st.ddBuffer)}</div>
         <div style={{ height: 6, background: '#1e1e20', borderRadius: 3, overflow: 'hidden' }}>
           <div style={{ width: `${ddSafePct * 100}%`, height: '100%', background: ddColor }} />
         </div>
@@ -237,9 +251,9 @@ function AccountCard({ account: a, trades, onEdit }: { account: PropFirmAccount;
 
       {/* stats grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, paddingTop: 14, marginTop: 14, borderTop: '1px solid #1e1e20' }}>
-        <Stat label="Días operados" value={`— / ${a.minDays ?? 0} mín`} />
+        <Stat label="PnL fase" value={fmt(st.pnl)} />
         <Stat label="Consistencia" value={a.consistencyRule ? `${a.consistencyRule}% máx` : '—'} />
-        <Stat label="Operaciones" value={String(trades)} />
+        <Stat label="Operaciones" value={String(phaseTrades.length)} />
       </div>
 
       {/* footer */}

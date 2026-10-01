@@ -5,6 +5,7 @@ import {
   type Direction, type Session,
 } from '../../store/tradeStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useUserAccounts, effectivePhaseId, PHASE_TYPE_LABEL } from '../../store/propFirmStore';
 import { useToast } from '../../components/UI/ToastProvider';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
@@ -64,6 +65,17 @@ function RRBar({ rr, win }: { rr: number; win: boolean }) {
 
 export function Trades() {
   const trades = useFilteredTrades();
+  const accounts = useUserAccounts();
+  // A trade is "archived" when it belongs to a non-current (eval) phase of its account.
+  const archivedPhaseBadge = (t: { accountId?: string; accountPhaseId?: string }): string | null => {
+    if (!t.accountId) return null;
+    const acc = accounts.find(a => a.id === t.accountId);
+    if (!acc) return null;
+    const pid = effectivePhaseId(t, acc);
+    if (pid === acc.currentPhaseId) return null;
+    const ph = acc.phases.find(p => p.id === pid);
+    return ph ? PHASE_TYPE_LABEL[ph.type] : 'Eval';
+  };
   const deleteMany = useTradeStore(s => s.deleteMany);
   const { push } = useToast();
 
@@ -251,6 +263,7 @@ export function Trades() {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         {t.asset}
                         {t.groupId && <span title="Operación copiada en varias cuentas" style={{ fontSize: 9, color: 'var(--blue)', background: 'rgba(79,143,255,0.12)', borderRadius: 4, padding: '1px 5px', fontWeight: 700, cursor: 'help' }}>🔗</span>}
+                        {(() => { const b = archivedPhaseBadge(t); return b ? <span title="Esta operación fue durante la evaluación" style={{ fontSize: 9, color: '#888898', background: 'rgba(255,255,255,0.05)', borderRadius: 4, padding: '1px 6px', fontWeight: 700, cursor: 'help' }}>{b}</span> : null; })()}
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', color: t.direction === 'long' ? 'var(--blue)' : 'var(--red)', fontWeight: 600 }}>

@@ -2,11 +2,31 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
 import { useAuthStore } from './authStore';
-import { useTradeStore } from './tradeStore';
+import { useTradeStore, type Trade } from './tradeStore';
 import { useUndoStore } from './undoStore';
 
 export type Phase = 'eval_p1' | 'eval_p2' | 'funded' | 'passed_pending' | 'blown' | 'expired';
 export type DrawdownType = 'trailing' | 'static';
+
+/** A single lifecycle phase of an account (eval P1 → eval P2 → funded, resets in between). */
+export type PhaseType = 'eval_p1' | 'eval_p2' | 'funded';
+export type PhaseStatus = 'active' | 'passed' | 'blown' | 'expired';
+export interface AccountPhase {
+  id: string;
+  type: PhaseType;
+  startDate: string;        // YYYY-MM-DD
+  endDate?: string;         // set when the phase closes
+  startBalance: number;     // fresh balance at phase start
+  status: PhaseStatus;
+  tradesCount: number;      // trades logged in this phase (filled on close)
+  finalPnL?: number;        // PnL of this phase's trades (filled on close)
+}
+
+function phaseTypeFromLegacy(p: Phase): PhaseType {
+  if (p === 'funded' || p === 'passed_pending') return 'funded';
+  if (p === 'eval_p2') return 'eval_p2';
+  return 'eval_p1';
+}
 
 export interface Payout {
   id: string;
@@ -46,10 +66,14 @@ export interface PropFirmAccount {
   // Income
   payouts: Payout[];
 
+  // Phase lifecycle (eval → funded). The account's live PnL comes from the current phase.
+  phases: AccountPhase[];
+  currentPhaseId: string;
+
   createdAt: string;
 }
 
-export type NewAccountInput = Omit<PropFirmAccount, 'id' | 'userId' | 'resets' | 'payouts' | 'createdAt'> & {
+export type NewAccountInput = Omit<PropFirmAccount, 'id' | 'userId' | 'resets' | 'payouts' | 'phases' | 'currentPhaseId' | 'createdAt'> & {
   resets?: { date: string; cost: number }[];
   payouts?: Payout[];
 };
@@ -62,7 +86,22 @@ interface PropFirmStore {
   addPayout: (accountId: string, payout: Omit<Payout, 'id'>) => void;
   addReset: (accountId: string, reset: { date: string; cost: number }) => void;
   setPhase: (accountId: string, phase: Phase) => void;
+  /** Pass the current phase and start a fresh phase (eval P1→P2, eval→funded). */
+  passToPhase: (accountId: string, toType: PhaseType, date: string, opts?: { activationFeePaid?: boolean; activationPaidDate?: string; activationFee?: number }) => void;
+  /** Close the current phase (account dies): blown / expired. No new phase. */
+  closeAccount: (accountId: string, status: 'blown' | 'expired', date: string) => void;
+  /** Soft reset: close the current phase (expired) and start a fresh one of the same type. */
+  resetCurrentPhase: (accountId: string, date: string, cost: number) => void;
   clearAll: () => void;
+}
+
+/** Final PnL + trade count of the account's current phase (reads the trade store). */
+function closeStats(a: PropFirmAccount, status: PhaseStatus, endDate: string): Pick<AccountPhase, 'status' | 'endDate' | 'finalPnL' | 'tradesCount'> {
+  const phaseTrades = useTradeStore.getState().trades.filter(t => t.accountId === a.id && effectivePhaseId(t, a) === a.currentPhaseId);
+  return { status, endDate, finalPnL: phaseTrades.reduce((s, t) => s + t.pnl, 0), tradesCount: phaseTrades.length };
+}
+function withClosedCurrent(a: PropFirmAccount, close: Pick<AccountPhase, 'status' | 'endDate' | 'finalPnL' | 'tradesCount'>): AccountPhase[] {
+  return a.phases.map(p => p.id === a.currentPhaseId ? { ...p, ...close } : p);
 }
 
 export const usePropFirmStore = create<PropFirmStore>()(
@@ -74,6 +113,15 @@ export const usePropFirmStore = create<PropFirmStore>()(
         const userId = useAuthStore.getState().user?.id ?? 'anonymous';
         // Activation fee counts as paid only if the account already reached funded/passed.
         const funded = input.phase === 'funded' || input.phase === 'passed_pending';
+        const phaseId = nanoid();
+        const initialPhase: AccountPhase = {
+          id: phaseId,
+          type: phaseTypeFromLegacy(input.phase),
+          startDate: input.purchaseDate || new Date().toISOString().slice(0, 10),
+          startBalance: input.accountSize,
+          status: ACTIVE_PHASES.includes(input.phase) ? 'active' : (input.phase === 'blown' ? 'blown' : input.phase === 'expired' ? 'expired' : 'passed'),
+          tradesCount: 0,
+        };
         const account: PropFirmAccount = {
           ...input,
           id: nanoid(),
@@ -82,6 +130,8 @@ export const usePropFirmStore = create<PropFirmStore>()(
           activationPaidDate: input.activationPaidDate ?? (funded ? input.fundedDate : undefined),
           resets: input.resets ?? [],
           payouts: input.payouts ?? [],
+          phases: [initialPhase],
+          currentPhaseId: phaseId,
           createdAt: new Date().toISOString(),
         };
         set(s => ({ accounts: [...s.accounts, account] }));
@@ -133,6 +183,48 @@ export const usePropFirmStore = create<PropFirmStore>()(
           }),
         })),
 
+      passToPhase: (accountId, toType, date, opts) =>
+        set(s => ({
+          accounts: s.accounts.map(a => {
+            if (a.id !== accountId) return a;
+            const closed = withClosedCurrent(a, closeStats(a, 'passed', date));
+            const newPhase: AccountPhase = { id: nanoid(), type: toType, startDate: date, startBalance: a.accountSize, status: 'active', tradesCount: 0 };
+            const patch: Partial<PropFirmAccount> = {
+              phases: [...closed, newPhase],
+              currentPhaseId: newPhase.id,
+              phase: toType,
+            };
+            if (toType === 'funded') {
+              patch.fundedDate = date;
+              if (opts) {
+                patch.activationFeePaid = opts.activationFeePaid;
+                patch.activationPaidDate = opts.activationPaidDate;
+                if (opts.activationFee !== undefined) patch.activationFee = opts.activationFee;
+              }
+            }
+            return { ...a, ...patch };
+          }),
+        })),
+
+      closeAccount: (accountId, status, date) =>
+        set(s => ({
+          accounts: s.accounts.map(a => {
+            if (a.id !== accountId) return a;
+            return { ...a, phases: withClosedCurrent(a, closeStats(a, status, date)), phase: status, closedDate: date };
+          }),
+        })),
+
+      resetCurrentPhase: (accountId, date, cost) =>
+        set(s => ({
+          accounts: s.accounts.map(a => {
+            if (a.id !== accountId) return a;
+            const cur = a.phases.find(p => p.id === a.currentPhaseId);
+            const closed = withClosedCurrent(a, closeStats(a, 'expired', date));
+            const newPhase: AccountPhase = { id: nanoid(), type: cur?.type ?? phaseTypeFromLegacy(a.phase), startDate: date, startBalance: a.accountSize, status: 'active', tradesCount: 0 };
+            return { ...a, phases: [...closed, newPhase], currentPhaseId: newPhase.id, resets: [...a.resets, { date, cost }] };
+          }),
+        })),
+
       clearAll: () => {
         const userId = useAuthStore.getState().user?.id;
         if (!userId) return;
@@ -141,7 +233,7 @@ export const usePropFirmStore = create<PropFirmStore>()(
     }),
     {
       name: 'trace_prop_firms',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
         const state = persisted as { accounts?: PropFirmAccount[] } | undefined;
         if (version < 1 && state?.accounts) {
@@ -152,6 +244,28 @@ export const usePropFirmStore = create<PropFirmStore>()(
               activationFeePaid: a.activationFeePaid ?? paid,
               activationPaidDate: a.activationPaidDate ?? (paid ? a.fundedDate : undefined),
             };
+          });
+        }
+        // v1 → v2: give each account a single phase representing its current state.
+        // Existing trades keep belonging to this first phase (via the effectivePhaseId
+        // fallback) — nothing is deleted or detached.
+        if (version < 2 && state?.accounts) {
+          state.accounts = state.accounts.map(a => {
+            if (a.phases && a.currentPhaseId) return a;
+            // Inline the "active" check — ACTIVE_PHASES is declared below the store and
+            // this migrate runs synchronously during module eval (TDZ otherwise).
+            const active = a.phase === 'eval_p1' || a.phase === 'eval_p2' || a.phase === 'funded' || a.phase === 'passed_pending';
+            const phaseId = nanoid();
+            const phase: AccountPhase = {
+              id: phaseId,
+              type: phaseTypeFromLegacy(a.phase),
+              startDate: a.purchaseDate || (a.createdAt || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+              endDate: active ? undefined : a.closedDate,
+              startBalance: a.accountSize,
+              status: active ? 'active' : (a.phase === 'blown' ? 'blown' : a.phase === 'expired' ? 'expired' : 'passed'),
+              tradesCount: 0,
+            };
+            return { ...a, phases: [phase], currentPhaseId: phaseId };
           });
         }
         return state;
@@ -190,10 +304,41 @@ export function accountRoi(a: PropFirmAccount): number {
   return cost === 0 ? 0 : (accountNetResult(a) / cost) * 100;
 }
 
-/** Sum of PnL of all trades linked to an account (its live equity delta). */
+/** Sum of PnL of all trades linked to an account (its live equity delta, all phases). */
 export function getAccountEquity(accountId: string): number {
   const trades = useTradeStore.getState().trades as { accountId?: string; pnl: number }[];
   return trades.filter(t => t.accountId === accountId).reduce((s, t) => s + t.pnl, 0);
+}
+
+/* ── Phase-aware helpers ── */
+
+/** The phase a trade belongs to; legacy trades (no accountPhaseId) fall back to the first phase. */
+export function effectivePhaseId(t: { accountPhaseId?: string }, a: PropFirmAccount): string | undefined {
+  return t.accountPhaseId ?? a.phases?.[0]?.id;
+}
+export function currentPhase(a: PropFirmAccount): AccountPhase | undefined {
+  return a.phases?.find(p => p.id === a.currentPhaseId) ?? a.phases?.[a.phases.length - 1];
+}
+export const PHASE_TYPE_LABEL: Record<PhaseType, string> = { eval_p1: 'Eval Fase 1', eval_p2: 'Eval Fase 2', funded: 'Funded' };
+
+/** Trades belonging to a specific phase of an account. */
+export function getPhaseTrades(accountId: string, phaseId: string): Trade[] {
+  const a = usePropFirmStore.getState().accounts.find(x => x.id === accountId);
+  if (!a) return [];
+  return useTradeStore.getState().trades.filter(t => t.accountId === accountId && effectivePhaseId(t, a) === phaseId);
+}
+/** PnL of the account's current (active) phase — this is the live "account PnL". */
+export function getCurrentPhasePnL(accountId: string): number {
+  const a = usePropFirmStore.getState().accounts.find(x => x.id === accountId);
+  if (!a) return 0;
+  return getPhaseTrades(accountId, a.currentPhaseId).reduce((s, t) => s + t.pnl, 0);
+}
+export function getPhasePnL(accountId: string, phaseId: string): number {
+  return getPhaseTrades(accountId, phaseId).reduce((s, t) => s + t.pnl, 0);
+}
+/** PnL across all phases combined (eval + funded). */
+export function getAllTimePnL(accountId: string): number {
+  return useTradeStore.getState().trades.filter(t => t.accountId === accountId).reduce((s, t) => s + t.pnl, 0);
 }
 
 /* ============ React selectors ============ */

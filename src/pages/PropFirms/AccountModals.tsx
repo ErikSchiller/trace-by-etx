@@ -27,7 +27,7 @@ function Shell({ title, onClose, maxWidth = 440, children }: { title: string; on
 
 /* ============ MARK AS FUNDED ============ */
 export function MarkFundedModal({ account, open, onClose }: { account: PropFirmAccount; open: boolean; onClose: () => void }) {
-  const updateAccount = usePropFirmStore(s => s.updateAccount);
+  const passToPhase = usePropFirmStore(s => s.passToPhase);
   const { push } = useToast();
   const [passDate, setPassDate] = useState(today());
   const [activationPaid, setActivationPaid] = useState(true);
@@ -42,14 +42,12 @@ export function MarkFundedModal({ account, open, onClose }: { account: PropFirmA
   const hasActivation = account.activationFee > 0;
 
   const confirm = () => {
-    updateAccount(account.id, {
-      phase: 'funded',
-      fundedDate: passDate,
+    passToPhase(account.id, 'funded', passDate, {
       activationFeePaid: hasActivation ? activationPaid : false,
       activationPaidDate: hasActivation && activationPaid ? activationDate : undefined,
       activationFee: hasActivation ? (activationPaid ? activationAmount : 0) : account.activationFee,
     });
-    push({ kind: 'success', text: '¡Cuenta funded! 🎉' });
+    push({ kind: 'success', text: `¡Cuenta funded! Empezando fresh desde ${fmtPlain(account.accountSize)} 🎉` });
     celebrateEvalPassed();
     onClose();
   };
@@ -57,6 +55,11 @@ export function MarkFundedModal({ account, open, onClose }: { account: PropFirmA
   return (
     <Shell title="¡Enhorabuena! Pasaste la evaluación." onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ fontSize: '0.82rem', color: '#a1ab88', lineHeight: 1.6, background: 'rgba(79,143,255,0.05)', borderLeft: '3px solid #4f8fff', borderRadius: 6, padding: '12px 14px' }}>
+          Al marcar como funded, se cerrará tu fase de evaluación actual con sus operaciones archivadas, y empezarás una fase funded nueva desde <b style={{ color: '#fff' }}>{fmtPlain(account.accountSize)}</b>.
+          <br /><br />
+          Las operaciones de evaluación siguen guardadas en el historial — no se borran. A partir de ahora el PnL mostrado es solo de la fase funded.
+        </div>
         <div>
           <label style={lab}>Fecha de paso</label>
           <input type="date" value={passDate} onChange={e => setPassDate(e.target.value)} style={inp} />
@@ -84,7 +87,7 @@ export function MarkFundedModal({ account, open, onClose }: { account: PropFirmA
           </div>
         )}
 
-        <button onClick={confirm} style={{ background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 8, padding: 11, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody, marginTop: 4 }}>Confirmar</button>
+        <button onClick={confirm} style={{ background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 8, padding: 11, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody, marginTop: 4 }}>Confirmar paso a funded</button>
       </div>
     </Shell>
   );

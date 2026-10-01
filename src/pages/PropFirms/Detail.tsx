@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   usePropFirmStore, useUserAccounts,
   accountTotalCost, accountTotalPayouts, accountNetResult, accountPendingCost,
-  type Phase,
+  getPhaseTrades, currentPhase, PHASE_TYPE_LABEL,
+  type Phase, type AccountPhase,
 } from '../../store/propFirmStore';
 import { useUserTrades } from '../../store/tradeStore';
 import { ProLock } from '../../components/UI/ProLock';
@@ -25,7 +26,7 @@ const PHASE_LABEL: Record<Phase, string> = {
 function fmt(n: number) { return `${n >= 0 ? '+' : '-'}$${Math.abs(Math.round(n)).toLocaleString('en-US')}`; }
 function fmtPlain(n: number) { return `$${Math.round(n).toLocaleString('en-US')}`; }
 
-type Tab = 'trades' | 'payouts' | 'costs' | 'timeline';
+type Tab = 'trades' | 'payouts' | 'costs' | 'timeline' | 'fases';
 
 export default function PropFirmDetail() {
   const { id } = useParams();
@@ -34,19 +35,26 @@ export default function PropFirmDetail() {
   const account = accounts.find(a => a.id === id);
   const allTrades = useUserTrades();
   const setPhase = usePropFirmStore(s => s.setPhase);
+  const closeAccount = usePropFirmStore(s => s.closeAccount);
   const { push } = useToast();
   usePageTitle(account ? account.firm : 'Prop Firms');
 
   const [tab, setTab] = useState<Tab>('trades');
+  const [scope, setScope] = useState<'current' | 'all'>('current');
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmBlown, setConfirmBlown] = useState(false);
   const [confirmPassed, setConfirmPassed] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const trades = useMemo(
+  const allAccountTrades = useMemo(
     () => allTrades.filter(t => (t as { accountId?: string }).accountId === id),
     [allTrades, id]
+  );
+  // Scope-aware trade set: current phase (default) or lifetime.
+  const trades = useMemo(
+    () => (scope === 'current' && account) ? getPhaseTrades(account.id, account.currentPhaseId) : allAccountTrades,
+    [scope, account, allAccountTrades],
   );
 
   if (!account) {
@@ -74,7 +82,7 @@ export default function PropFirmDetail() {
             <button onClick={() => navigate('/prop-firms')} aria-label="Volver" style={{ background: 'transparent', border: '1px solid #1e1e20', borderRadius: 7, color: '#888898', cursor: 'pointer', width: 30, height: 30 }}>←</button>
             <div>
               <h1 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.2rem', color: '#fff' }}>{account.firm} ${Math.round(account.accountSize / 1000)}K</h1>
-              <span style={{ fontSize: '0.7rem', color: '#888898' }}>{PHASE_LABEL[account.phase]}</span>
+              <span style={{ fontSize: '0.7rem', color: '#888898' }}>{PHASE_LABEL[account.phase]}{currentPhase(account) ? ` · Fase actual: ${PHASE_TYPE_LABEL[currentPhase(account)!.type]}` : ''}</span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -85,6 +93,15 @@ export default function PropFirmDetail() {
             <button onClick={() => setDeleteOpen(true)} style={{ ...btnGhost, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>Eliminar cuenta</button>
           </div>
         </div>
+
+        {/* scope toggle */}
+        {account.phases.length > 1 && (
+          <div style={{ display: 'flex', gap: 3, background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 9, padding: 3, alignSelf: 'flex-start' }}>
+            {([['current', 'Ver fase actual'], ['all', 'Ver todas las fases']] as ['current' | 'all', string][]).map(([v, l]) => (
+              <button key={v} onClick={() => setScope(v)} style={{ padding: '6px 12px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', border: 'none', fontFamily: fontBody, background: scope === v ? 'rgba(79,143,255,0.14)' : 'transparent', color: scope === v ? '#4f8fff' : '#888898' }}>{l}</button>
+            ))}
+          </div>
+        )}
 
         {/* KPI strip */}
         <div style={{ background: '#161618', border: '1px solid #1e1e20', borderRadius: 12, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', position: 'relative' }}>
@@ -105,7 +122,7 @@ export default function PropFirmDetail() {
         {/* Tabs */}
         <div style={card}>
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: '1px solid #1e1e20', paddingBottom: 10 }}>
-            {([['trades', 'Trades'], ['payouts', 'Payouts'], ['costs', 'Costes'], ['timeline', 'Timeline']] as [Tab, string][]).map(([t, l]) => (
+            {([['trades', 'Trades'], ['fases', 'Fases'], ['payouts', 'Payouts'], ['costs', 'Costes'], ['timeline', 'Timeline']] as [Tab, string][]).map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)} style={{ background: tab === t ? 'rgba(79,143,255,0.1)' : 'transparent', color: tab === t ? '#4f8fff' : '#4a4a60', border: 'none', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>{l}</button>
             ))}
           </div>
@@ -123,6 +140,12 @@ export default function PropFirmDetail() {
                     </div>
                   ))}
                 </div>
+          )}
+
+          {tab === 'fases' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {account.phases.map((p, i) => <PhaseRow key={p.id} phase={p} index={i} isCurrent={p.id === account.currentPhaseId} accountId={account.id} />)}
+            </div>
           )}
 
           {tab === 'payouts' && (
@@ -167,7 +190,7 @@ export default function PropFirmDetail() {
       <PayoutModal open={payoutOpen} accountId={account.id} defaultSplit={90} onClose={() => setPayoutOpen(false)} />
       <ResetModal open={resetOpen} accountId={account.id} onClose={() => setResetOpen(false)} />
       <ConfirmDialog open={confirmPassed} title="¿Marcar como passed?" description="La cuenta pasará a estado 'passed — esperando funding'." confirmText="Marcar passed" onConfirm={() => { setPhase(account.id, 'passed_pending'); push({ kind: 'success', text: 'Cuenta marcada' }); setConfirmPassed(false); }} onCancel={() => setConfirmPassed(false)} />
-      <ConfirmDialog open={confirmBlown} title="¿Marcar como blown?" description="Esta cuenta se moverá a cuentas pasadas." confirmText="Marcar blown" destructive onConfirm={() => { setPhase(account.id, 'blown'); push({ kind: 'success', text: 'Cuenta marcada' }); setConfirmBlown(false); }} onCancel={() => setConfirmBlown(false)} />
+      <ConfirmDialog open={confirmBlown} title="¿Marcar como blown?" description="Se cerrará la fase actual con sus operaciones archivadas. La cuenta se moverá a cuentas pasadas." confirmText="Marcar blown" destructive onConfirm={() => { closeAccount(account.id, 'blown', new Date().toISOString().slice(0, 10)); push({ kind: 'success', text: 'Cuenta marcada como blown' }); setConfirmBlown(false); }} onCancel={() => setConfirmBlown(false)} />
       <DeleteAccountDialog account={account} tradeCount={trades.length} open={deleteOpen} onClose={() => setDeleteOpen(false)} onDeleted={() => navigate('/prop-firms')} />
     </ProLock>
   );
@@ -188,6 +211,51 @@ function KCell({ label, value, color, sub, last }: { label: string; value: strin
 }
 function Empty({ text }: { text: string }) {
   return <div style={{ color: '#33334a', fontSize: 13, textAlign: 'center', padding: 24 }}>{text}</div>;
+}
+
+const PHASE_STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  active: { label: 'Activa', color: '#4f8fff' }, passed: { label: 'Pasada', color: '#10b981' },
+  blown: { label: 'Blown', color: '#ef4444' }, expired: { label: 'Expirada', color: '#888898' },
+};
+function daysBetween(a: string, b: string) {
+  const d = Math.round((new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) / 86400000);
+  return Math.max(0, d);
+}
+function PhaseRow({ phase, index, isCurrent, accountId }: { phase: AccountPhase; index: number; isCurrent: boolean; accountId: string }) {
+  const [open, setOpen] = useState(isCurrent);
+  const phaseTrades = getPhaseTrades(accountId, phase.id);
+  const pnl = phaseTrades.reduce((s, t) => s + t.pnl, 0);
+  const end = phase.endDate ?? new Date().toISOString().slice(0, 10);
+  const st = PHASE_STATUS_LABEL[phase.status] ?? PHASE_STATUS_LABEL.active;
+  return (
+    <div style={{ border: `1px solid ${isCurrent ? 'rgba(79,143,255,0.3)' : '#1e1e20'}`, borderRadius: 8, overflow: 'hidden' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+        <span style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '0.85rem', color: '#fff' }}>Fase {index + 1} — {PHASE_TYPE_LABEL[phase.type]}</span>
+        <span style={{ background: `${st.color}1f`, color: st.color, fontSize: 9, padding: '2px 7px', borderRadius: 4, fontWeight: 700 }}>{st.label}</span>
+        <span style={{ marginLeft: 'auto', color: pnl >= 0 ? '#4f8fff' : '#ef4444', fontWeight: 600, fontSize: '0.82rem' }}>{fmt(pnl)}</span>
+        <span style={{ color: '#4a4a60', fontSize: 14, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▸</span>
+      </div>
+      <div style={{ padding: '8px 14px', fontSize: '0.72rem', color: '#888898', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <span>Inicio: {phase.startDate}</span>
+        {phase.endDate ? <span>Fin: {phase.endDate}</span> : <span>En curso</span>}
+        <span>Duración: {daysBetween(phase.startDate, end)} días</span>
+        <span>Operaciones: {phaseTrades.length}</span>
+        <span>Balance inicial: {fmtPlain(phase.startBalance)}</span>
+      </div>
+      {open && phaseTrades.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 14px 12px' }}>
+          {phaseTrades.map(t => (
+            <div key={t.id} style={row}>
+              <span style={{ color: '#888898', fontSize: 12 }}>{t.date} {t.time}</span>
+              <span style={{ color: '#fff', fontWeight: 600 }}>{t.asset}</span>
+              <span style={{ marginLeft: 'auto', color: t.pnl >= 0 ? '#4f8fff' : '#ef4444', fontWeight: 600 }}>{fmt(t.pnl)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && phaseTrades.length === 0 && <div style={{ padding: '4px 14px 12px', fontSize: 12, color: '#33334a' }}>Sin operaciones en esta fase.</div>}
+    </div>
+  );
 }
 
 function EquityCurve({ trades, target, maxDD }: { trades: { date: string; time: string; pnl: number }[]; target: number; maxDD: number }) {
@@ -248,18 +316,19 @@ function PayoutModal({ open, accountId, defaultSplit, onClose }: { open: boolean
 
 /* ── Reset modal ── */
 function ResetModal({ open, accountId, onClose }: { open: boolean; accountId: string; onClose: () => void }) {
-  const addReset = usePropFirmStore(s => s.addReset);
+  const resetCurrentPhase = usePropFirmStore(s => s.resetCurrentPhase);
   const { push } = useToast();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [cost, setCost] = useState('');
   if (!open) return null;
   const save = () => {
-    addReset(accountId, { date, cost: parseFloat(cost) || 0 });
-    push({ kind: 'success', text: 'Reset registrado' });
+    resetCurrentPhase(accountId, date, parseFloat(cost) || 0);
+    push({ kind: 'success', text: 'Reset registrado — fase reiniciada desde balance fresco' });
     setCost('');
     onClose();
   };
   return <ModalShell title="Registrar reset" onClose={onClose}>
+    <div style={{ fontSize: '0.78rem', color: '#888898', lineHeight: 1.5, marginBottom: 12 }}>Se cerrará la fase actual (sus operaciones quedan archivadas) y empezará una fase nueva del mismo tipo desde el balance inicial.</div>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       <Field label="Fecha"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={modalInp} /></Field>
       <Field label="Coste ($)"><input type="number" value={cost} onChange={e => setCost(e.target.value)} style={modalInp} /></Field>

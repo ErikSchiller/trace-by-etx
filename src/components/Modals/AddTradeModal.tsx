@@ -242,6 +242,9 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       ? { pnl: directPnl, entryPrice: 0, exitPrice: 0, positionSize: 1, multiplier: 1 }
       : { entryPrice: parseFloat(entryPrice), exitPrice: parseFloat(exitPrice), positionSize: parseFloat(positionSize), multiplier: parseFloat(multiplier) || 1 };
 
+    // Each account links the trade to its CURRENT phase (eval vs funded).
+    const phaseIdFor = (accId?: string) => accId ? allAccounts.find(a => a.id === accId)?.currentPhaseId : undefined;
+
     // Keep the auto-linked Trade Notes note in sync with the quickNote.
     const syncNote = (tradeId: string) => {
       const note = quickNote.trim();
@@ -255,7 +258,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
         updateGroup(editTrade.groupId, upd);
         groupMembers.forEach(m => syncNote(m.id));
       } else {
-        updateTrade(editTrade.id, { ...upd, accountId: accountIds[0] || undefined });
+        updateTrade(editTrade.id, { ...upd, accountId: accountIds[0] || undefined, accountPhaseId: phaseIdFor(accountIds[0] || undefined) });
         syncNote(editTrade.id);
       }
       push({ kind: 'success', text: editScope === 'group' && editTrade.groupId ? `Grupo actualizado (${groupMembers.length} operaciones)` : 'Operación actualizada' });
@@ -270,7 +273,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     const isMultiAccount = selected.length > 1;
     const targets: (string | undefined)[] = selected.length === 0 ? [undefined] : selected;
     const createdTrades = targets.map(acc =>
-      addTrade({ ...common, ...modeFields, accountId: acc, groupId, isMultiAccount, directPnl: inputMode === 'direct' ? directPnl : undefined })
+      addTrade({ ...common, ...modeFields, accountId: acc, accountPhaseId: phaseIdFor(acc), groupId, isMultiAccount, directPnl: inputMode === 'direct' ? directPnl : undefined })
     );
     syncNote(createdTrades[0].id);
     push({ kind: 'success', text: selected.length > 1 ? `Operación guardada en ${selected.length} cuentas ✓` : 'Operación guardada' });
