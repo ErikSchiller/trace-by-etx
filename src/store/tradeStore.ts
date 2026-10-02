@@ -6,6 +6,7 @@ import { useAuthStore } from './authStore';
 import { useFilterStore, type TradeFilters } from './filterStore';
 import { useDateRangeStore, resolveRange, resolvePreviousRange } from './dateRangeStore';
 import { useUndoStore } from './undoStore';
+import { putTradeImages, deleteTradeImages, getAllTradeImages } from '../utils/imageStore';
 
 /**
  * Cascade-delete notes linked to trades, decoupled from notebookStore to avoid a
@@ -102,7 +103,7 @@ export function calcRealRR(t: { entryPrice: number; stopLoss: number; positionSi
 
 export const useTradeStore = create<TradeStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       trades: [],
 
       addTrade: (input) => {
@@ -125,6 +126,8 @@ export const useTradeStore = create<TradeStore>()(
           createdAt: new Date().toISOString(),
         };
         set(s => ({ trades: [...s.trades, trade] }));
+        // Screenshots live in IndexedDB, not in the localStorage-persisted state.
+        if (trade.screenshots?.length) void putTradeImages(trade.id, trade.screenshots);
         return trade;
       },
 
@@ -149,6 +152,7 @@ export const useTradeStore = create<TradeStore>()(
             };
           }),
         }));
+        if ('screenshots' in updates) void putTradeImages(id, updates.screenshots ?? []);
       },
 
       updateGroup: (groupId, updates) => {
@@ -168,6 +172,10 @@ export const useTradeStore = create<TradeStore>()(
             return { ...merged, grossPnl, pnl, plannedRR: calcPlannedRR(merged), realRR: calcRealRR({ ...merged, pnl }) };
           }),
         }));
+        if ('screenshots' in updates) {
+          const imgs = updates.screenshots ?? [];
+          get().trades.filter(t => t.groupId === groupId).forEach(m => void putTradeImages(m.id, imgs));
+        }
       },
 
       deleteTrade: (id) => {
@@ -177,17 +185,23 @@ export const useTradeStore = create<TradeStore>()(
           return { trades: s.trades.filter(t => t.id !== id) };
         });
         deleteLinkedTradeNotes([id]);
+        void deleteTradeImages(id);
         if (removed) {
           const trade = removed;
           useUndoStore.getState().register({
             message: 'Operación eliminada',
-            execute: () => set(s => (s.trades.some(t => t.id === trade.id) ? s : { trades: [...s.trades, trade] })),
+            execute: () => {
+              set(s => (s.trades.some(t => t.id === trade.id) ? s : { trades: [...s.trades, trade] }));
+              // Restore the trade's screenshots (kept in memory on the removed trade).
+              if (trade.screenshots?.length) void putTradeImages(trade.id, trade.screenshots);
+            },
           });
         }
       },
       deleteMany: (ids) => {
         set(s => ({ trades: s.trades.filter(t => !ids.includes(t.id)) }));
         deleteLinkedTradeNotes(ids);
+        ids.forEach(id => void deleteTradeImages(id));
       },
       deleteGroup: (groupId) => {
         let removed: string[] = [];
@@ -196,16 +210,58 @@ export const useTradeStore = create<TradeStore>()(
           return { trades: s.trades.filter(t => t.groupId !== groupId) };
         });
         deleteLinkedTradeNotes(removed);
+        removed.forEach(id => void deleteTradeImages(id));
       },
       clearAll: () => {
         const userId = useAuthStore.getState().user?.id;
         if (!userId) return;
-        set(s => ({ trades: s.trades.filter(t => t.userId !== userId) }));
+        let removed: string[] = [];
+        set(s => {
+          removed = s.trades.filter(t => t.userId === userId).map(t => t.id);
+          return { trades: s.trades.filter(t => t.userId !== userId) };
+        });
+        removed.forEach(id => void deleteTradeImages(id));
       },
     }),
-    { name: 'trace_trades' }
+    {
+      name: 'trace_trades',
+      // Never write screenshot bytes to localStorage — they live in IndexedDB.
+      // (In-memory state keeps them, so every consumer is unchanged.)
+      partialize: (state) => ({
+        trades: state.trades.map(t => (t.screenshots?.length ? { ...t, screenshots: [] } : t)),
+      }),
+      // Runs synchronously during create(); defer so we never touch useTradeStore
+      // before it is assigned (TDZ), and so the async IndexedDB work runs after init.
+      onRehydrateStorage: () => () => {
+        setTimeout(() => { void hydrateScreenshots(); }, 0);
+      },
+    }
   )
 );
+
+/**
+ * Loads trade screenshots from IndexedDB into the in-memory store, and migrates
+ * any legacy inline base64 screenshots (written by the old localStorage-only
+ * format) into IndexedDB on first run. Fails soft — on any error trades still work.
+ */
+async function hydrateScreenshots() {
+  try {
+    // Migrate legacy inline screenshots (present only right after upgrading).
+    const current = useTradeStore.getState().trades;
+    const legacy = current.filter(t => t.screenshots?.length);
+    if (legacy.length) await Promise.all(legacy.map(t => putTradeImages(t.id, t.screenshots)));
+
+    // Rehydrate every trade's screenshots from IndexedDB.
+    const all = await getAllTradeImages();
+    useTradeStore.setState(s => ({
+      trades: s.trades.map(t => (all[t.id] ? { ...t, screenshots: all[t.id] } : t)),
+    }));
+    // The setState above re-persists via partialize, stripping the now-migrated
+    // inline screenshots out of localStorage.
+  } catch {
+    /* ignore — screenshots are non-critical to a trade's data */
+  }
+}
 
 /* ============ Selectors (functions, not memoized — call from components) ============ */
 
