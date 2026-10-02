@@ -178,6 +178,17 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose, lightboxOpen]);
 
+  // Safety net: never let the Guardar button strand on "Guardando…" if, despite
+  // the try/finally in onSubmit, the saving state is somehow left on.
+  useEffect(() => {
+    if (!saving) return;
+    const to = setTimeout(() => {
+      setSaving(false);
+      push({ kind: 'error', text: 'El guardado tardó demasiado. Inténtalo de nuevo.' });
+    }, 10000);
+    return () => clearTimeout(to);
+  }, [saving, push]);
+
   const switchMode = (m: InputMode) => {
     setInputMode(m);
     localStorage.setItem(MODE_KEY, m);
@@ -217,11 +228,13 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
 
   const onSubmit = (ev: React.FormEvent) => {
     ev.preventDefault();
+    if (saving) return; // guard against double-submit while a save is in flight
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) { push({ kind: 'error', text: 'Revisa los campos marcados' }); return; }
     setSaving(true);
 
+    try {
     const cm = parseFloat(commission) || 0;
     const assetUp = asset.trim().toUpperCase();
     const common = {
@@ -297,10 +310,16 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
       }
     }, 0);
 
-    setSaving(false);
     // Show the in-modal success screen (offers the PnL Card generator) instead
     // of closing immediately. The success screen's buttons reset + close.
     setSavedTrade(createdTrades[0]);
+    } catch (err) {
+      console.error('[AddTradeModal] Error al guardar la operación:', err);
+      push({ kind: 'error', text: err instanceof Error && err.message ? err.message : 'Error al guardar la operación' });
+    } finally {
+      // Guarantee the Guardar button never strands on "Guardando…" no matter what throws.
+      setSaving(false);
+    }
   };
 
   const resetForm = () => {
