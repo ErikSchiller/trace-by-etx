@@ -315,7 +315,17 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     setSavedTrade(createdTrades[0]);
     } catch (err) {
       console.error('[AddTradeModal] Error al guardar la operación:', err);
-      push({ kind: 'error', text: err instanceof Error && err.message ? err.message : 'Error al guardar la operación' });
+      // localStorage quota is the most common real failure here: screenshots are
+      // stored inline as base64, so a few can exhaust the ~5MB budget. Give an
+      // actionable message instead of the raw browser error.
+      const isQuota = err instanceof DOMException &&
+        (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22);
+      push({
+        kind: 'error',
+        text: isQuota
+          ? 'Almacenamiento lleno: no se pudo guardar. Quita capturas de esta operación o elimina operaciones antiguas para liberar espacio.'
+          : (err instanceof Error && err.message ? err.message : 'Error al guardar la operación'),
+      });
     } finally {
       // Guarantee the Guardar button never strands on "Guardando…" no matter what throws.
       setSaving(false);
