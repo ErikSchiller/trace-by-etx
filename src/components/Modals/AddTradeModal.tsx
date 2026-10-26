@@ -5,7 +5,7 @@ import {
   type Direction, type Session, type EmotionalState, type InputMode,
 } from '../../store/tradeStore';
 import { useToast } from '../UI/ToastProvider';
-import { useSettingsStore } from '../../store/settingsStore';
+import { useSettingsStore, type Currency } from '../../store/settingsStore';
 import { usePlan } from '../../hooks/usePlan';
 import { useUserAccounts, getActiveAccounts } from '../../store/propFirmStore';
 import { useNotebookStore } from '../../store/notebookStore';
@@ -13,10 +13,14 @@ import { checkTradeMilestones } from '../../utils/milestones';
 import { playSound } from '../../utils/sounds';
 import { processImageForUpload } from '../../utils/imageProcessing';
 import { ImageLightbox } from '../UI/ImageLightbox';
+import {
+  X, ArrowUpRight, ArrowDownRight, Calculator, Target, Calendar, Clock,
+  ChevronDown, ArrowRight, Info, Check,
+} from 'lucide-react';
 
 const MAX_SCREENSHOTS = 5;
 
-const PHASE_SHORT: Record<string, string> = { eval_p1: 'Eval', eval_p2: 'Eval 2', funded: 'Funded', passed_pending: 'Passed' };
+const PHASE_LABEL: Record<string, string> = { eval_p1: 'Eval 1', eval_p2: 'Eval 2', funded: 'Funded', passed_pending: 'Passed' };
 function firmColor(firm: string) {
   const colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#eab308'];
   let h = 0; for (const ch of firm) h = (h * 31 + ch.charCodeAt(0)) | 0;
@@ -30,52 +34,106 @@ interface Props {
   tradeId?: string;
 }
 
-const ERROR_TAGS = ['FOMO', 'Revenge trade', 'Salida temprana', 'Entrada tardía', 'Oversized', 'Sin setup', 'Movió SL'];
+// New 6 error tags shown in the selector. Historical tags (Oversized, Sin setup,
+// Movió SL…) are NOT listed here but are preserved on trades that already carry
+// them — see `errorOptions` below, which appends any already-selected legacy tag.
+const ERROR_TAGS = ['FOMO', 'Revenge trade', 'Salida temprana', 'Entrada tardía', 'Overtrading', 'Otro'];
 const SESSIONS: { value: Session; label: string }[] = [
   { value: 'london', label: 'Londres' },
   { value: 'new_york', label: 'Nueva York' },
   { value: 'asia', label: 'Asia' },
   { value: 'premarket', label: 'Pre-market' },
 ];
-const EMOTIONS: { v: EmotionalState; emoji: string }[] = [
-  { v: 1, emoji: '😌' }, { v: 2, emoji: '🙂' }, { v: 3, emoji: '😐' }, { v: 4, emoji: '😟' }, { v: 5, emoji: '😰' },
+// Word-based emotional state, mapped to the existing 1–5 numeric scale for
+// backward compatibility (Muy malo = 1 … Excelente = 5).
+type Tone = 'blue' | 'blueLight' | 'neutral' | 'redLight' | 'red';
+const EMOTIONS: { v: EmotionalState; label: string; tone: Tone }[] = [
+  { v: 5, label: 'Excelente', tone: 'blue' },
+  { v: 4, label: 'Bueno', tone: 'blueLight' },
+  { v: 3, label: 'Neutral', tone: 'neutral' },
+  { v: 2, label: 'Malo', tone: 'redLight' },
+  { v: 1, label: 'Muy malo', tone: 'red' },
 ];
+const CURRENCIES: { code: Currency; symbol: string }[] = [
+  { code: 'USD', symbol: '$' },
+  { code: 'EUR', symbol: '€' },
+  { code: 'GBP', symbol: '£' },
+];
+
+const TONES: Record<Tone, { fg: string; bg: string; bd: string }> = {
+  blue:      { fg: '#4f8fff', bg: 'rgba(79,143,255,0.08)', bd: 'rgba(79,143,255,0.4)' },
+  blueLight: { fg: '#8bb3ff', bg: 'rgba(79,143,255,0.06)', bd: 'rgba(79,143,255,0.3)' },
+  neutral:   { fg: '#f7f8fa', bg: 'rgba(255,255,255,0.06)', bd: 'rgba(255,255,255,0.16)' },
+  redLight:  { fg: '#f98a8a', bg: 'rgba(239,68,68,0.06)', bd: 'rgba(239,68,68,0.3)' },
+  red:       { fg: '#ef4444', bg: 'rgba(239,68,68,0.08)', bd: 'rgba(239,68,68,0.4)' },
+};
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
 const MODE_KEY = 'trace_addtrade_mode';
 
+// Palette (bluer dark per the redesign)
+const C = {
+  bg: '#0f1115', field: '#1a1d26', border: '#22252e', borderSoft: '#1a1d26',
+  primary: '#f7f8fa', muted: '#a1a9ba', label: '#6b7382', faint: '#4a4f5e',
+  blue: '#4f8fff', red: '#ef4444',
+};
+
 function todayDate() { return new Date().toISOString().slice(0, 10); }
 function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 
-const label: React.CSSProperties = {
-  fontSize: '0.6rem', fontWeight: 600, color: '#4a4a60',
-  textTransform: 'uppercase', letterSpacing: '0.08em',
-  display: 'block', marginBottom: 8,
+const sectionLabel: React.CSSProperties = {
+  fontSize: '0.68rem', fontWeight: 600, color: C.label,
+  textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: fontBody,
+  display: 'block', marginBottom: 10,
 };
-const input: React.CSSProperties = {
-  background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 8,
-  padding: '10px 14px', color: '#e0e0e8', fontFamily: fontBody,
-  fontSize: '0.88rem', width: '100%', outline: 'none', boxSizing: 'border-box',
+const fieldInput: React.CSSProperties = {
+  background: C.field, border: `1px solid ${C.border}`, borderRadius: 10,
+  padding: '14px 18px', color: C.primary, fontFamily: fontBody,
+  fontSize: '1rem', fontWeight: 500, width: '100%', outline: 'none', boxSizing: 'border-box',
   transition: 'border-color 0.15s, box-shadow 0.15s',
 };
-const fieldErr = (msg?: string) => msg ? <div style={{ color: '#ef4444', fontSize: '0.7rem', marginTop: 4 }}>{msg}</div> : null;
+const fieldErr = (msg?: string) => msg ? <div style={{ color: C.red, fontSize: '0.72rem', marginTop: 6 }}>{msg}</div> : null;
+
+function OptLabel({ children }: { children: React.ReactNode }) {
+  return <label style={sectionLabel}>{children}<span style={{ color: C.faint, marginLeft: 6 }}>(opcional)</span></label>;
+}
+
+function Chip({ active, tone = 'blue', onClick, children, full }: { active: boolean; tone?: Tone; onClick: () => void; children: React.ReactNode; full?: boolean }) {
+  const t = TONES[tone];
+  return (
+    <button type="button" onClick={onClick} style={{
+      padding: '10px 16px', borderRadius: 8, fontSize: '0.82rem', fontWeight: 500,
+      cursor: 'pointer', textAlign: 'center', transition: 'all 0.12s', fontFamily: fontBody,
+      background: active ? t.bg : C.field,
+      border: `1px solid ${active ? t.bd : C.border}`,
+      color: active ? t.fg : C.muted,
+      width: full ? '100%' : undefined,
+    }}>{children}</button>
+  );
+}
 
 const css = `
-  @keyframes traceModalIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-  .trace-add-modal input:focus, .trace-add-modal select:focus {
-    border-color: #4f8fff !important; box-shadow: 0 0 0 3px rgba(79,143,255,0.08) !important;
+  @keyframes traceModalIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+  @keyframes traceSpin { to { transform: rotate(360deg); } }
+  .trace-add-modal * { box-sizing: border-box; }
+  .trace-add-modal input:focus, .trace-add-modal textarea:focus {
+    border-color: ${C.blue} !important; box-shadow: 0 0 0 3px rgba(79,143,255,0.08) !important;
   }
-  .trace-add-modal input::placeholder { color: #2a2a35; }
-  .trace-add-modal .asset-input::placeholder { color: #1a1a1c; }
-  .trace-add-modal .asset-input:focus { border-bottom-color: #4f8fff !important; box-shadow: none !important; }
-  .trace-add-modal .save-btn:hover { background: #3d7aee !important; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(79,143,255,0.35) !important; }
-  .trace-add-modal .drop-zone:hover { border-color: #4f8fff !important; background: rgba(79,143,255,0.03) !important; }
-  @media (max-width: 700px) {
-    .trace-add-modal .modal-box { max-width: 100% !important; width: 100% !important; min-height: 100vh; border-radius: 0 !important; }
-    .trace-add-modal .modal-body { grid-template-columns: 1fr !important; }
-    .trace-add-modal .modal-right { border-top: 1px solid #1e1e20; }
-    .trace-add-modal .asset-input { font-size: 1.8rem !important; }
+  .trace-add-modal input::placeholder, .trace-add-modal textarea::placeholder { color: ${C.faint}; }
+  .trace-add-modal .asset-input:focus { border-color: ${C.blue} !important; }
+  .trace-add-modal .save-btn:hover:not(:disabled) { background: #6b9fff !important; }
+  .trace-add-modal .cancel-btn:hover { background: rgba(255,255,255,0.03); color: ${C.primary}; }
+  .trace-add-modal .drop-zone:hover { border-color: ${C.blue} !important; background: rgba(79,143,255,0.03) !important; }
+  .trace-add-modal .net-input { color-scheme: dark; }
+  .trace-add-modal .dt-input { color-scheme: dark; }
+  /* Let grid/flex tracks shrink below their content so nothing overflows horizontally. */
+  .trace-add-modal .modal-body > div { min-width: 0; }
+  .trace-add-modal .modal-body input, .trace-add-modal .modal-body textarea { min-width: 0; }
+  @media (max-width: 900px) {
+    .trace-add-modal .modal-box { max-width: 100% !important; width: 100% !important; height: 100vh; max-height: 100vh !important; border-radius: 0 !important; }
+    .trace-add-modal .modal-body { grid-template-columns: 1fr !important; gap: 24px !important; }
+    .trace-add-modal .dt-grid { grid-template-columns: 1fr !important; }
   }
 `;
 
@@ -89,6 +147,7 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const defaultCommission = useSettingsStore(s => s.defaultCommission);
   const defaultMultiplier = useSettingsStore(s => s.defaultMultiplier);
   const currencySymbol = useSettingsStore(s => s.currencySymbol);
+  const updateSettings = useSettingsStore(s => s.updateSettings);
   const dailyLossLimit = useSettingsStore(s => s.dailyLossLimit);
   const cardSuggest = useSettingsStore(s => s.cardSuggest);
   const { isFree } = usePlan();
@@ -129,6 +188,8 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   const [isDragOver, setIsDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedTrade, setSavedTrade] = useState<import('../../store/tradeStore').Trade | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const assetRef = useRef<HTMLInputElement>(null);
@@ -138,6 +199,8 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     if (!open) return;
     setErrors({});
     setSavedTrade(null);
+    setAccountMenuOpen(false);
+    setCurrencyMenuOpen(false);
     if (editTrade) {
       setInputMode(editTrade.inputMode || 'calculated');
       setAsset(editTrade.asset);
@@ -363,11 +426,9 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     setUploadingShots(false);
   };
 
-  const pnlPreviewColor = directValid ? (directPnl > 0 ? '#4f8fff' : directPnl < 0 ? '#ef4444' : '#888898') : '#fff';
-
   // ── Success screen after saving a trade (offers the PnL Card generator) ──
   if (savedTrade) {
-    const col = savedTrade.pnl > 0 ? '#4f8fff' : savedTrade.pnl < 0 ? '#ef4444' : '#888898';
+    const col = savedTrade.pnl > 0 ? C.blue : savedTrade.pnl < 0 ? C.red : '#888898';
     const cutoff = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
     const recent = allTrades.filter(t => t.date >= cutoff);
     const maxRecent = recent.length ? Math.max(...recent.map(t => t.pnl)) : 0;
@@ -375,316 +436,375 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
     const bigR = (savedTrade.realRR || 0) >= 3;
     const standout = (isRecord || bigR) && cardSuggest;
     return (
-      <div className="trace-add-modal" onClick={closeAfterSave} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div className="trace-add-modal" onClick={closeAfterSave} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
         <style>{css}</style>
-        <div onClick={e => e.stopPropagation()} style={{ background: '#111113', border: '1px solid #1e1e20', borderRadius: 14, width: '100%', maxWidth: 440, fontFamily: fontBody, color: '#e0e0e8', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', animation: 'traceModalIn 0.2s ease', textAlign: 'center', padding: '36px 28px' }}>
-          <div style={{ width: 68, height: 68, borderRadius: '50%', margin: '0 auto 18px', background: 'rgba(79,143,255,0.12)', border: '2px solid rgba(79,143,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, color: '#4f8fff', animation: 'traceModalIn 0.35s ease' }}>✓</div>
-          <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>Operación guardada</div>
-          <div style={{ fontSize: '0.9rem', color: '#888898', marginTop: 6 }}>Net PnL: <b style={{ color: col }}>{fmtMoney(savedTrade.pnl)}</b></div>
+        <div onClick={e => e.stopPropagation()} style={{ background: C.bg, border: `1px solid ${C.borderSoft}`, borderRadius: 16, width: '100%', maxWidth: 440, fontFamily: fontBody, color: C.primary, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', animation: 'traceModalIn 0.2s ease', textAlign: 'center', padding: '36px 28px' }}>
+          <div style={{ width: 68, height: 68, borderRadius: '50%', margin: '0 auto 18px', background: 'rgba(79,143,255,0.12)', border: '2px solid rgba(79,143,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.blue, animation: 'traceModalIn 0.35s ease' }}><Check size={34} /></div>
+          <div style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.1rem', color: C.primary }}>Operación guardada</div>
+          <div style={{ fontSize: '0.9rem', color: C.muted, marginTop: 6 }}>Net PnL: <b style={{ color: col }}>{fmtMoney(savedTrade.pnl)}</b></div>
           {standout && (
             <div style={{ marginTop: 16, background: 'rgba(120,97,255,0.08)', border: '1px solid rgba(120,97,255,0.2)', borderRadius: 10, padding: '10px 14px', fontSize: '0.82rem', color: '#c8d4e8' }}>
               {isRecord ? '🎉 ¡Nuevo récord del mes! Compártelo →' : '🔥 Gran trade (+3R). Compártelo →'}
             </div>
           )}
           <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-            <button onClick={closeAfterSave} style={{ flex: 1, background: 'transparent', border: '1px solid #1e1e20', color: '#888898', borderRadius: 9, padding: 11, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>Cerrar</button>
-            <button onClick={() => openCardFor(savedTrade.id)} style={{ flex: 1.4, background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 9, padding: 11, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>Generar PnL Card ✨</button>
+            <button onClick={closeAfterSave} style={{ flex: 1, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, borderRadius: 10, padding: 12, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>Cerrar</button>
+            <button onClick={() => openCardFor(savedTrade.id)} style={{ flex: 1.4, background: C.blue, color: '#fff', border: 'none', borderRadius: 10, padding: 12, fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}>Generar PnL Card ✨</button>
           </div>
         </div>
       </div>
     );
   }
 
+  const pnlColor = !pnlText.trim() ? C.primary : directValid ? (directPnl > 0 ? C.blue : directPnl < 0 ? C.red : C.muted) : C.primary;
+  const onPnlBlur = () => { if (directValid) setPnlText((directPnl > 0 ? '+' : '') + String(directPnl)); };
+
+  // New-6 tags plus any legacy tag already on the trade (kept visible/removable).
+  const errorOptions = [...ERROR_TAGS, ...errorTags.filter(t => !ERROR_TAGS.includes(t))];
+
+  const selectedAccounts = activeAccounts.filter(a => accountIds.includes(a.id));
+
   return (
     <div
       className="trace-add-modal"
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}
     >
       <style>{css}</style>
       <form
         className="modal-box"
         onClick={e => e.stopPropagation()}
         onSubmit={onSubmit}
-        style={{ background: '#111113', border: '1px solid #1e1e20', borderRadius: 14, width: '100%', maxWidth: 720, fontFamily: fontBody, color: '#e0e0e8', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', animation: 'traceModalIn 0.2s ease' }}
+        style={{ background: C.bg, border: `1px solid ${C.borderSoft}`, borderRadius: 16, width: '100%', maxWidth: 1140, maxHeight: '90vh', display: 'flex', flexDirection: 'column', fontFamily: fontBody, color: C.primary, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)', animation: 'traceModalIn 0.2s ease' }}
       >
         {/* Header */}
-        <div style={{ background: '#161618', borderBottom: '1px solid #1e1e20', padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1rem', color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>
+        <div style={{ padding: '24px 32px', borderBottom: `1px solid ${C.borderSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ fontFamily: fontHead, fontWeight: 700, fontSize: '1.25rem', color: C.primary, margin: 0, letterSpacing: '-0.01em' }}>
               {editTrade ? 'Editar operación' : 'Añadir operación'}
             </h2>
-            {!editTrade && <span style={{ background: 'rgba(79,143,255,0.15)', color: '#4f8fff', fontSize: '0.58rem', padding: '3px 8px', borderRadius: 5, fontWeight: 700, letterSpacing: '0.06em' }}>NUEVO</span>}
+            {!editTrade && <span style={{ background: C.blue, color: '#fff', fontSize: '0.6rem', padding: '3px 8px', borderRadius: 5, fontWeight: 700, letterSpacing: '0.08em' }}>NUEVO</span>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ width: 28, height: 28, borderRadius: 6, background: 'transparent', border: '1px solid #1e1e20', color: '#4a4a60', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>✕</button>
+          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ width: 36, height: 36, borderRadius: 8, background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
         </div>
 
-        {/* Mode toggle */}
-        <div style={{ padding: '12px 22px 0' }}>
-          <div style={{ display: 'inline-flex', background: '#0d0d0f', border: '1px solid #1e1e20', borderRadius: 22, padding: 3, gap: 2 }}>
-            {(['direct', 'calculated'] as InputMode[]).map(m => {
-              const active = inputMode === m;
-              return (
-                <button key={m} type="button" onClick={() => switchMode(m)} style={{
-                  padding: '6px 16px', borderRadius: 18, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
-                  background: active ? '#1e1e28' : 'transparent',
-                  border: active ? '1px solid #2a2a35' : '1px solid transparent',
-                  color: active ? '#fff' : '#4a4a60', fontFamily: fontBody,
-                }}>{m === 'direct' ? 'PnL directo' : 'Cálculo automático'}</button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Grouped-trade edit banner */}
-        {editTrade?.groupId && groupMembers.length > 1 && (
-          <div style={{ margin: '12px 22px 0', background: 'rgba(79,143,255,0.08)', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: '0.78rem', color: '#c8d4e8' }}>
-            <div style={{ marginBottom: 8 }}>🔗 Esta operación está agrupada con {groupMembers.length - 1} más (misma entrada en distintas cuentas).</div>
-            <div style={{ display: 'flex', gap: 16 }}>
-              {([['one', 'Editar solo esta operación'], ['group', 'Editar todas las del grupo']] as const).map(([scope, lbl]) => (
-                <label key={scope} onClick={() => setEditScope(scope)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.74rem', color: editScope === scope ? '#4f8fff' : '#888898' }}>
-                  <span style={{ width: 14, height: 14, borderRadius: '50%', border: `1px solid ${editScope === scope ? '#4f8fff' : '#33334a'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {editScope === scope && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4f8fff' }} />}
-                  </span>
-                  {lbl}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Body */}
-        <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: 20, padding: '18px 22px 22px' }}>
-          {/* LEFT */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Asset */}
-            <div>
-              <input
-                ref={assetRef}
-                className="asset-input"
-                value={asset}
-                onChange={e => setAsset(e.target.value.toUpperCase())}
-                placeholder="NQ"
-                style={{ fontFamily: fontHead, fontStyle: 'normal', fontWeight: 800, fontSize: '2.4rem', letterSpacing: '0.05em', color: '#fff', background: 'transparent', border: 'none', borderBottom: '2px solid #1e1e20', padding: '6px 0 10px', width: '100%', outline: 'none', transition: 'border-color 0.15s ease' }}
-              />
-              {fieldErr(errors.asset)}
-            </div>
-
-            {/* Direction */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {(['long', 'short'] as Direction[]).map(d => {
-                const active = direction === d;
-                const isLong = d === 'long';
-                const color = isLong ? '#4f8fff' : '#ef4444';
-                return (
-                  <button key={d} type="button" onClick={() => setDirection(d)} style={{
-                    padding: '10px 16px', borderRadius: 8, fontFamily: fontBody, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
-                    border: `1px solid ${active ? color : '#1e1e20'}`,
-                    background: active ? (isLong ? 'rgba(79,143,255,0.1)' : 'rgba(239,68,68,0.08)') : 'transparent',
-                    color: active ? color : '#4a4a60',
-                    boxShadow: active && isLong ? '0 0 12px rgba(79,143,255,0.15)' : 'none',
-                  }}>{d.toUpperCase()}</button>
-                );
-              })}
-            </div>
-
-            {inputMode === 'direct' ? (
-              <>
-                {/* PnL input */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <label style={{ ...label, marginBottom: 0 }}>PnL neto</label>
-                    <button
-                      type="button"
-                      onClick={() => setPnlText('0')}
-                      style={{
-                        background: isBreakEven ? 'rgba(136,136,152,0.15)' : 'transparent',
-                        border: `1px solid ${isBreakEven ? '#888898' : '#1e1e20'}`,
-                        color: isBreakEven ? '#c8d4e8' : '#4a4a60',
-                        borderRadius: 14, padding: '3px 10px', fontSize: '0.62rem', fontWeight: 600,
-                        cursor: 'pointer', fontFamily: fontBody,
-                      }}
-                    >Break even</button>
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      value={pnlText}
-                      onChange={e => setPnlText(e.target.value)}
-                      placeholder="+250.00 / -180.00"
-                      inputMode="decimal"
-                      style={{ background: '#0a0a0c', border: '1.5px solid #1e1e20', borderRadius: 10, padding: '14px 40px 14px 16px', fontFamily: fontHead, fontWeight: 700, fontSize: '1.4rem', color: pnlPreviewColor, width: '100%', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
-                    />
-                    <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: '#4a4a60', fontFamily: fontHead, fontWeight: 700, fontSize: '1.1rem' }}>{currencySymbol}</span>
-                  </div>
-                  {isBreakEven && <div style={{ fontSize: '0.68rem', color: '#888898', marginTop: 4 }}>Break even · sin ganancia ni pérdida</div>}
-                  {fieldErr(errors.pnl)}
-                </div>
-                {/* Commission */}
-                <div>
-                  <label style={label}>Comisión (opcional)</label>
-                  <input type="number" step="any" value={commission} onChange={e => setCommission(e.target.value)} style={input} />
-                  <div style={{ fontSize: '0.68rem', color: '#33334a', marginTop: 4 }}>Se restará del PnL bruto</div>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Prices */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div><label style={label}>Entrada</label><input type="number" step="any" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} style={input} placeholder="0.00" />{fieldErr(errors.entryPrice)}</div>
-                  <div><label style={label}>Salida</label><input type="number" step="any" value={exitPrice} onChange={e => setExitPrice(e.target.value)} style={input} placeholder="0.00" />{fieldErr(errors.exitPrice)}</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  <div><label style={label}>Tamaño</label><input type="number" step="any" value={positionSize} onChange={e => setPositionSize(e.target.value)} style={input} />{fieldErr(errors.positionSize)}</div>
-                  <div><label style={label}>Comisión</label><input type="number" step="any" value={commission} onChange={e => setCommission(e.target.value)} style={input} /></div>
-                  <div><label style={label}>Multipl.</label><input type="number" step="any" value={multiplier} onChange={e => setMultiplier(e.target.value)} style={input} /></div>
-                </div>
-                {/* Live preview */}
-                <div style={{ position: 'relative', background: '#0a0a0c', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #4f8fff, transparent)' }} />
-                  <div style={{ ...label, marginBottom: 4 }}>PnL estimado</div>
-                  <div style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.5rem', color: calc.valid ? (calc.pnl >= 0 ? '#4f8fff' : '#ef4444') : '#33334a' }}>
-                    {calc.valid ? fmtMoney(calc.pnl) : '—'}
-                  </div>
-                  <div style={{ fontSize: '0.62rem', color: '#4a4a60', marginTop: 4 }}>Calculado automáticamente · Bruto {calc.valid ? fmtMoney(calc.gross) : '—'}</div>
-                </div>
-              </>
-            )}
-
-            {/* Date + Time */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 10 }}>
-              <div><label style={label}>Fecha</label><input type="date" max={todayDate()} value={date} onChange={e => setDate(e.target.value)} style={{ ...input, fontFamily: fontBody }} /></div>
-              <div><label style={label}>Hora</label><input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ ...input, fontFamily: fontBody }} /></div>
-            </div>
-
-            {/* Nota de la operación */}
-            <div>
-              <label style={label}>Nota de la operación (opcional)</label>
-              <div style={{ position: 'relative' }}>
-                <textarea
-                  value={quickNote}
-                  onChange={e => setQuickNote(e.target.value.slice(0, 500))}
-                  placeholder="¿Por qué entraste? ¿Cómo te sentiste? ¿Qué aprendiste?"
-                  style={{ background: '#1a1c22', border: '1px solid #1e1e20', borderRadius: 8, padding: '10px 14px', minHeight: 70, resize: 'vertical', fontSize: '0.82rem', color: '#e0e0e8', lineHeight: 1.55, width: '100%', outline: 'none', boxSizing: 'border-box', fontFamily: fontBody, transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                />
-                <span style={{ position: 'absolute', right: 10, bottom: 8, fontSize: '0.62rem', color: quickNote.length >= 500 ? '#ef4444' : '#4a4a60' }}>{quickNote.length} / 500</span>
+        {/* Scrollable body */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '28px 32px' }}>
+          {/* Grouped-trade edit banner */}
+          {editTrade?.groupId && groupMembers.length > 1 && (
+            <div style={{ marginBottom: 20, background: 'rgba(79,143,255,0.08)', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 10, padding: '12px 16px', fontSize: '0.8rem', color: '#c8d4e8' }}>
+              <div style={{ marginBottom: 8 }}>🔗 Esta operación está agrupada con {groupMembers.length - 1} más (misma entrada en distintas cuentas).</div>
+              <div style={{ display: 'flex', gap: 16 }}>
+                {([['one', 'Editar solo esta operación'], ['group', 'Editar todas las del grupo']] as const).map(([scope, lbl]) => (
+                  <label key={scope} onClick={() => setEditScope(scope)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.76rem', color: editScope === scope ? C.blue : C.muted }}>
+                    <span style={{ width: 14, height: 14, borderRadius: '50%', border: `1px solid ${editScope === scope ? C.blue : '#33334a'}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {editScope === scope && <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.blue }} />}
+                    </span>
+                    {lbl}
+                  </label>
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* RIGHT */}
-          <div className="modal-right" style={{ background: '#0d0d0f', borderRadius: 10, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {activeAccounts.length > 0 && (
+          <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 32 }}>
+            {/* ───────────── LEFT COLUMN ───────────── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {/* Mode toggle */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {([['direct', 'PnL directo', Target], ['calculated', 'Cálculo automático', Calculator]] as const).map(([m, lbl, Icon]) => {
+                  const active = inputMode === m;
+                  return (
+                    <button key={m} type="button" onClick={() => switchMode(m)} style={{
+                      padding: '16px 20px', borderRadius: 12, cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.9rem', fontWeight: 600, fontFamily: fontBody, transition: 'all 0.15s',
+                      background: active ? 'rgba(79,143,255,0.08)' : C.field,
+                      border: `1px solid ${active ? 'rgba(79,143,255,0.4)' : C.border}`,
+                      color: active ? C.blue : C.muted,
+                      boxShadow: active ? '0 0 0 3px rgba(79,143,255,0.08)' : 'none',
+                    }}><Icon size={18} />{lbl}</button>
+                  );
+                })}
+              </div>
+
+              {/* Símbolo (activo) — required for saving */}
               <div>
-                <label style={{ ...label, fontSize: '0.58rem' }}>Cuentas (selecciona una o varias)</label>
-                <div style={{ background: '#1a1c22', border: '1px solid #1e1e20', borderRadius: 8, padding: 6, display: 'flex', flexWrap: 'wrap', gap: 4, minHeight: 40 }}>
-                  {activeAccounts.map(a => {
-                    const sel = accountIds.includes(a.id);
-                    return (
-                      <button
-                        key={a.id} type="button"
-                        onClick={() => setAccountIds(ids => ids.includes(a.id) ? ids.filter(x => x !== a.id) : [...ids, a.id])}
-                        style={{
-                          padding: '5px 10px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
-                          fontSize: '0.72rem', cursor: 'pointer', transition: 'all 0.12s', fontFamily: fontBody,
-                          background: sel ? 'rgba(79,143,255,0.12)' : 'transparent',
-                          color: sel ? '#4f8fff' : '#6b7280',
-                          border: `1px solid ${sel ? 'rgba(79,143,255,0.3)' : 'transparent'}`,
-                        }}
-                      >
-                        {sel && <span style={{ fontSize: 9 }}>✓</span>}
-                        <span style={{ width: 14, height: 14, borderRadius: 3, flexShrink: 0, background: firmColor(a.firm), color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700 }}>{a.firm.slice(0, 2).toUpperCase()}</span>
-                        {a.firm} {Math.round(a.accountSize / 1000)}K
-                        <span style={{ fontSize: '0.55rem', opacity: 0.85 }}>{PHASE_SHORT[a.phase] ?? a.phase}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
-                  <span style={{ fontSize: '0.68rem', color: '#4a4a60' }}>{accountIds.length} cuenta{accountIds.length === 1 ? '' : 's'} seleccionada{accountIds.length === 1 ? '' : 's'}</span>
-                  <span style={{ fontSize: '0.68rem' }}>
-                    <span onClick={() => setAccountIds(activeAccounts.map(a => a.id))} style={{ color: '#4f8fff', cursor: 'pointer' }}>Seleccionar todas</span>
-                    <span style={{ color: '#33334a', margin: '0 6px' }}>|</span>
-                    <span onClick={() => setAccountIds([])} style={{ color: '#4f8fff', cursor: 'pointer' }}>Ninguna</span>
-                  </span>
-                </div>
+                <label style={sectionLabel}>Símbolo</label>
+                <input
+                  ref={assetRef}
+                  className="asset-input"
+                  value={asset}
+                  onChange={e => setAsset(e.target.value.toUpperCase())}
+                  placeholder="NQ, ES, EURUSD…"
+                  style={{ ...fieldInput, fontWeight: 700, letterSpacing: '0.04em' }}
+                />
+                {fieldErr(errors.asset)}
               </div>
-            )}
-            <div>
-              <label style={{ ...label, fontSize: '0.58rem' }}>Sesión</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {SESSIONS.map(s => {
-                  const active = session === s.value;
-                  return <button key={s.value} type="button" onClick={() => setSession(s.value)} style={pill(active, 'blue')}>{s.label}</button>;
-                })}
-              </div>
-            </div>
 
-            <div>
-              <label style={{ ...label, fontSize: '0.58rem' }}>Estado emocional</label>
-              <div style={{ display: 'flex', gap: 5 }}>
-                {EMOTIONS.map(em => {
-                  const active = emotionalState === em.v;
-                  return <button key={em.v} type="button" onClick={() => setEmotionalState(em.v)} style={{ flex: 1, height: 36, background: active ? 'rgba(79,143,255,0.1)' : '#161618', border: `1px solid ${active ? '#4f8fff' : '#1e1e20'}`, borderRadius: 8, fontSize: '1.1rem', cursor: 'pointer' }}>{em.emoji}</button>;
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label style={{ ...label, fontSize: '0.58rem' }}>¿Según el plan?</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                {[true, false].map(v => {
-                  const active = isPlanBased === v;
-                  return <button key={String(v)} type="button" onClick={() => setIsPlanBased(v)} style={{ padding: '6px 14px', borderRadius: 7, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', border: `1px solid ${active ? '#4f8fff' : '#1e1e20'}`, background: active ? 'rgba(79,143,255,0.1)' : '#161618', color: active ? '#4f8fff' : '#4a4a60', fontFamily: fontBody }}>{v ? 'Sí' : 'No'}</button>;
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label style={{ ...label, fontSize: '0.58rem' }}>Errores</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {ERROR_TAGS.map(tag => {
-                  const active = errorTags.includes(tag);
-                  return <button key={tag} type="button" onClick={() => setErrorTags(s => active ? s.filter(t => t !== tag) : [...s, tag])} style={pill(active, 'red')}>{tag}</button>;
-                })}
-              </div>
-            </div>
-
-            {/* Dropzone */}
-            <div
-              className="drop-zone"
-              onClick={() => fileRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-              onDragLeave={e => { e.preventDefault(); setIsDragOver(false); }}
-              onDrop={e => { e.preventDefault(); setIsDragOver(false); handleFiles(e.dataTransfer.files); }}
-              style={{ flex: 1, minHeight: 80, border: `1.5px dashed ${isDragOver ? '#4f8fff' : '#1e1e20'}`, background: isDragOver ? 'rgba(79,143,255,0.06)' : 'transparent', borderRadius: 9, padding: '18px 12px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-            >
-              {screenshots.length === 0 ? (
+              {inputMode === 'direct' ? (
                 <>
-                  <div style={{ fontSize: '1.4rem', color: '#2a2a35' }}>📎</div>
-                  <div style={{ fontSize: '0.7rem', color: '#4a4a60', marginTop: 4 }}>Arrastra capturas</div>
-                  <div style={{ fontSize: '0.7rem', color: '#4a4a60' }}>o <span style={{ color: '#4f8fff', textDecoration: 'underline' }}>busca archivos</span></div>
+                  {/* Resultado neto */}
+                  <div>
+                    <label style={{ ...sectionLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      Resultado neto
+                      <span title="El PnL neto después de comisiones" style={{ display: 'inline-flex', color: C.faint, cursor: 'help' }}><Info size={12} /></span>
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10 }}>
+                      <input
+                        className="net-input"
+                        value={pnlText}
+                        onChange={e => setPnlText(e.target.value)}
+                        onBlur={onPnlBlur}
+                        placeholder="0.00"
+                        inputMode="decimal"
+                        style={{ background: C.field, border: `1px solid ${C.border}`, borderRadius: 12, padding: '20px 24px', fontFamily: fontHead, fontWeight: 800, fontSize: '2.4rem', letterSpacing: '-0.02em', color: pnlColor, width: '100%', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+                      />
+                      <div style={{ position: 'relative' }}>
+                        <button type="button" onClick={() => setCurrencyMenuOpen(o => !o)} style={{ height: '100%', background: C.field, border: `1px solid ${C.border}`, borderRadius: 12, padding: '0 18px', display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: '1.3rem', color: C.primary, fontFamily: fontBody }}>
+                          {currencySymbol}<ChevronDown size={18} color={C.muted} />
+                        </button>
+                        {currencyMenuOpen && (
+                          <>
+                            <div onClick={() => setCurrencyMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 11, background: C.field, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, minWidth: 120, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
+                              {CURRENCIES.map(cur => (
+                                <button key={cur.code} type="button" onClick={() => { updateSettings({ currency: cur.code }); setCurrencyMenuOpen(false); }} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 7, background: currencySymbol === cur.symbol ? 'rgba(79,143,255,0.1)' : 'transparent', border: 'none', color: currencySymbol === cur.symbol ? C.blue : C.muted, cursor: 'pointer', fontFamily: fontBody, fontSize: '0.85rem' }}>
+                                  <span style={{ fontSize: '1rem' }}>{cur.symbol}</span>{cur.code}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {isBreakEven && <div style={{ fontSize: '0.72rem', color: C.muted, marginTop: 6 }}>Break even · sin ganancia ni pérdida</div>}
+                    {fieldErr(errors.pnl)}
+                  </div>
                 </>
               ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', alignItems: 'center' }}>
-                  {screenshots.map((src, i) => (
-                    <div key={i} style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                      <img src={src} alt={`Captura ${i + 1}`} title="Ver captura" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #1e1e20', display: 'block', cursor: 'pointer' }} />
-                      <button type="button" aria-label="Quitar captura" onClick={() => setScreenshots(s => s.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', fontSize: 9, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                <>
+                  {/* Cálculo automático inputs */}
+                  <div>
+                    <label style={sectionLabel}>Precios y tamaño</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div><input type="number" step="any" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} style={fieldInput} placeholder="Entrada" />{fieldErr(errors.entryPrice)}</div>
+                      <div><input type="number" step="any" value={exitPrice} onChange={e => setExitPrice(e.target.value)} style={fieldInput} placeholder="Salida" />{fieldErr(errors.exitPrice)}</div>
                     </div>
-                  ))}
-                  {uploadingShots && <span style={{ fontSize: '0.66rem', color: '#4f8fff', width: '100%' }}>Procesando…</span>}
-                  {screenshots.length < MAX_SCREENSHOTS && <span style={{ fontSize: '0.6rem', color: '#4a4a60', width: '100%' }}>+ añadir ({screenshots.length}/{MAX_SCREENSHOTS})</span>}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                      <div><input type="number" step="any" value={positionSize} onChange={e => setPositionSize(e.target.value)} style={fieldInput} placeholder="Tamaño" />{fieldErr(errors.positionSize)}</div>
+                      <div><input type="number" step="any" value={commission} onChange={e => setCommission(e.target.value)} style={fieldInput} placeholder="Comisión" /></div>
+                      <div><input type="number" step="any" value={multiplier} onChange={e => setMultiplier(e.target.value)} style={fieldInput} placeholder="Multipl." /></div>
+                    </div>
+                    <div style={{ position: 'relative', background: C.field, border: '1px solid rgba(79,143,255,0.2)', borderRadius: 12, padding: '16px 18px', overflow: 'hidden', marginTop: 12 }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #4f8fff, transparent)' }} />
+                      <div style={{ ...sectionLabel, marginBottom: 4 }}>PnL estimado</div>
+                      <div style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '1.6rem', color: calc.valid ? (calc.pnl >= 0 ? C.blue : C.red) : C.faint }}>
+                        {calc.valid ? fmtMoney(calc.pnl) : '—'}
+                      </div>
+                      <div style={{ fontSize: '0.66rem', color: C.muted, marginTop: 4 }}>Calculado automáticamente · Bruto {calc.valid ? fmtMoney(calc.gross) : '—'}</div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Long / Short */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {([['long', ArrowUpRight], ['short', ArrowDownRight]] as const).map(([d, Icon]) => {
+                  const active = direction === d;
+                  const isLong = d === 'long';
+                  const color = isLong ? C.blue : C.red;
+                  return (
+                    <button key={d} type="button" onClick={() => setDirection(d)} style={{
+                      padding: '18px 16px', borderRadius: 12, cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.05rem', fontWeight: 700, letterSpacing: '0.08em', fontFamily: fontBody, transition: 'all 0.15s',
+                      background: active ? (isLong ? 'rgba(79,143,255,0.08)' : 'rgba(239,68,68,0.08)') : C.field,
+                      border: `1px solid ${active ? (isLong ? 'rgba(79,143,255,0.5)' : 'rgba(239,68,68,0.5)') : C.border}`,
+                      color: active ? color : C.muted,
+                      boxShadow: active ? `0 0 0 3px ${isLong ? 'rgba(79,143,255,0.08)' : 'rgba(239,68,68,0.08)'}` : 'none',
+                    }}><Icon size={22} />{d.toUpperCase()}</button>
+                  );
+                })}
+              </div>
+
+              {/* Comisión (direct mode only) */}
+              {inputMode === 'direct' && (
+                <div>
+                  <OptLabel>Comisión</OptLabel>
+                  <div style={{ position: 'relative' }}>
+                    <input type="number" step="any" value={commission} onChange={e => setCommission(e.target.value)} placeholder="0.00" style={{ ...fieldInput, paddingRight: 36 }} />
+                    <span style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', color: C.faint }}>{currencySymbol}</span>
+                  </div>
                 </div>
               )}
-              <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
+
+              {/* Fecha + Hora */}
+              <div className="dt-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label style={sectionLabel}>Fecha</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.field, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                    <Calendar size={16} color={C.label} style={{ flexShrink: 0 }} />
+                    <input className="dt-input" type="date" max={todayDate()} value={date} onChange={e => setDate(e.target.value)} style={{ background: 'transparent', border: 'none', outline: 'none', color: C.primary, fontFamily: fontBody, fontSize: '0.92rem', width: '100%' }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={sectionLabel}>Hora</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.field, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                    <Clock size={16} color={C.label} style={{ flexShrink: 0 }} />
+                    <input className="dt-input" type="time" value={time} onChange={e => setTime(e.target.value)} style={{ background: 'transparent', border: 'none', outline: 'none', color: C.primary, fontFamily: fontBody, fontSize: '0.92rem', width: '100%' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Nota de la operación */}
+              <div>
+                <OptLabel>Nota de la operación</OptLabel>
+                <div style={{ position: 'relative' }}>
+                  <textarea
+                    value={quickNote}
+                    onChange={e => setQuickNote(e.target.value.slice(0, 500))}
+                    placeholder="Escribe una nota sobre la operación..."
+                    style={{ background: C.field, border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 18px', minHeight: 90, resize: 'vertical', fontSize: '0.9rem', color: C.primary, lineHeight: 1.55, width: '100%', outline: 'none', boxSizing: 'border-box', fontFamily: fontBody, transition: 'border-color 0.15s, box-shadow 0.15s' }}
+                  />
+                  <span style={{ position: 'absolute', right: 12, bottom: 10, fontSize: '0.65rem', color: quickNote.length >= 500 ? C.red : C.faint }}>{quickNote.length}/500</span>
+                </div>
+              </div>
+
+              {/* Capturas */}
+              <div>
+                <OptLabel>Capturas</OptLabel>
+                <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
+                <div
+                  className="drop-zone"
+                  onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+                  onDragLeave={e => { e.preventDefault(); setIsDragOver(false); }}
+                  onDrop={e => { e.preventDefault(); setIsDragOver(false); handleFiles(e.dataTransfer.files); }}
+                  style={{ display: 'flex', gap: 10, flexWrap: 'wrap', minHeight: 100, alignItems: 'flex-start', padding: 12, borderRadius: 12, border: `1.5px dashed ${isDragOver ? C.blue : C.border}`, background: isDragOver ? 'rgba(79,143,255,0.04)' : 'transparent', transition: 'all 0.15s' }}
+                >
+                  {screenshots.map((src, i) => (
+                    <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
+                      <img src={src} alt={`Captura ${i + 1}`} title="Ver captura" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}`, display: 'block', cursor: 'pointer' }} />
+                      <button type="button" aria-label="Quitar captura" onClick={() => setScreenshots(s => s.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: C.red, border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
+                  ))}
+                  {screenshots.length < MAX_SCREENSHOTS && (
+                    <button type="button" onClick={() => fileRef.current?.click()} style={{ width: 80, height: 80, borderRadius: 8, border: `1.5px dashed ${C.border}`, background: 'transparent', color: C.muted, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: fontBody }}>
+                      <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>+</span>
+                      <span style={{ fontSize: '0.6rem' }}>añadir ({screenshots.length}/{MAX_SCREENSHOTS})</span>
+                    </button>
+                  )}
+                  {uploadingShots && <span style={{ fontSize: '0.7rem', color: C.blue, alignSelf: 'center' }}>Procesando…</span>}
+                </div>
+              </div>
             </div>
 
-            <button
-              type="submit" className="save-btn" disabled={saving}
-              style={{ width: '100%', background: '#4f8fff', color: '#fff', border: 'none', borderRadius: 8, padding: 11, fontFamily: fontBody, fontWeight: 600, fontSize: '0.88rem', cursor: saving ? 'default' : 'pointer', boxShadow: '0 4px 16px rgba(79,143,255,0.25)', transition: 'all 0.15s', opacity: saving ? 0.7 : 1 }}
-            >{saving ? 'Guardando…' : (editTrade ? 'Guardar cambios' : 'Guardar →')}</button>
+            {/* ───────────── RIGHT COLUMN ───────────── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {/* Cuenta */}
+              {activeAccounts.length > 0 && (
+                <div>
+                  <label style={sectionLabel}>Cuenta</label>
+                  <div style={{ position: 'relative' }}>
+                    <button type="button" onClick={() => setAccountMenuOpen(o => !o)} style={{ width: '100%', background: C.field, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}>
+                      {selectedAccounts.length === 1 ? (
+                        <>
+                          <span style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: firmColor(selectedAccounts[0].firm), color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 700 }}>{selectedAccounts[0].firm.slice(0, 2).toUpperCase()}</span>
+                          <span style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 600, color: C.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedAccounts[0].firm}</span>
+                            <span style={{ fontSize: '0.72rem', color: C.muted }}>{Math.round(selectedAccounts[0].accountSize / 1000)}K</span>
+                          </span>
+                          <PhaseBadge phase={selectedAccounts[0].phase} />
+                        </>
+                      ) : selectedAccounts.length > 1 ? (
+                        <span style={{ flex: 1, fontSize: '0.88rem', fontWeight: 600, color: C.primary }}>{selectedAccounts.length} cuentas seleccionadas</span>
+                      ) : (
+                        <span style={{ flex: 1, fontSize: '0.88rem', color: C.muted }}>Sin cuenta asignada</span>
+                      )}
+                      <ChevronDown size={14} color={C.muted} style={{ flexShrink: 0 }} />
+                    </button>
+                    {accountMenuOpen && (
+                      <>
+                        <div onClick={() => setAccountMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 11, background: C.field, border: `1px solid ${C.border}`, borderRadius: 10, padding: 6, boxShadow: '0 12px 30px rgba(0,0,0,0.5)', maxHeight: 280, overflowY: 'auto' }}>
+                        {activeAccounts.map(a => {
+                          const sel = accountIds.includes(a.id);
+                          return (
+                            <button key={a.id} type="button" onClick={() => setAccountIds(ids => ids.includes(a.id) ? ids.filter(x => x !== a.id) : [...ids, a.id])} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: sel ? 'rgba(79,143,255,0.1)' : 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                              <span style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1px solid ${sel ? C.blue : C.border}`, background: sel ? C.blue : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{sel && <Check size={11} color="#fff" />}</span>
+                              <span style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, background: firmColor(a.firm), color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.62rem', fontWeight: 700 }}>{a.firm.slice(0, 2).toUpperCase()}</span>
+                              <span style={{ flex: 1, fontSize: '0.82rem', color: C.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.firm} <span style={{ color: C.muted }}>{Math.round(a.accountSize / 1000)}K</span></span>
+                              <PhaseBadge phase={a.phase} />
+                            </button>
+                          );
+                        })}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px 4px', fontSize: '0.72rem' }}>
+                          <span onClick={() => setAccountIds(activeAccounts.map(a => a.id))} style={{ color: C.blue, cursor: 'pointer' }}>Seleccionar todas</span>
+                          <span onClick={() => setAccountIds([])} style={{ color: C.blue, cursor: 'pointer' }}>Ninguna</span>
+                        </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Sesión */}
+              <div>
+                <label style={sectionLabel}>Sesión</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {SESSIONS.map(s => (
+                    <Chip key={s.value} active={session === s.value} tone="blue" onClick={() => setSession(s.value)} full>{s.label}</Chip>
+                  ))}
+                </div>
+              </div>
+
+              {/* Estado emocional */}
+              <div>
+                <label style={sectionLabel}>Estado emocional</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {EMOTIONS.map(em => (
+                    <Chip key={em.v} active={emotionalState === em.v} tone={em.tone} onClick={() => setEmotionalState(em.v)}>{em.label}</Chip>
+                  ))}
+                </div>
+              </div>
+
+              {/* ¿Según el plan? */}
+              <div>
+                <label style={sectionLabel}>¿Según el plan?</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <Chip active={isPlanBased === true} tone="blue" onClick={() => setIsPlanBased(true)} full>Sí</Chip>
+                  <Chip active={isPlanBased === false} tone="red" onClick={() => setIsPlanBased(false)} full>No</Chip>
+                </div>
+              </div>
+
+              {/* Errores */}
+              <div>
+                <OptLabel>Errores</OptLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {errorOptions.map(tag => {
+                    const active = errorTags.includes(tag);
+                    return <Chip key={tag} active={active} tone="red" onClick={() => setErrorTags(s => active ? s.filter(t => t !== tag) : [...s, tag])}>{tag}</Chip>;
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Footer */}
+        <div style={{ padding: '20px 32px', borderTop: `1px solid ${C.borderSoft}`, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <button type="button" className="cancel-btn" onClick={onClose} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, padding: '12px 24px', borderRadius: 10, fontSize: '0.92rem', fontWeight: 500, cursor: 'pointer', fontFamily: fontBody, transition: 'all 0.15s' }}>Cancelar</button>
+          <button type="submit" className="save-btn" disabled={saving} style={{ background: C.blue, color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 10, fontSize: '0.92rem', fontWeight: 600, cursor: saving ? 'default' : 'pointer', fontFamily: fontBody, display: 'inline-flex', alignItems: 'center', gap: 10, opacity: saving ? 0.6 : 1, transition: 'all 0.15s' }}>
+            {saving ? (
+              <>
+                <span style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', display: 'inline-block', animation: 'traceSpin 0.7s linear infinite' }} />
+                Guardando…
+              </>
+            ) : (
+              <>{editTrade ? 'Guardar cambios' : 'Guardar operación'}<ArrowRight size={16} /></>
+            )}
+          </button>
+        </div>
+
         <ImageLightbox
           images={screenshots}
           initialIndex={lightboxIndex}
@@ -698,15 +818,15 @@ export function AddTradeModal({ open, onClose, mode = 'create', tradeId }: Props
   );
 }
 
-function pill(active: boolean, kind: 'blue' | 'red'): React.CSSProperties {
-  const color = kind === 'blue' ? '#4f8fff' : '#ef4444';
-  return {
-    background: active ? (kind === 'blue' ? 'rgba(79,143,255,0.1)' : 'rgba(239,68,68,0.08)') : '#161618',
-    border: `1px solid ${active ? (kind === 'blue' ? '#4f8fff' : 'rgba(239,68,68,0.4)') : '#1e1e20'}`,
-    color: active ? color : '#888898',
-    borderRadius: 14, padding: '5px 11px', fontSize: '0.7rem', cursor: 'pointer',
-    transition: 'all 0.12s', fontFamily: "'Space Grotesk', sans-serif",
-  };
+function PhaseBadge({ phase }: { phase: string }) {
+  const funded = phase === 'funded';
+  return (
+    <span style={{
+      padding: '4px 10px', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600, flexShrink: 0, fontFamily: fontBody,
+      background: funded ? 'rgba(79,143,255,0.12)' : 'rgba(255,255,255,0.06)',
+      color: funded ? C.blue : C.muted,
+    }}>{PHASE_LABEL[phase] ?? phase}</span>
+  );
 }
 
 export default AddTradeModal;
