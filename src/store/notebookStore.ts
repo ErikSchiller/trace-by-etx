@@ -83,6 +83,20 @@ export interface Attachment {
   thumbnail?: string;
 }
 
+/** A user-saved template ("Guardar como plantilla"). Blocks are concrete. */
+export interface CustomTemplate {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  tags?: string[];
+  properties?: NoteProperties;
+  cover?: NoteCover;
+  blocks: Block[];
+  custom: true;
+  createdAt: string;
+}
+
 export interface NoteMeta {
   date?: string;
   session?: string;
@@ -133,6 +147,9 @@ export const DIARIO_FOLDER_NAME = 'Diario Diario';
 interface NotebookStore {
   folders: Folder[];
   notes: Note[];
+  customTemplates: CustomTemplate[];
+  saveAsTemplate: (noteId: string, description?: string) => void;
+  deleteCustomTemplate: (id: string) => void;
   ensureDefaultFolders: () => void;
   ensureDiarioFolder: () => Folder;
   ensureTradeNotesFolder: () => Folder;
@@ -274,6 +291,27 @@ export const useNotebookStore = create<NotebookStore>()(
     (set, get) => ({
       folders: [],
       notes: [],
+      customTemplates: [],
+
+      saveAsTemplate: (noteId, description) => {
+        const note = get().notes.find(n => n.id === noteId);
+        if (!note) return;
+        const tpl: CustomTemplate = {
+          id: nanoid(),
+          title: note.title || 'Plantilla sin título',
+          description: description ?? (note.subtitle || 'Plantilla personalizada'),
+          category: 'personal',
+          tags: note.tags,
+          properties: note.properties,
+          cover: note.cover,
+          blocks: (note.blocks ?? blocksFromContent(note.content)).map(b => ({ ...b, id: nanoid() })),
+          custom: true,
+          createdAt: new Date().toISOString(),
+        };
+        set(s => ({ customTemplates: [...s.customTemplates, tpl] }));
+      },
+
+      deleteCustomTemplate: (id) => set(s => ({ customTemplates: s.customTemplates.filter(t => t.id !== id) })),
 
       ensureDefaultFolders: () => {
         const userId = useAuthStore.getState().user?.id;

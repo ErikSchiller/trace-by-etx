@@ -15,6 +15,7 @@ import {
 import { useGoalsStore } from '../../store/goalsStore';
 import { CoverBar, CoverImagePicker } from '../../components/Notebook/CoverImagePicker';
 import { NoteSidebar } from '../../components/Notebook/NoteSidebar';
+import { TemplatePicker, type CreateFields } from '../../components/Notebook/TemplatePicker';
 import { useUserTrades, type Trade } from '../../store/tradeStore';
 import { useToast } from '../../components/UI/ToastProvider';
 import { usePlan } from '../../hooks/usePlan';
@@ -101,6 +102,8 @@ export function Notebook() {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [detailTrade, setDetailTrade] = useState<Trade | null>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const saveAsTemplate = useNotebookStore(s => s.saveAsTemplate);
 
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSubtitle, setDraftSubtitle] = useState('');
@@ -184,6 +187,16 @@ export function Notebook() {
     checkFirstNoteMilestone(useNotebookStore.getState().notes.filter(n => n.userId === note.userId).length);
     setSearch(''); if (view === 'favorites') setView(fid);
     setActiveNoteId(note.id);
+  };
+  const createFromTemplate = (fields: CreateFields) => {
+    const fid = targetFolderForNew();
+    if (!fid) { push({ kind: 'error', text: 'Crea una colección primero' }); return; }
+    const note = addNote(fid, fields.title || 'Sin título');
+    updateNote(note.id, { title: fields.title, blocks: fields.blocks, cover: fields.cover, properties: fields.properties, tags: fields.tags });
+    checkFirstNoteMilestone(useNotebookStore.getState().notes.filter(n => n.userId === note.userId).length);
+    setSearch(''); if (view === 'favorites') setView(fid);
+    setActiveNoteId(note.id);
+    setTemplatePickerOpen(false);
   };
   const doDeleteNote = () => { if (confirmNoteId) { deleteNote(confirmNoteId); push({ kind: 'success', text: 'Nota eliminada' }); setConfirmNoteId(null); } };
   const duplicateNote = () => {
@@ -419,7 +432,7 @@ export function Notebook() {
       {/* ── MIDDLE COLUMN ── */}
       <div style={{ background: C.mid, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <button onClick={() => onNewNote()}
+          <button onClick={() => setTemplatePickerOpen(true)}
             style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: C.blue, color: '#fff', border: 'none', borderRadius: 10, padding: 12, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}
             onMouseEnter={e => (e.currentTarget.style.background = '#3d7aee')}
             onMouseLeave={e => (e.currentTarget.style.background = C.blue)}><Plus size={16} /> Nueva nota</button>
@@ -566,6 +579,7 @@ export function Notebook() {
                         {folders.filter(f => f.id !== activeNote.folderId).map(f => <MenuRow key={f.id} onClick={() => moveNote(f.id)}><NotebookIcon name={f.icon} size={14} color={C.muted} /> {f.name}</MenuRow>)}
                       </div>
                     )}
+                    <MenuRow onClick={() => { saveAsTemplate(activeNote.id); setNoteMenuOpen(false); push({ kind: 'success', text: 'Guardada en Mis plantillas' }); }}>Convertir en plantilla</MenuRow>
                     <MenuRow onClick={exportMarkdown}>Exportar como Markdown</MenuRow>
                     <div style={{ height: 1, background: C.border, margin: '4px 0' }} />
                     <MenuRow danger onClick={() => { setNoteMenuOpen(false); setConfirmNoteId(activeNote.id); }}>Eliminar</MenuRow>
@@ -638,6 +652,14 @@ export function Notebook() {
 
       {coverPickerOpen && (
         <CoverImagePicker recent={recentCovers} onPick={setCover} onClose={() => setCoverPickerOpen(false)} />
+      )}
+
+      {templatePickerOpen && (
+        <TemplatePicker
+          onCreate={createFromTemplate}
+          onBlank={() => { setTemplatePickerOpen(false); onNewNote(); }}
+          onClose={() => setTemplatePickerOpen(false)}
+        />
       )}
 
       {lightbox && <ImageLightbox images={lightbox.images} initialIndex={lightbox.index} isOpen onClose={() => setLightbox(null)} caption={draftTitle} />}
