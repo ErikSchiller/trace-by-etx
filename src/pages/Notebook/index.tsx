@@ -83,6 +83,9 @@ export function Notebook() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [focusMode, setFocusMode] = useState(false);
+  const [listLayout, setListLayout] = useState<'list' | 'grid'>(() => (localStorage.getItem('trace_nb_layout') as 'list' | 'grid') || 'list');
+  const [noteCtx, setNoteCtx] = useState<{ noteId: string; x: number; y: number } | null>(null);
+  const toggleLayout = () => { const n = listLayout === 'list' ? 'grid' : 'list'; setListLayout(n); localStorage.setItem('trace_nb_layout', n); };
 
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -226,6 +229,12 @@ export function Notebook() {
     const blob = new Blob([md], { type: 'text/markdown' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${(draftTitle || 'nota').replace(/[^\w-]+/g, '_')}.md`; a.click(); URL.revokeObjectURL(a.href);
     setNoteMenuOpen(false); push({ kind: 'success', text: 'Exportado como Markdown' });
+  };
+  const exportNoteMd = (note: Note) => {
+    const md = `# ${note.title || 'Sin título'}\n\n${note.subtitle ? note.subtitle + '\n\n' : ''}${note.content}`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${(note.title || 'nota').replace(/[^\w-]+/g, '_')}.md`; a.click(); URL.revokeObjectURL(a.href);
+    push({ kind: 'success', text: 'Exportado como Markdown' });
   };
 
   const allTags = useMemo(() => [...new Set(notes.flatMap(n => n.tags))], [notes]);
@@ -444,7 +453,7 @@ export function Notebook() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', height: '100%', minHeight: 0, overflow: 'hidden', background: C.bg }}
-      onClick={() => { setCtxMenu(null); setNoteMenuOpen(false); }}>
+      onClick={() => { setCtxMenu(null); setNoteMenuOpen(false); setNoteCtx(null); }}>
       <style>{`
         .nb-block:hover .nb-block-gutter { opacity: 1 !important; }
         [contenteditable][data-placeholder]:empty::before { content: attr(data-placeholder); color: ${C.faint}; pointer-events: none; }
@@ -465,11 +474,16 @@ export function Notebook() {
             style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: C.blue, color: '#fff', border: 'none', borderRadius: 10, padding: 12, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', fontFamily: fontBody }}
             onMouseEnter={e => (e.currentTarget.style.background = '#3d7aee')}
             onMouseLeave={e => (e.currentTarget.style.background = C.blue)}><Plus size={16} /> Nueva nota</button>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} color={C.muted} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar en mis notas..."
-              className="nb-search"
-              style={{ width: '100%', boxSizing: 'border-box', background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px 10px 40px', fontSize: '0.82rem', color: C.text, outline: 'none', fontFamily: fontBody }} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={16} color={C.muted} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar en mis notas..."
+                className="nb-search"
+                style={{ width: '100%', boxSizing: 'border-box', background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px 10px 40px', fontSize: '0.82rem', color: C.text, outline: 'none', fontFamily: fontBody }} />
+            </div>
+            <button onClick={toggleLayout} title={listLayout === 'list' ? 'Vista cuadrícula' : 'Vista lista'} style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.text2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              {listLayout === 'list' ? <LayoutGrid size={16} /> : <List size={16} />}
+            </button>
           </div>
         </div>
 
@@ -554,9 +568,9 @@ export function Notebook() {
           )}
 
           {/* NOTES LIST of active view */}
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 10, ...(listLayout === 'grid' ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '0 12px' } : {}) }}>
             {!searching && listNotes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 20px', color: C.muted }}>
+              <div style={{ textAlign: 'center', padding: '32px 20px', color: C.muted, gridColumn: '1 / -1' }}>
                 <BookOpen size={26} color={C.faint} style={{ margin: '0 auto 10px' }} />
                 <div style={{ fontSize: '0.82rem', color: C.text3 }}>Sin notas en {crumbName}</div>
                 <button onClick={() => onNewNote()} style={{ marginTop: 8, background: 'transparent', border: 'none', color: C.blue, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, fontFamily: fontBody }}>Crea la primera →</button>
@@ -564,29 +578,42 @@ export function Notebook() {
             ) : listNotes.map(n => {
               const active = n.id === activeNoteId;
               const [main, ...rest] = (n.title || 'Sin título').split(' — ');
+              const thumb = n.cover?.type === 'image' && n.cover.url ? n.cover.url : undefined;
+              const grid = listLayout === 'grid';
               return (
-                <button key={n.id} onClick={() => { setActiveNoteId(n.id); setActiveGoalId(null); }}
-                  className="nb-note-card"
-                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'block',
-                    background: active ? 'rgba(79,143,255,0.05)' : 'transparent',
-                    borderTop: `1px solid ${C.borderSubtle}`, borderLeft: active ? `3px solid ${C.blue}` : '3px solid transparent',
-                    borderRight: 'none', borderBottom: 'none', padding: active ? '14px 20px 14px 17px' : '14px 20px', fontFamily: fontBody, transition: 'background 0.12s' }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.015)'; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 600, color: active ? C.text : '#e8e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    {n.favorite && <Star size={11} color={C.blue} fill={C.blue} style={{ flexShrink: 0 }} />}
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{main}{rest.length > 0 && <span style={{ color: C.muted, fontWeight: 400, fontSize: '0.75rem' }}> — {rest.join(' — ')}</span>}</span>
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: C.olive, lineHeight: 1.55, marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {preview(n.content) || 'Sin contenido'}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 5, minWidth: 0 }}>
-                      {n.tags.slice(0, 2).map(t => <span key={t} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '3px 8px', fontSize: '0.66rem', letterSpacing: '0.02em', color: C.olive, whiteSpace: 'nowrap' }}>{t}</span>)}
-                      {n.tags.length > 2 && <span style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '3px 8px', fontSize: '0.66rem', color: C.muted }}>+{n.tags.length - 2}</span>}
+                <button key={n.id}
+                  onClick={() => { setActiveNoteId(n.id); setActiveGoalId(null); }}
+                  onContextMenu={e => { e.preventDefault(); setNoteCtx({ noteId: n.id, x: Math.min(e.clientX, window.innerWidth - 210), y: e.clientY }); }}
+                  className="nb-note-card nb-row"
+                  style={{ position: 'relative', width: '100%', textAlign: 'left', cursor: 'pointer', display: grid ? 'block' : 'flex', gap: 12, alignItems: 'flex-start',
+                    background: active ? 'rgba(79,143,255,0.05)' : grid ? C.card : 'transparent',
+                    border: grid ? `1px solid ${active ? C.blue : C.border}` : 'none',
+                    borderTop: grid ? undefined : `1px solid ${C.borderSubtle}`, borderLeft: grid ? undefined : (active ? `3px solid ${C.blue}` : '3px solid transparent'),
+                    borderRadius: grid ? 10 : 0, overflow: grid ? 'hidden' : undefined,
+                    padding: grid ? 0 : (active ? '14px 20px 14px 17px' : '14px 20px'), fontFamily: fontBody, transition: 'background 0.12s' }}
+                  onMouseEnter={e => { if (!active && !grid) e.currentTarget.style.background = 'rgba(255,255,255,0.015)'; }}
+                  onMouseLeave={e => { if (!active && !grid) e.currentTarget.style.background = 'transparent'; }}>
+                  {thumb && (grid
+                    ? <img src={thumb} alt="" style={{ width: '100%', height: 84, objectFit: 'cover', display: 'block' }} />
+                    : <img src={thumb} alt="" style={{ width: 54, height: 54, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.border}` }} />)}
+                  <div style={{ flex: 1, minWidth: 0, padding: grid ? '10px 12px 12px' : 0 }}>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 600, color: active ? C.text : '#e8e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {n.favorite && <Star size={11} color={C.blue} fill={C.blue} style={{ flexShrink: 0 }} />}
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{main}{rest.length > 0 && <span style={{ color: C.muted, fontWeight: 400, fontSize: '0.75rem' }}> — {rest.join(' — ')}</span>}</span>
                     </div>
-                    <span style={{ fontSize: '0.66rem', color: C.muted, whiteSpace: 'nowrap', flexShrink: 0 }}>{smartDate(n.updatedAt)}</span>
+                    <div style={{ fontSize: '0.75rem', color: C.olive, lineHeight: 1.55, marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {preview(n.content) || 'Sin contenido'}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 5, minWidth: 0 }}>
+                        {n.tags.slice(0, 2).map(t => <span key={t} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '3px 8px', fontSize: '0.66rem', letterSpacing: '0.02em', color: C.olive, whiteSpace: 'nowrap' }}>{t}</span>)}
+                        {n.tags.length > 2 && <span style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '3px 8px', fontSize: '0.66rem', color: C.muted }}>+{n.tags.length - 2}</span>}
+                      </div>
+                      <span style={{ fontSize: '0.66rem', color: C.muted, whiteSpace: 'nowrap', flexShrink: 0 }}>{smartDate(n.updatedAt)}</span>
+                    </div>
                   </div>
+                  <span className="nb-row-more" onClick={e => { e.stopPropagation(); setNoteCtx({ noteId: n.id, x: Math.min(e.currentTarget.getBoundingClientRect().left, window.innerWidth - 210), y: e.currentTarget.getBoundingClientRect().bottom + 4 }); }}
+                    style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: C.card, border: `1px solid ${C.border}`, color: C.text2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.12s' }}><MoreHorizontal size={13} /></span>
                 </button>
               );
             })}
@@ -680,6 +707,29 @@ export function Notebook() {
             <MenuRow onClick={() => { setRenamingId(f.id); setRenameValue(f.name); setCtxMenu(null); }}>Renombrar</MenuRow>
             <MenuRow onClick={() => { setIconPickerId(f.id); setView(f.id); setCtxMenu(null); }}>Cambiar icono</MenuRow>
             {!prot && <MenuRow danger onClick={() => { setConfirmFolderId(f.id); setCtxMenu(null); }}>Eliminar</MenuRow>}
+          </div>
+        );
+      })()}
+
+      {/* note context menu */}
+      {noteCtx && (() => {
+        const n = notes.find(x => x.id === noteCtx.noteId); if (!n) return null;
+        return (
+          <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: noteCtx.y, left: noteCtx.x, zIndex: 60, background: C.card, border: `1px solid ${C.borderEl}`, borderRadius: 10, padding: 4, minWidth: 200, maxHeight: 380, overflowY: 'auto', boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
+            <MenuRow onClick={() => { setActiveNoteId(n.id); setActiveGoalId(null); setNoteCtx(null); }}>Abrir</MenuRow>
+            <MenuRow onClick={() => { const c = duplicateNoteStore(n.id); if (c) { setActiveNoteId(c.id); push({ kind: 'success', text: 'Nota duplicada' }); } setNoteCtx(null); }}>Duplicar</MenuRow>
+            <MenuRow onClick={() => { toggleFavorite(n.id); setNoteCtx(null); }}>{n.favorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}</MenuRow>
+            <MenuRow onClick={() => { saveAsTemplate(n.id); push({ kind: 'success', text: 'Guardada en Mis plantillas' }); setNoteCtx(null); }}>Convertir en plantilla</MenuRow>
+            <MenuRow onClick={() => { exportNoteMd(n); setNoteCtx(null); }}>Exportar como Markdown</MenuRow>
+            <div style={{ height: 1, background: C.border, margin: '4px 0' }} />
+            <div style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted, padding: '6px 10px 4px' }}>Mover a</div>
+            {folders.filter(f => f.id !== n.folderId).map(f => (
+              <MenuRow key={f.id} onClick={() => { moveNoteStore(n.id, f.id); if (view !== 'all' && view !== 'favorites') setView(f.id); setNoteCtx(null); push({ kind: 'success', text: 'Nota movida' }); }}>
+                <NotebookIcon name={f.icon} size={14} color={C.muted} /> {f.name}
+              </MenuRow>
+            ))}
+            <div style={{ height: 1, background: C.border, margin: '4px 0' }} />
+            <MenuRow danger onClick={() => { setNoteCtx(null); setConfirmNoteId(n.id); }}>Eliminar</MenuRow>
           </div>
         );
       })()}
