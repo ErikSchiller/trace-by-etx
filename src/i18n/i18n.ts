@@ -10,7 +10,7 @@ const es = {
   translation: {
     section: { principal: 'PRINCIPAL', analisis: 'ANÁLISIS', config: 'CONFIG' },
     nav: {
-      dashboard: 'Dashboard', journal: 'Diario Diario', trades: 'Operaciones', notebook: 'Notebook',
+      dashboard: 'Dashboard', journal: 'Diario Diario', trades: 'Operaciones', notebook: 'Notebook', calendar: 'Calendario',
       reports: 'Reportes', progress: 'Progress Tracker', replay: 'Trade Replay', simulator: 'Simulador',
       propFirms: 'Prop Firms', gallery: 'Galería', brokers: 'Brokers', settings: 'Ajustes',
     },
@@ -54,7 +54,7 @@ const en = {
   translation: {
     section: { principal: 'MAIN', analisis: 'ANALYSIS', config: 'CONFIG' },
     nav: {
-      dashboard: 'Dashboard', journal: 'Daily Journal', trades: 'Trades', notebook: 'Notebook',
+      dashboard: 'Dashboard', journal: 'Daily Journal', trades: 'Trades', notebook: 'Notebook', calendar: 'Calendar',
       reports: 'Reports', progress: 'Progress Tracker', replay: 'Trade Replay', simulator: 'Simulator',
       propFirms: 'Prop Firms', gallery: 'Gallery', brokers: 'Brokers', settings: 'Settings',
     },
