@@ -13,24 +13,74 @@ import { useUndoStore } from './undoStore';
 
 export type BlockType =
   | 'heading' | 'paragraph' | 'callout' | 'checklist'
-  | 'trade' | 'image' | 'divider' | 'code' | 'quote';
+  | 'trade' | 'image' | 'divider' | 'code' | 'quote'
+  // ── New block types (notebook upgrade) ──
+  | 'bulleted_list' | 'numbered_list' | 'table' | 'embed'
+  | 'trades_table' | 'goal';
 
 export interface ChecklistItem { id: string; text: string; checked: boolean }
+export interface ListItem { id: string; text: string }
+
+/** Live config for an embedded trades_table block (queried against tradeStore). */
+export interface TradesTableConfig {
+  template: 'weekly_review' | 'monthly_review' | 'by_setup' | 'by_account' | 'best' | 'worst' | 'custom';
+  dateRange: { type: 'this_week' | 'this_month' | 'last_30' | 'all' | 'custom'; from?: string; to?: string };
+  filters: { accountIds?: string[]; setups?: string[]; sessions?: string[]; directions?: ('long' | 'short')[] };
+  columns: string[];
+  groupBy: 'day' | 'setup' | 'account' | 'none';
+  chart: { enabled: boolean; type: 'equity' | 'bars' | 'pie' | 'scatter'; position: 'top' | 'bottom' | 'side' };
+  title: string;
+}
 
 export interface Block {
   id: string;
   type: BlockType;
   // Loose by design — shape depends on `type` (see helpers below).
   content: {
-    level?: 2 | 3;
+    level?: 1 | 2 | 3;
     text?: string;
     heading?: string;
     items?: ChecklistItem[];
+    listItems?: ListItem[];
     tradeId?: string;
     dataUrl?: string;
     caption?: string;
+    // New block payloads
+    language?: string;            // code
+    url?: string;                 // embed
+    rows?: string[][];            // table
+    config?: TradesTableConfig;   // trades_table
+    goalId?: string;              // goal
   };
   meta?: Record<string, unknown>;
+}
+
+/* ── Rich note metadata (notebook upgrade — all optional for back-compat) ── */
+
+export interface NoteCover {
+  type: 'image' | 'color' | 'gradient';
+  url?: string;        // image dataURL / link
+  position?: number;   // 0–100 vertical object-position
+  color?: string;      // color / gradient css
+}
+
+export type PropertyValueType = 'text' | 'number' | 'select' | 'multi_select' | 'date' | 'checkbox' | 'url';
+export interface PropertyValue { type: PropertyValueType; value: unknown; options?: string[] }
+
+export type NoteStatus = 'borrador' | 'en_progreso' | 'completado' | 'archivado';
+export interface NoteProperties {
+  date?: string;
+  status?: NoteStatus;
+  customFields?: Record<string, PropertyValue>;
+}
+
+export interface Attachment {
+  id: string;
+  type: 'image' | 'file';
+  url: string;          // dataURL (images / small files) or metadata
+  name: string;
+  size?: number;
+  thumbnail?: string;
 }
 
 export interface NoteMeta {
@@ -58,6 +108,12 @@ export interface Note {
   subtitle?: string;
   meta?: NoteMeta;
   blocks?: Block[];
+  // ── Notebook upgrade (all optional for back-compat) ──
+  cover?: NoteCover;
+  properties?: NoteProperties;
+  linkedGoalIds?: string[];
+  attachments?: Attachment[];
+  calendarEventIds?: string[];
 }
 
 export interface Folder {
@@ -168,6 +224,22 @@ export function deriveContentFromBlocks(blocks: Block[]): string {
       }
       case 'checklist':
         (b.content.items ?? []).forEach(it => { if (it.text.trim()) parts.push(`- ${it.text.trim()}`); });
+        break;
+      case 'bulleted_list':
+      case 'numbered_list':
+        (b.content.listItems ?? []).forEach((it, i) => { if (it.text.trim()) parts.push(`${b.type === 'numbered_list' ? `${i + 1}.` : '-'} ${it.text.trim()}`); });
+        break;
+      case 'table':
+        (b.content.rows ?? []).forEach(row => { const seg = row.filter(Boolean).join(' · ').trim(); if (seg) parts.push(seg); });
+        break;
+      case 'embed':
+        if (b.content.url?.trim()) parts.push(`[Embed] ${b.content.url.trim()}`);
+        break;
+      case 'trades_table':
+        parts.push(b.content.config?.title ? `[Tabla de operaciones] ${b.content.config.title}` : '[Tabla de operaciones]');
+        break;
+      case 'goal':
+        parts.push('[Meta]');
         break;
       case 'trade':
         parts.push('[Operación embebida]');
@@ -389,11 +461,14 @@ export const useNotebookStore = create<NotebookStore>()(
     }),
     {
       name: 'trace_notebook',
-      version: 2,
+      version: 3,
       // v0 → v1: give every legacy note a blocks[] + meta, refresh old default-folder
       //          names to the new collection set (non-destructive: notes keep their
       //          folderId; 'Trade Notes' + system folders untouched).
       // v1 → v2: convert every folder's emoji icon to a lucide icon name.
+      // v2 → v3: notebook upgrade (cover/properties/attachments/goals/calendar).
+      //          Purely additive — every new Note field is optional, so legacy
+      //          notes stay valid with no transform needed.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { folders?: Folder[]; notes?: Note[] };
         if (!state) return state as unknown as NotebookStore;
