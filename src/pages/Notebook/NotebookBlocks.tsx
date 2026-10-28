@@ -6,12 +6,14 @@ import { nanoid } from 'nanoid';
 import {
   FileText, GripVertical, MoreHorizontal, Type, Heading2, Heading3, Quote,
   Lightbulb, ListChecks, TrendingUp, Image as ImageIcon, Minus, Code2,
-  List, ListOrdered, BarChart3,
+  List, ListOrdered, BarChart3, Target,
   type LucideIcon,
 } from 'lucide-react';
 import { type Block, type BlockType, type ChecklistItem, type ListItem, newBlock } from '../../store/notebookStore';
 import type { Trade } from '../../store/tradeStore';
+import { useGoalsStore } from '../../store/goalsStore';
 import { EmbeddedTradesTable } from '../../components/Notebook/EmbeddedTradesTable';
+import { GoalBlockView } from '../../components/Notebook/GoalDetail';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -32,6 +34,7 @@ const SLASH_OPTIONS: { type: BlockType; label: string; Icon: LucideIcon; level?:
   { type: 'checklist', label: 'Checklist', Icon: ListChecks },
   { type: 'trade', label: 'Operación', Icon: TrendingUp },
   { type: 'trades_table', label: 'Tabla de trades', Icon: BarChart3 },
+  { type: 'goal', label: 'Meta', Icon: Target },
   { type: 'image', label: 'Imagen', Icon: ImageIcon },
   { type: 'divider', label: 'Separador', Icon: Minus },
   { type: 'code', label: 'Código', Icon: Code2 },
@@ -163,10 +166,12 @@ interface BlockRowProps {
   onConvert: (type: BlockType, level?: 2 | 3) => void;
   onOpenTrade: (id: string) => void;
   onOpenImage: (dataUrl: string, caption?: string) => void;
+  onOpenGoal: (id: string) => void;
   registerFocus: (fn: () => void) => void;
 }
 function BlockRow(p: BlockRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.block.id });
+  const goals = useGoalsStore(s => s.goals);
   const [menuOpen, setMenuOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const style: React.CSSProperties = {
@@ -275,6 +280,8 @@ function BlockRow(p: BlockRowProps) {
             onRemove={p.onDelete} onOpenTrade={p.onOpenTrade}
           />
         );
+      case 'goal':
+        return <GoalBlockView goal={goals.find(g => g.id === b.content.goalId)} onOpen={() => b.content.goalId && p.onOpenGoal(b.content.goalId)} />;
       case 'image':
         return b.content.dataUrl ? (
           <figure style={{ margin: '24px 0' }}>
@@ -327,7 +334,7 @@ function BlockRow(p: BlockRowProps) {
           <MiniRow onClick={() => setConvertOpen(v => !v)}>Convertir a ▸</MiniRow>
           {convertOpen && (
             <div style={{ maxHeight: 220, overflowY: 'auto', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, margin: '4px 0' }}>
-              {SLASH_OPTIONS.filter(o => o.type !== 'trade' && o.type !== 'image' && o.type !== 'trades_table').map(o => (
+              {SLASH_OPTIONS.filter(o => o.type !== 'trade' && o.type !== 'image' && o.type !== 'trades_table' && o.type !== 'goal').map(o => (
                 <MiniRow key={o.label} Icon={o.Icon} onClick={() => { p.onConvert(o.type, o.level); setMenuOpen(false); setConvertOpen(false); }}>{o.label}</MiniRow>
               ))}
             </div>
@@ -361,6 +368,8 @@ export interface BlockListProps {
   onPickTrade: (insertAfter: number) => void;
   onPickImage: (insertAfter: number) => void;
   onPickTradesTable: (insertAfter: number) => void;
+  onPickGoal: (insertAfter: number) => void;
+  onOpenGoal: (id: string) => void;
   /** External focus request (e.g. a toolbar-inserted block). */
   focusId?: string | null;
   onFocusHandled?: () => void;
@@ -419,6 +428,7 @@ export function BlockList(p: BlockListProps) {
     if (type === 'trade') { removeSlashChar(i); p.onPickTrade(i); setSlashMenu(null); return; }
     if (type === 'image') { removeSlashChar(i); p.onPickImage(i); setSlashMenu(null); return; }
     if (type === 'trades_table') { removeSlashChar(i); p.onPickTradesTable(i); setSlashMenu(null); return; }
+    if (type === 'goal') { removeSlashChar(i); p.onPickGoal(i); setSlashMenu(null); return; }
     convertAt(i, type, level);
     setSlashMenu(null);
     setPendingFocus(p.blocks[i].id);
@@ -443,6 +453,7 @@ export function BlockList(p: BlockListProps) {
               onConvert={(type, level) => convertAt(i, type, level)}
               onOpenTrade={p.onOpenTrade}
               onOpenImage={p.onOpenImage}
+              onOpenGoal={p.onOpenGoal}
               registerFocus={fn => { focusMap.current[b.id] = fn; }}
             />
           ))}

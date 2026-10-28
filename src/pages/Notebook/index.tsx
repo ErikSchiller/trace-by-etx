@@ -12,7 +12,9 @@ import {
   DEFAULT_FOLDER_NAMES, ensureBlocks, newBlock,
   type Folder, type Note, type Block, type NoteCover, type Attachment,
 } from '../../store/notebookStore';
-import { useGoalsStore } from '../../store/goalsStore';
+import { useGoalsStore, useUserGoals, goalProgress } from '../../store/goalsStore';
+import { GoalDetail } from '../../components/Notebook/GoalDetail';
+import { Target } from 'lucide-react';
 import { CoverBar, CoverImagePicker } from '../../components/Notebook/CoverImagePicker';
 import { NoteSidebar } from '../../components/Notebook/NoteSidebar';
 import { TemplatePicker, type CreateFields } from '../../components/Notebook/TemplatePicker';
@@ -106,7 +108,11 @@ export function Notebook() {
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [tradesTableInsert, setTradesTableInsert] = useState<{ insertAfter: number } | null>(null);
+  const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
+  const [goalPicker, setGoalPicker] = useState<{ insertAfter: number } | null>(null);
   const saveAsTemplate = useNotebookStore(s => s.saveAsTemplate);
+  const goals = useUserGoals();
+  const addGoal = useGoalsStore(s => s.addGoal);
 
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSubtitle, setDraftSubtitle] = useState('');
@@ -235,6 +241,7 @@ export function Notebook() {
     const idx = draftBlocks.length;
     if (type === 'trade') { setTradePicker({ insertAfter: idx }); return; }
     if (type === 'trades_table') { setTradesTableInsert({ insertAfter: idx }); return; }
+    if (type === 'goal') { setGoalPicker({ insertAfter: idx }); return; }
     if (type === 'image') { imageInsertRef.current = idx; imageFileRef.current?.click(); return; }
     const block = type === 'heading' ? newBlock('heading', { level: level ?? 2, text: '' })
       : type === 'checklist' ? newBlock('checklist', { items: [{ id: crypto.randomUUID(), text: '', checked: false }] })
@@ -261,6 +268,14 @@ export function Notebook() {
     const next = [...draftBlocks]; next.splice(tradesTableInsert.insertAfter, 0, newBlock('trades_table', { config })); saveBlocks(next);
     setTradesTableInsert(null);
   };
+  const onInsertGoal = (goalId: string) => {
+    if (!goalPicker) return;
+    const next = [...draftBlocks]; next.splice(goalPicker.insertAfter, 0, newBlock('goal', { goalId }));
+    saveBlocks(next);
+    if (activeNote && !(activeNote.linkedGoalIds ?? []).includes(goalId)) updateNote(activeNote.id, { linkedGoalIds: [...(activeNote.linkedGoalIds ?? []), goalId] });
+    setGoalPicker(null);
+  };
+  const openGoal = (id: string) => { setActiveGoalId(id); };
   const openImageLightbox = (dataUrl: string) => {
     const imgs = draftBlocks.filter(b => b.type === 'image' && b.content.dataUrl).map(b => b.content.dataUrl!) as string[];
     const index = Math.max(0, imgs.indexOf(dataUrl));
@@ -387,6 +402,7 @@ export function Notebook() {
             { t: 'quote' as const, Icon: QuoteIcon, label: 'Cita' },
             { t: 'trade' as const, Icon: TrendingUp, label: 'Trade' },
             { t: 'trades_table' as const, Icon: BarChart3, label: 'Tabla' },
+            { t: 'goal' as const, Icon: Target, label: 'Meta' },
             { t: 'image' as const, Icon: ImageIcon, label: 'Imagen' },
           ]).map(b => (
             <button key={b.label} onClick={() => insertBlockToolbar(b.t)}
@@ -407,6 +423,8 @@ export function Notebook() {
           onPickTrade={i => setTradePicker({ insertAfter: i })}
           onPickImage={i => { imageInsertRef.current = i; imageFileRef.current?.click(); }}
           onPickTradesTable={i => setTradesTableInsert({ insertAfter: i })}
+          onPickGoal={i => setGoalPicker({ insertAfter: i })}
+          onOpenGoal={openGoal}
           focusId={focusBlockId}
           onFocusHandled={() => setFocusBlockId(null)}
         />
@@ -512,6 +530,26 @@ export function Notebook() {
                   <button onClick={() => openUpgrade()} style={{ display: 'block', background: 'transparent', border: 'none', color: C.blue, cursor: 'pointer', padding: '4px 0 0', fontSize: '0.72rem', fontWeight: 600 }}>Ver Plan Pro →</button>
                 </div>
               )}
+
+              {/* OBJETIVOS */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 6px' }}>
+                <span style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, fontFamily: fontBody }}>Objetivos</span>
+                <button onClick={() => { const g = addGoal({ title: 'Nueva meta', category: 'personal', type: 'milestone' }); setActiveGoalId(g.id); }} title="Nueva meta" style={{ width: 20, height: 20, borderRadius: 5, background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={15} /></button>
+              </div>
+              {goals.length === 0 && <div style={{ padding: '2px 20px 8px', fontSize: '0.74rem', color: C.muted }}>Sin metas aún</div>}
+              {goals.map(g => {
+                const pct = Math.round(goalProgress(g) * 100);
+                const active = activeGoalId === g.id;
+                return (
+                  <button key={g.id} onClick={() => { setActiveGoalId(g.id); setSearch(''); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 20px', cursor: 'pointer', background: active ? 'rgba(79,143,255,0.05)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.blue}` : '3px solid transparent', color: active ? C.text : C.text2, fontSize: '0.82rem', fontFamily: fontBody, textAlign: 'left' }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
+                    <Target size={15} color={g.color ?? C.blue} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
+                    <span style={{ fontSize: '0.68rem', color: C.muted }}>{pct}%</span>
+                  </button>
+                );
+              })}
             </>
           )}
 
@@ -527,7 +565,7 @@ export function Notebook() {
               const active = n.id === activeNoteId;
               const [main, ...rest] = (n.title || 'Sin título').split(' — ');
               return (
-                <button key={n.id} onClick={() => setActiveNoteId(n.id)}
+                <button key={n.id} onClick={() => { setActiveNoteId(n.id); setActiveGoalId(null); }}
                   className="nb-note-card"
                   style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'block',
                     background: active ? 'rgba(79,143,255,0.05)' : 'transparent',
@@ -558,7 +596,11 @@ export function Notebook() {
 
       {/* ── EDITOR COLUMN ── */}
       <div style={{ background: C.bg, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        {!activeNote ? (
+        {activeGoalId ? (
+          <GoalDetail goalId={activeGoalId} notes={notes}
+            onOpenNote={id => { setActiveGoalId(null); setActiveNoteId(id); }}
+            onBack={() => setActiveGoalId(null)} />
+        ) : !activeNote ? (
           <EmptyEditor view={view} crumbName={crumbName} onNew={() => onNewNote()} />
         ) : (
           <>
@@ -650,6 +692,28 @@ export function Notebook() {
       {/* trades table config (insertion) */}
       {tradesTableInsert && (
         <TradesTableConfigModal trades={trades} onInsert={onInsertTradesTable} onClose={() => setTradesTableInsert(null)} />
+      )}
+
+      {/* goal picker (insertion) */}
+      {goalPicker && (
+        <div onClick={() => setGoalPicker(null)} style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 20px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, border: `1px solid ${C.borderEl}`, borderRadius: 14, width: '100%', maxWidth: 420, maxHeight: '70vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: fontBody }}>
+            <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, fontFamily: fontHead, fontWeight: 700, fontSize: '0.95rem', color: C.text }}>Insertar meta</div>
+            <div style={{ overflowY: 'auto' }}>
+              {goals.map(g => (
+                <button key={g.id} onClick={() => onInsertGoal(g.id)} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', background: 'transparent', border: 'none', borderTop: `1px solid ${C.borderSubtle}`, cursor: 'pointer', fontFamily: fontBody }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <Target size={15} color={g.color ?? C.blue} />
+                  <span style={{ flex: 1, fontSize: '0.85rem', color: C.text }}>{g.title}</span>
+                  <span style={{ fontSize: '0.72rem', color: C.muted }}>{Math.round(goalProgress(g) * 100)}%</span>
+                </button>
+              ))}
+              <button onClick={() => { const g = addGoal({ title: 'Nueva meta', category: 'personal', type: 'milestone' }); onInsertGoal(g.id); }} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'transparent', border: 'none', borderTop: `1px solid ${C.border}`, color: C.blue, cursor: 'pointer', fontFamily: fontBody, fontSize: '0.84rem', fontWeight: 600 }}>
+                <Plus size={15} /> Crear nueva meta
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* share modal */}

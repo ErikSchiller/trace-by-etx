@@ -34,7 +34,9 @@ export interface Goal {
   deadline?: string;        // ISO
   status: GoalStatus;
   completedAt?: string;
-  milestones?: GoalMilestone[];
+  milestones?: GoalMilestone[];   // "Objetivos principales"
+  actions?: GoalMilestone[];      // "Acciones" (checklist of tasks)
+  cover?: { type: 'image' | 'color' | 'gradient'; url?: string; position?: number; color?: string };
   color?: string;
   icon?: string;            // lucide icon name
   linkedNoteIds?: string[];
@@ -50,6 +52,11 @@ interface GoalsStore {
   updateGoal: (id: string, updates: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   toggleMilestone: (goalId: string, milestoneId: string) => void;
+  addMilestone: (goalId: string, label: string) => void;
+  deleteMilestone: (goalId: string, milestoneId: string) => void;
+  toggleAction: (goalId: string, actionId: string) => void;
+  addAction: (goalId: string, label: string) => void;
+  deleteAction: (goalId: string, actionId: string) => void;
   setCurrent: (goalId: string, current: number) => void;
   linkNote: (goalId: string, noteId: string) => void;
   unlinkNote: (goalId: string, noteId: string) => void;
@@ -60,7 +67,7 @@ interface GoalsStore {
 /** Progress 0–1 for any goal type. */
 export function goalProgress(g: Goal): number {
   if (g.status === 'completed') return 1;
-  if (g.type === 'metric' && g.target && g.target > 0) {
+  if ((g.type === 'metric' || g.type === 'habit') && g.target && g.target > 0) {
     return Math.max(0, Math.min(1, (g.current ?? 0) / g.target));
   }
   if (g.milestones && g.milestones.length) {
@@ -152,6 +159,28 @@ export const useGoalsStore = create<GoalsStore>()(
             return { ...g, milestones, updatedAt: new Date().toISOString() };
           }),
         }));
+      },
+
+      addMilestone: (goalId, label) => {
+        const m: GoalMilestone = { id: nanoid(), label, completed: false };
+        set(s => ({ goals: s.goals.map(g => g.id === goalId ? { ...g, milestones: [...(g.milestones ?? []), m], updatedAt: new Date().toISOString() } : g) }));
+      },
+      deleteMilestone: (goalId, milestoneId) => {
+        set(s => ({ goals: s.goals.map(g => g.id === goalId ? { ...g, milestones: (g.milestones ?? []).filter(m => m.id !== milestoneId) } : g) }));
+      },
+      toggleAction: (goalId, actionId) => {
+        set(s => ({ goals: s.goals.map(g => {
+          if (g.id !== goalId || !g.actions) return g;
+          const actions = g.actions.map(a => a.id === actionId ? { ...a, completed: !a.completed, completedAt: !a.completed ? new Date().toISOString() : undefined } : a);
+          return { ...g, actions, updatedAt: new Date().toISOString() };
+        }) }));
+      },
+      addAction: (goalId, label) => {
+        const a: GoalMilestone = { id: nanoid(), label, completed: false };
+        set(s => ({ goals: s.goals.map(g => g.id === goalId ? { ...g, actions: [...(g.actions ?? []), a], updatedAt: new Date().toISOString() } : g) }));
+      },
+      deleteAction: (goalId, actionId) => {
+        set(s => ({ goals: s.goals.map(g => g.id === goalId ? { ...g, actions: (g.actions ?? []).filter(a => a.id !== actionId) } : g) }));
       },
 
       setCurrent: (goalId, current) => {
