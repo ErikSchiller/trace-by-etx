@@ -344,6 +344,17 @@ export function Notebook() {
     return () => window.removeEventListener('keydown', onKey);
   }, [focusMode, lightbox, detailTrade]);
 
+  // Keyboard shortcuts: Cmd/Ctrl+N (new note), Cmd/Ctrl+Shift+F (focus mode).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.shiftKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); setTemplatePickerOpen(true); }
+      else if (mod && e.shiftKey && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); if (activeNoteId) setFocusMode(f => !f); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeNoteId]);
+
   const allCount = notes.length;
   const favCount = notes.filter(n => n.favorite).length;
   const noteCount = (fid: string) => notes.filter(n => n.folderId === fid).length;
