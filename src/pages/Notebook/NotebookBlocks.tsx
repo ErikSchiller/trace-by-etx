@@ -6,11 +6,12 @@ import { nanoid } from 'nanoid';
 import {
   FileText, GripVertical, MoreHorizontal, Type, Heading2, Heading3, Quote,
   Lightbulb, ListChecks, TrendingUp, Image as ImageIcon, Minus, Code2,
-  List, ListOrdered,
+  List, ListOrdered, BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 import { type Block, type BlockType, type ChecklistItem, type ListItem, newBlock } from '../../store/notebookStore';
 import type { Trade } from '../../store/tradeStore';
+import { EmbeddedTradesTable } from '../../components/Notebook/EmbeddedTradesTable';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -30,6 +31,7 @@ const SLASH_OPTIONS: { type: BlockType; label: string; Icon: LucideIcon; level?:
   { type: 'numbered_list', label: 'Lista numerada', Icon: ListOrdered },
   { type: 'checklist', label: 'Checklist', Icon: ListChecks },
   { type: 'trade', label: 'Operación', Icon: TrendingUp },
+  { type: 'trades_table', label: 'Tabla de trades', Icon: BarChart3 },
   { type: 'image', label: 'Imagen', Icon: ImageIcon },
   { type: 'divider', label: 'Separador', Icon: Minus },
   { type: 'code', label: 'Código', Icon: Code2 },
@@ -265,6 +267,14 @@ function BlockRow(p: BlockRowProps) {
       }
       case 'trade':
         return <TradeBlock tradeId={b.content.tradeId} trades={p.trades} onOpen={p.onOpenTrade} />;
+      case 'trades_table':
+        return (
+          <EmbeddedTradesTable
+            config={b.content.config} trades={p.trades}
+            onConfigChange={c => p.onChange({ ...b, content: { ...b.content, config: c } })}
+            onRemove={p.onDelete} onOpenTrade={p.onOpenTrade}
+          />
+        );
       case 'image':
         return b.content.dataUrl ? (
           <figure style={{ margin: '24px 0' }}>
@@ -317,7 +327,7 @@ function BlockRow(p: BlockRowProps) {
           <MiniRow onClick={() => setConvertOpen(v => !v)}>Convertir a ▸</MiniRow>
           {convertOpen && (
             <div style={{ maxHeight: 220, overflowY: 'auto', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, margin: '4px 0' }}>
-              {SLASH_OPTIONS.filter(o => o.type !== 'trade' && o.type !== 'image').map(o => (
+              {SLASH_OPTIONS.filter(o => o.type !== 'trade' && o.type !== 'image' && o.type !== 'trades_table').map(o => (
                 <MiniRow key={o.label} Icon={o.Icon} onClick={() => { p.onConvert(o.type, o.level); setMenuOpen(false); setConvertOpen(false); }}>{o.label}</MiniRow>
               ))}
             </div>
@@ -350,6 +360,7 @@ export interface BlockListProps {
   onOpenImage: (dataUrl: string, caption?: string) => void;
   onPickTrade: (insertAfter: number) => void;
   onPickImage: (insertAfter: number) => void;
+  onPickTradesTable: (insertAfter: number) => void;
   /** External focus request (e.g. a toolbar-inserted block). */
   focusId?: string | null;
   onFocusHandled?: () => void;
@@ -407,6 +418,7 @@ export function BlockList(p: BlockListProps) {
     const i = slashMenu.index;
     if (type === 'trade') { removeSlashChar(i); p.onPickTrade(i); setSlashMenu(null); return; }
     if (type === 'image') { removeSlashChar(i); p.onPickImage(i); setSlashMenu(null); return; }
+    if (type === 'trades_table') { removeSlashChar(i); p.onPickTradesTable(i); setSlashMenu(null); return; }
     convertAt(i, type, level);
     setSlashMenu(null);
     setPendingFocus(p.blocks[i].id);

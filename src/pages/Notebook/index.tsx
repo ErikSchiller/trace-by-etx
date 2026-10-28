@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Search, Plus, Star, Maximize2, Share2, MoreHorizontal,
   Type, CheckSquare, TrendingUp, Image as ImageIcon, LayoutGrid, GripVertical, BookOpen,
-  ImagePlus, List, ListOrdered, Quote as QuoteIcon,
+  ImagePlus, List, ListOrdered, Quote as QuoteIcon, BarChart3,
 } from 'lucide-react';
 import {
   useNotebookStore, useUserFolders, useUserNotes,
@@ -16,6 +16,8 @@ import { useGoalsStore } from '../../store/goalsStore';
 import { CoverBar, CoverImagePicker } from '../../components/Notebook/CoverImagePicker';
 import { NoteSidebar } from '../../components/Notebook/NoteSidebar';
 import { TemplatePicker, type CreateFields } from '../../components/Notebook/TemplatePicker';
+import { TradesTableConfigModal } from '../../components/Notebook/EmbeddedTradesTable';
+import type { TradesTableConfig } from '../../store/notebookStore';
 import { useUserTrades, type Trade } from '../../store/tradeStore';
 import { useToast } from '../../components/UI/ToastProvider';
 import { usePlan } from '../../hooks/usePlan';
@@ -103,6 +105,7 @@ export function Notebook() {
   const [detailTrade, setDetailTrade] = useState<Trade | null>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [tradesTableInsert, setTradesTableInsert] = useState<{ insertAfter: number } | null>(null);
   const saveAsTemplate = useNotebookStore(s => s.saveAsTemplate);
 
   const [draftTitle, setDraftTitle] = useState('');
@@ -231,6 +234,7 @@ export function Notebook() {
   const insertBlockToolbar = (type: Block['type'], level?: 1 | 2 | 3) => {
     const idx = draftBlocks.length;
     if (type === 'trade') { setTradePicker({ insertAfter: idx }); return; }
+    if (type === 'trades_table') { setTradesTableInsert({ insertAfter: idx }); return; }
     if (type === 'image') { imageInsertRef.current = idx; imageFileRef.current?.click(); return; }
     const block = type === 'heading' ? newBlock('heading', { level: level ?? 2, text: '' })
       : type === 'checklist' ? newBlock('checklist', { items: [{ id: crypto.randomUUID(), text: '', checked: false }] })
@@ -251,6 +255,11 @@ export function Notebook() {
     if (!tradePicker) return;
     const next = [...draftBlocks]; next.splice(tradePicker.insertAfter, 0, newBlock('trade', { tradeId })); saveBlocks(next);
     setTradePicker(null);
+  };
+  const onInsertTradesTable = (config: TradesTableConfig) => {
+    if (!tradesTableInsert) return;
+    const next = [...draftBlocks]; next.splice(tradesTableInsert.insertAfter, 0, newBlock('trades_table', { config })); saveBlocks(next);
+    setTradesTableInsert(null);
   };
   const openImageLightbox = (dataUrl: string) => {
     const imgs = draftBlocks.filter(b => b.type === 'image' && b.content.dataUrl).map(b => b.content.dataUrl!) as string[];
@@ -377,6 +386,7 @@ export function Notebook() {
             { t: 'checklist' as const, Icon: CheckSquare, label: 'Checklist' },
             { t: 'quote' as const, Icon: QuoteIcon, label: 'Cita' },
             { t: 'trade' as const, Icon: TrendingUp, label: 'Trade' },
+            { t: 'trades_table' as const, Icon: BarChart3, label: 'Tabla' },
             { t: 'image' as const, Icon: ImageIcon, label: 'Imagen' },
           ]).map(b => (
             <button key={b.label} onClick={() => insertBlockToolbar(b.t)}
@@ -396,6 +406,7 @@ export function Notebook() {
           onOpenImage={openImageLightbox}
           onPickTrade={i => setTradePicker({ insertAfter: i })}
           onPickImage={i => { imageInsertRef.current = i; imageFileRef.current?.click(); }}
+          onPickTradesTable={i => setTradesTableInsert({ insertAfter: i })}
           focusId={focusBlockId}
           onFocusHandled={() => setFocusBlockId(null)}
         />
@@ -634,6 +645,11 @@ export function Notebook() {
       {/* trade picker */}
       {tradePicker && (
         <TradePicker trades={trades} onPick={onPickTradeAt} onClose={() => setTradePicker(null)} />
+      )}
+
+      {/* trades table config (insertion) */}
+      {tradesTableInsert && (
+        <TradesTableConfigModal trades={trades} onInsert={onInsertTradesTable} onClose={() => setTradesTableInsert(null)} />
       )}
 
       {/* share modal */}
