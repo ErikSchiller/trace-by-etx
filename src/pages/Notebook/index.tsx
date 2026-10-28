@@ -3,14 +3,18 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  Search, Plus, Star, Tag, Maximize2, Share2, MoreHorizontal,
+  Search, Plus, Star, Maximize2, Share2, MoreHorizontal,
   Type, CheckSquare, TrendingUp, Image as ImageIcon, LayoutGrid, GripVertical, BookOpen,
+  ImagePlus, List, ListOrdered, Quote as QuoteIcon,
 } from 'lucide-react';
 import {
   useNotebookStore, useUserFolders, useUserNotes,
   DEFAULT_FOLDER_NAMES, ensureBlocks, newBlock,
-  type Folder, type Note, type Block,
+  type Folder, type Note, type Block, type NoteCover, type Attachment,
 } from '../../store/notebookStore';
+import { useGoalsStore } from '../../store/goalsStore';
+import { CoverBar, CoverImagePicker } from '../../components/Notebook/CoverImagePicker';
+import { NoteSidebar } from '../../components/Notebook/NoteSidebar';
 import { useUserTrades, type Trade } from '../../store/tradeStore';
 import { useToast } from '../../components/UI/ToastProvider';
 import { usePlan } from '../../hooks/usePlan';
@@ -66,8 +70,9 @@ export function Notebook() {
   const { push } = useToast();
   const { isAtFolderLimit, isFree } = usePlan();
   const openUpgrade = useUpgradeModal(s => s.open);
+  const seedGoals = useGoalsStore(s => s.seedTemplatesIfEmpty);
 
-  useEffect(() => { ensureDefaults(); }, [ensureDefaults]);
+  useEffect(() => { ensureDefaults(); seedGoals(); }, [ensureDefaults, seedGoals]);
 
   const [view, setView] = useState<View>('all');
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -95,6 +100,7 @@ export function Notebook() {
   const imageFileRef = useRef<HTMLInputElement>(null);
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [detailTrade, setDetailTrade] = useState<Trade | null>(null);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
 
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSubtitle, setDraftSubtitle] = useState('');
@@ -209,12 +215,13 @@ export function Notebook() {
   };
   const removeTag = (tag: string) => { if (activeNote) updateNote(activeNote.id, { tags: activeNote.tags.filter(t => t !== tag) }); };
 
-  const insertBlockToolbar = (type: Block['type'], level?: 2 | 3) => {
+  const insertBlockToolbar = (type: Block['type'], level?: 1 | 2 | 3) => {
     const idx = draftBlocks.length;
     if (type === 'trade') { setTradePicker({ insertAfter: idx }); return; }
     if (type === 'image') { imageInsertRef.current = idx; imageFileRef.current?.click(); return; }
     const block = type === 'heading' ? newBlock('heading', { level: level ?? 2, text: '' })
       : type === 'checklist' ? newBlock('checklist', { items: [{ id: crypto.randomUUID(), text: '', checked: false }] })
+      : (type === 'bulleted_list' || type === 'numbered_list') ? newBlock(type, { listItems: [{ id: crypto.randomUUID(), text: '' }] })
       : newBlock(type, { text: '' });
     saveBlocks([...draftBlocks, block]);
     if (type !== 'divider') setFocusBlockId(block.id);
@@ -238,6 +245,19 @@ export function Notebook() {
     setLightbox({ images: imgs.length ? imgs : [dataUrl], index });
   };
   const openTradeDetail = (id: string) => { const t = trades.find(x => x.id === id); if (t) setDetailTrade(t); };
+
+  // ── Cover handlers ──
+  const setCover = (cover: NoteCover) => { if (activeNote) updateNote(activeNote.id, { cover }); setCoverPickerOpen(false); };
+  const removeCover = () => { if (activeNote) updateNote(activeNote.id, { cover: undefined }); };
+  const repositionCover = (position: number) => { if (activeNote?.cover) updateNote(activeNote.id, { cover: { ...activeNote.cover, position } }); };
+  const recentCovers = useMemo(
+    () => [...new Set(notes.map(n => n.cover).filter((c): c is NoteCover => !!c && c.type === 'image' && !!c.url).map(c => c.url!))],
+    [notes],
+  );
+  const openAttachment = (att: Attachment) => {
+    if (att.type === 'image') { setLightbox({ images: [att.url], index: 0 }); return; }
+    const a = document.createElement('a'); a.href = att.url; a.download = att.name; a.click();
+  };
 
   const editorContentRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
@@ -314,19 +334,40 @@ export function Notebook() {
         {/* subtitle */}
         <EditableText
           value={draftSubtitle} onChange={saveSubtitle} placeholder="Añade una breve descripción…" multiline
-          style={{ fontSize: '1.1rem', color: C.olive, lineHeight: 1.6, margin: '0 0 24px' }}
+          style={{ fontSize: '1.1rem', color: C.olive, lineHeight: 1.6, margin: '0 0 16px' }}
         />
+
+        {/* collection + tags chip row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', margin: '0 0 24px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,143,255,0.1)', color: C.blue, borderRadius: 6, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
+            <NotebookIcon name={activeFolder?.icon ?? 'Folder'} size={12} color={C.blue} />{crumbName}
+          </span>
+          {activeNote.tags.map(tag => (
+            <button key={tag} onClick={() => removeTag(tag)} title="Quitar" style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 500, color: C.olive, cursor: 'pointer', fontFamily: fontBody }}>{tag} ✕</button>
+          ))}
+          <input
+            list="nb-tag-suggestions" value={tagInput}
+            onChange={e => { const v = e.target.value; if (v.endsWith(',')) addTag(v); else setTagInput(v); }}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); } }}
+            placeholder="+ etiqueta"
+            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.text2, fontSize: '0.72rem', fontFamily: fontBody, minWidth: 80 }}
+          />
+          <datalist id="nb-tag-suggestions">{allTags.map(t => <option key={t} value={t} />)}</datalist>
+        </div>
 
         {/* block insert toolbar */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 4, display: 'flex', gap: 0, marginBottom: 24 }}>
           {([
             { t: 'paragraph' as const, Icon: Type, label: 'Texto' },
+            { t: 'bulleted_list' as const, Icon: List, label: 'Lista' },
+            { t: 'numbered_list' as const, Icon: ListOrdered, label: 'Numerada' },
             { t: 'checklist' as const, Icon: CheckSquare, label: 'Checklist' },
+            { t: 'quote' as const, Icon: QuoteIcon, label: 'Cita' },
             { t: 'trade' as const, Icon: TrendingUp, label: 'Trade' },
             { t: 'image' as const, Icon: ImageIcon, label: 'Imagen' },
           ]).map(b => (
             <button key={b.label} onClick={() => insertBlockToolbar(b.t)}
-              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 20px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: 'none', color: C.olive, fontFamily: fontBody, fontSize: '0.85rem', transition: 'all 0.12s' }}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 8px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: 'none', color: C.olive, fontFamily: fontBody, fontSize: '0.8rem', whiteSpace: 'nowrap', transition: 'all 0.12s' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = C.text; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.olive; }}>
               <b.Icon size={16} />{b.label}
@@ -347,22 +388,8 @@ export function Notebook() {
         />
       </div>
 
-      {/* tags row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, borderTop: `1px solid ${C.border}`, padding: '20px 0', marginTop: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
-          <Tag size={14} color={C.muted} />
-          {activeNote.tags.map(tag => (
-            <button key={tag} onClick={() => removeTag(tag)} title="Quitar" style={{ background: 'rgba(255,255,255,0.04)', border: 'none', borderRadius: 6, padding: '5px 11px', fontSize: '0.72rem', fontWeight: 500, color: C.olive, cursor: 'pointer', fontFamily: fontBody }}>{tag} ✕</button>
-          ))}
-          <input
-            list="nb-tag-suggestions" value={tagInput}
-            onChange={e => { const v = e.target.value; if (v.endsWith(',')) addTag(v); else setTagInput(v); }}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); } }}
-            placeholder="Añadir etiqueta…"
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.text2, fontSize: '0.72rem', fontFamily: fontBody, minWidth: 120 }}
-          />
-          <datalist id="nb-tag-suggestions">{allTags.map(t => <option key={t} value={t} />)}</datalist>
-        </div>
+      {/* bottom row — focus toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', borderTop: `1px solid ${C.border}`, padding: '18px 0', marginTop: 24 }}>
         <button
           onClick={() => setFocusMode(f => !f)}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '6px 12px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: fontBody, whiteSpace: 'nowrap' }}
@@ -383,6 +410,10 @@ export function Notebook() {
         .nb-title[contenteditable]:focus { border-bottom-color: ${C.blue} !important; }
         .nb-row:hover .nb-row-more { opacity: 1 !important; }
         .nb-row:hover .nb-row-grip { opacity: 0.5 !important; }
+        @media (max-width: 1100px) {
+          .nb-editor-grid { grid-template-columns: 1fr !important; }
+          .nb-sidebar { order: -1; }
+        }
       `}</style>
 
       {/* ── MIDDLE COLUMN ── */}
@@ -516,6 +547,11 @@ export function Notebook() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
                 {saveState !== 'idle' && <span style={{ fontSize: 11, color: saveState === 'saving' ? C.muted : C.blue, marginRight: 2 }}>{saveState === 'saving' ? 'Guardando…' : 'Guardado ✓'}</span>}
+                {!activeNote.cover && (
+                  <button onClick={() => setCoverPickerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '6px 12px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: fontBody }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}><ImagePlus size={14} /> Añadir portada</button>
+                )}
                 <button onClick={() => setShareOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '6px 12px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: fontBody }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}><Share2 size={14} /> Compartir</button>
@@ -538,9 +574,23 @@ export function Notebook() {
               </div>
             </div>
 
-            {/* scrollable editor */}
+            {/* scrollable editor: cover + content | sidebar */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 56px 56px' }}>{editorInner}</div>
+              {activeNote.cover && (
+                <CoverBar cover={activeNote.cover} onReposition={repositionCover} onChange={() => setCoverPickerOpen(true)} onRemove={removeCover} />
+              )}
+              <div className="nb-editor-grid" style={{ maxWidth: 1180, margin: '0 auto', padding: activeNote.cover ? '24px 56px 56px' : '0 56px 56px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 40, alignItems: 'start' }}>
+                <div style={{ minWidth: 0 }}>{editorInner}</div>
+                <div className="nb-sidebar">
+                  <NoteSidebar
+                    note={activeNote} folders={folders}
+                    onUpdate={patch => updateNote(activeNote.id, patch)}
+                    onMove={fid => { moveNoteStore(activeNote.id, fid); if (view !== 'all' && view !== 'favorites') setView(fid); }}
+                    onOpenAttachment={openAttachment}
+                    onToast={(kind, text) => push({ kind, text })}
+                  />
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -584,6 +634,10 @@ export function Notebook() {
             </div>
           </div>
         </div>
+      )}
+
+      {coverPickerOpen && (
+        <CoverImagePicker recent={recentCovers} onPick={setCover} onClose={() => setCoverPickerOpen(false)} />
       )}
 
       {lightbox && <ImageLightbox images={lightbox.images} initialIndex={lightbox.index} isOpen onClose={() => setLightbox(null)} caption={draftTitle} />}

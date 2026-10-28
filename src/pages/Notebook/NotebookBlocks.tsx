@@ -6,9 +6,10 @@ import { nanoid } from 'nanoid';
 import {
   FileText, GripVertical, MoreHorizontal, Type, Heading2, Heading3, Quote,
   Lightbulb, ListChecks, TrendingUp, Image as ImageIcon, Minus, Code2,
+  List, ListOrdered,
   type LucideIcon,
 } from 'lucide-react';
-import { type Block, type BlockType, type ChecklistItem, newBlock } from '../../store/notebookStore';
+import { type Block, type BlockType, type ChecklistItem, type ListItem, newBlock } from '../../store/notebookStore';
 import type { Trade } from '../../store/tradeStore';
 
 const fontHead = "'Syne', sans-serif";
@@ -25,6 +26,8 @@ const SLASH_OPTIONS: { type: BlockType; label: string; Icon: LucideIcon; level?:
   { type: 'paragraph', label: 'Texto', Icon: Type },
   { type: 'quote', label: 'Cita', Icon: Quote },
   { type: 'callout', label: 'Callout', Icon: Lightbulb },
+  { type: 'bulleted_list', label: 'Lista', Icon: List },
+  { type: 'numbered_list', label: 'Lista numerada', Icon: ListOrdered },
   { type: 'checklist', label: 'Checklist', Icon: ListChecks },
   { type: 'trade', label: 'Operación', Icon: TrendingUp },
   { type: 'image', label: 'Imagen', Icon: ImageIcon },
@@ -237,6 +240,29 @@ function BlockRow(p: BlockRowProps) {
           </div>
         );
       }
+      case 'bulleted_list':
+      case 'numbered_list': {
+        const items = b.content.listItems ?? [];
+        const ordered = b.type === 'numbered_list';
+        const setItems = (next: ListItem[]) => p.onChange({ ...b, content: { ...b.content, listItems: next } });
+        return (
+          <div style={{ margin: '14px 0' }}>
+            {items.map((it, i) => (
+              <div key={it.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+                <span style={{ flexShrink: 0, marginTop: 1, minWidth: ordered ? 18 : 10, color: C.muted, fontSize: '0.95rem', textAlign: 'right' }}>{ordered ? `${i + 1}.` : '•'}</span>
+                <EditableText
+                  value={it.text} placeholder="Elemento…"
+                  registerFocus={i === 0 ? p.registerFocus : undefined}
+                  onChange={t => setItems(items.map(x => x.id === it.id ? { ...x, text: t } : x))}
+                  onEnter={() => { const ni = { id: nanoid(), text: '' }; const next = [...items]; next.splice(i + 1, 0, ni); setItems(next); }}
+                  onBackspaceEmpty={() => { if (items.length === 1) p.onDelete(); else setItems(items.filter(x => x.id !== it.id)); }}
+                  style={{ flex: 1, fontSize: '0.98rem', color: C.text2, lineHeight: 1.6 }}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      }
       case 'trade':
         return <TradeBlock tradeId={b.content.tradeId} trades={p.trades} onOpen={p.onOpenTrade} />;
       case 'image':
@@ -362,6 +388,7 @@ export function BlockList(p: BlockListProps) {
     let content: Block['content'] = {};
     if (type === 'heading') content = { level: level ?? 2, text };
     else if (type === 'checklist') content = { items: [{ id: nanoid(), text, checked: false }] };
+    else if (type === 'bulleted_list' || type === 'numbered_list') content = { listItems: [{ id: nanoid(), text }] };
     else if (type === 'callout') content = { heading: '', text };
     else if (type === 'divider') content = {};
     else content = { text };
