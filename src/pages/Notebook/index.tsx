@@ -3,9 +3,9 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  Search, Plus, Star, Maximize2, Share2, MoreHorizontal,
-  Type, CheckSquare, TrendingUp, Image as ImageIcon, LayoutGrid, GripVertical, BookOpen,
-  ImagePlus, List, ListOrdered, Quote as QuoteIcon, BarChart3,
+  Search, Plus, Star, Maximize2, Minimize2, Share2, MoreHorizontal,
+  Type, CheckSquare, TrendingUp, Image as ImageIcon, LayoutGrid, LayoutList, GripVertical, BookOpen,
+  ImagePlus, List, ListOrdered, Quote as QuoteIcon, BarChart3, X, ChevronDown,
 } from 'lucide-react';
 import {
   useNotebookStore, useUserFolders, useUserNotes,
@@ -45,7 +45,6 @@ const C = {
 
 function isProtected(f: Folder) { return !!f.system || !!f.isDefault || DEFAULT_FOLDER_NAMES.includes(f.name); }
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-function metaDate(iso: string) { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()].toUpperCase()} ${d.getFullYear()}`; }
 function smartDate(iso: string) {
   const d = new Date(iso); const now = new Date();
   if (d.toDateString() === now.toDateString()) return `Hoy ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -54,6 +53,20 @@ function smartDate(iso: string) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 function preview(text: string) { return text.replace(/\s+/g, ' ').trim().slice(0, 120); }
+function createdStamp(iso: string) {
+  const d = new Date(iso);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function relativeEdit(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'hace un momento';
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
+}
 
 type View = 'all' | 'favorites' | string;
 
@@ -109,6 +122,10 @@ export function Notebook() {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [detailTrade, setDetailTrade] = useState<Trade | null>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [collChipOpen, setCollChipOpen] = useState(false);
+  const [, setMetaTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setMetaTick(x => x + 1), 60000); return () => clearInterval(t); }, []);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [tradesTableInsert, setTradesTableInsert] = useState<{ insertAfter: number } | null>(null);
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
@@ -165,7 +182,6 @@ export function Notebook() {
   };
   const saveTitle = (v: string) => { setDraftTitle(v); scheduleSave({ title: v }); };
   const saveSubtitle = (v: string) => { setDraftSubtitle(v); scheduleSave({ subtitle: v }); };
-  const saveSession = (v: string) => { setDraftSession(v); scheduleSave({ meta: { ...activeNote?.meta, session: v.trim() || undefined } }); };
   const saveBlocks = (b: Block[]) => { setDraftBlocks(b); scheduleSave({ blocks: b, meta: { ...activeNote?.meta, session: draftSession.trim() || undefined } }); };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -338,11 +354,11 @@ export function Notebook() {
   }, [view, folders]);
 
   useEffect(() => {
-    if (!focusMode) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !lightbox && !detailTrade) setFocusMode(false); };
+    if (!focusMode && !fullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !lightbox && !detailTrade) { setFocusMode(false); setFullscreen(false); } };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focusMode, lightbox, detailTrade]);
+  }, [focusMode, fullscreen, lightbox, detailTrade]);
 
   // Keyboard shortcuts: Cmd/Ctrl+N (new note), Cmd/Ctrl+Shift+F (focus mode).
   useEffect(() => {
@@ -365,55 +381,79 @@ export function Notebook() {
   const editorInner = activeNote && (
     <>
       <div ref={editorContentRef}>
-        {/* meta line */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 8px' }}>
-          <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', color: C.muted, textTransform: 'uppercase' }}>
-            {metaDate(activeNote.meta?.date ?? activeNote.date)}
-          </span>
-          <span style={{ color: C.faint }}>·</span>
-          <EditableText
-            value={draftSession} onChange={saveSession} placeholder="AÑADIR SESIÓN"
-            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', color: draftSession ? C.olive : C.faint, textTransform: 'uppercase', minWidth: 60 }}
-          />
-          {tradesCount > 0 && <>
-            <span style={{ color: C.faint }}>·</span>
-            <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', color: C.muted, textTransform: 'uppercase' }}>{tradesCount} {tradesCount === 1 ? 'operación' : 'operaciones'}</span>
-          </>}
-        </div>
+        {/* cover */}
+        {activeNote.cover ? (
+          <div style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 24 }}>
+            <CoverBar cover={activeNote.cover} height={240} onReposition={repositionCover} onChange={() => setCoverPickerOpen(true)} onRemove={removeCover} />
+          </div>
+        ) : (
+          <div className="nb-cover-ghost-wrap" style={{ height: 40, display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+            <button className="nb-cover-ghost" onClick={() => setCoverPickerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', fontSize: '0.8rem', fontFamily: fontBody, padding: '6px 0', opacity: 0, transition: 'opacity 0.15s' }}>
+              <ImagePlus size={15} /> Añadir portada
+            </button>
+          </div>
+        )}
 
         {/* title */}
         <EditableText
           value={draftTitle} onChange={saveTitle} placeholder="Sin título"
           className="nb-title"
-          style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '2.4rem', color: C.text, letterSpacing: '-0.02em', lineHeight: 1.12, margin: '8px 0 12px', paddingBottom: 2, borderBottom: '2px solid transparent' }}
+          style={{ fontFamily: fontHead, fontWeight: 800, fontSize: '2.2rem', color: C.text, letterSpacing: '-0.02em', lineHeight: 1.2, margin: '0 0 4px', paddingBottom: 2, borderBottom: '2px solid transparent' }}
         />
+
+        {/* meta line */}
+        <div style={{ fontSize: '0.78rem', color: C.muted, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 12px' }}>
+          <span>{createdStamp(activeNote.createdAt)}</span>
+          <span style={{ color: C.faint }}>·</span>
+          <span>Última edición {relativeEdit(activeNote.updatedAt)}</span>
+          {draftSession && <><span style={{ color: C.faint }}>·</span><span style={{ color: C.olive }}>{draftSession}</span></>}
+          {tradesCount > 0 && <><span style={{ color: C.faint }}>·</span><span>{tradesCount} {tradesCount === 1 ? 'operación' : 'operaciones'}</span></>}
+        </div>
+
+        {/* collection + tags chip row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '0 0 20px' }}>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setCollChipOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: '#1a1d26', border: '1px solid #22252e', color: C.text, borderRadius: 7, padding: '5px 8px 5px 8px', fontSize: '0.76rem', cursor: 'pointer', fontFamily: fontBody }}>
+              <NotebookIcon name={activeFolder?.icon ?? 'Folder'} size={14} color={C.muted} />{crumbName}<ChevronDown size={10} color={C.muted} />
+            </button>
+            {collChipOpen && (
+              <>
+                <div onClick={() => setCollChipOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 41, background: '#1a1d26', border: `1px solid ${C.borderEl}`, borderRadius: 8, padding: 4, minWidth: 180, maxHeight: 240, overflowY: 'auto', boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
+                  {folders.map(f => (
+                    <button key={f.id} onClick={() => { moveNoteStore(activeNote.id, f.id); if (view !== 'all' && view !== 'favorites') setView(f.id); setCollChipOpen(false); }} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', color: f.id === activeNote.folderId ? C.blue : C.text2, padding: '7px 9px', fontSize: '0.78rem', cursor: 'pointer', borderRadius: 6, fontFamily: fontBody }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <NotebookIcon name={f.icon} size={14} color={C.muted} />{f.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          {activeNote.tags.map(tag => (
+            <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,143,255,0.08)', border: '1px solid rgba(79,143,255,0.2)', borderRadius: 7, padding: '5px 8px 5px 10px', fontSize: '0.74rem', color: C.blue, fontFamily: fontBody }}>
+              {tag}<X size={10} style={{ cursor: 'pointer' }} onClick={() => removeTag(tag)} />
+            </span>
+          ))}
+          <span style={{ display: 'inline-flex', alignItems: 'center', border: '1px dashed #22252e', borderRadius: 7, padding: '4px 10px' }}>
+            <input
+              list="nb-tag-suggestions" value={tagInput}
+              onChange={e => { const v = e.target.value; if (v.endsWith(',')) addTag(v); else setTagInput(v); }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); } }}
+              placeholder="+ Etiqueta"
+              style={{ background: 'transparent', border: 'none', outline: 'none', color: C.muted, fontSize: '0.74rem', fontFamily: fontBody, width: 68 }}
+            />
+            <datalist id="nb-tag-suggestions">{allTags.map(t => <option key={t} value={t} />)}</datalist>
+          </span>
+        </div>
 
         {/* subtitle */}
         <EditableText
           value={draftSubtitle} onChange={saveSubtitle} placeholder="Añade una breve descripción…" multiline
-          style={{ fontSize: '1.1rem', color: C.olive, lineHeight: 1.6, margin: '0 0 16px' }}
+          style={{ fontSize: '1.05rem', color: C.olive, lineHeight: 1.6, margin: '0 0 20px' }}
         />
 
-        {/* collection + tags chip row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', margin: '0 0 24px' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(79,143,255,0.1)', color: C.blue, borderRadius: 6, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
-            <NotebookIcon name={activeFolder?.icon ?? 'Folder'} size={12} color={C.blue} />{crumbName}
-          </span>
-          {activeNote.tags.map(tag => (
-            <button key={tag} onClick={() => removeTag(tag)} title="Quitar" style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 500, color: C.olive, cursor: 'pointer', fontFamily: fontBody }}>{tag} ✕</button>
-          ))}
-          <input
-            list="nb-tag-suggestions" value={tagInput}
-            onChange={e => { const v = e.target.value; if (v.endsWith(',')) addTag(v); else setTagInput(v); }}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); } }}
-            placeholder="+ etiqueta"
-            style={{ background: 'transparent', border: 'none', outline: 'none', color: C.text2, fontSize: '0.72rem', fontFamily: fontBody, minWidth: 80 }}
-          />
-          <datalist id="nb-tag-suggestions">{allTags.map(t => <option key={t} value={t} />)}</datalist>
-        </div>
-
         {/* block insert toolbar */}
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 4, display: 'flex', gap: 0, marginBottom: 24 }}>
+        <div className="nb-toolbar-scroll" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 4, display: 'flex', gap: 0, marginBottom: 24, overflowX: 'auto', maxWidth: '100%' }}>
           {([
             { t: 'paragraph' as const, Icon: Type, label: 'Texto' },
             { t: 'bulleted_list' as const, Icon: List, label: 'Lista' },
@@ -472,6 +512,9 @@ export function Notebook() {
         .nb-title[contenteditable]:focus { border-bottom-color: ${C.blue} !important; }
         .nb-row:hover .nb-row-more { opacity: 1 !important; }
         .nb-row:hover .nb-row-grip { opacity: 0.5 !important; }
+        .nb-cover-ghost-wrap:hover .nb-cover-ghost { opacity: 1 !important; }
+        .nb-toolbar-scroll::-webkit-scrollbar { height: 6px; }
+        .nb-toolbar-scroll::-webkit-scrollbar-thumb { background: #22252e; border-radius: 3px; }
         @media (max-width: 1100px) {
           .nb-editor-grid { grid-template-columns: 1fr !important; }
           .nb-sidebar { order: -1; }
@@ -490,10 +533,10 @@ export function Notebook() {
               <Search size={16} color={C.muted} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar en mis notas..."
                 className="nb-search"
-                style={{ width: '100%', boxSizing: 'border-box', background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px 10px 40px', fontSize: '0.82rem', color: C.text, outline: 'none', fontFamily: fontBody }} />
+                style={{ width: '100%', boxSizing: 'border-box', background: '#15171d', border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px 10px 40px', fontSize: '0.82rem', color: C.text, outline: 'none', fontFamily: fontBody }} />
             </div>
-            <button onClick={toggleLayout} title={listLayout === 'list' ? 'Vista cuadrícula' : 'Vista lista'} style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, color: C.text2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              {listLayout === 'list' ? <LayoutGrid size={16} /> : <List size={16} />}
+            <button onClick={toggleLayout} title={listLayout === 'list' ? 'Vista cuadrícula' : 'Vista lista'} style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: listLayout === 'grid' ? 'rgba(79,143,255,0.1)' : '#15171d', border: `1px solid ${listLayout === 'grid' ? 'rgba(79,143,255,0.4)' : C.border}`, color: listLayout === 'grid' ? C.blue : C.text2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              {listLayout === 'list' ? <LayoutGrid size={16} /> : <LayoutList size={16} />}
             </button>
           </div>
         </div>
@@ -569,9 +612,10 @@ export function Notebook() {
                   <button key={g.id} onClick={() => { setActiveGoalId(g.id); setSearch(''); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 20px', cursor: 'pointer', background: active ? 'rgba(79,143,255,0.05)' : 'transparent', border: 'none', borderLeft: active ? `3px solid ${C.blue}` : '3px solid transparent', color: active ? C.text : C.text2, fontSize: '0.82rem', fontFamily: fontBody, textAlign: 'left' }}
                     onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
                     onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
-                    <Target size={15} color={g.color ?? C.blue} />
+                    <Target size={15} color={g.color ?? C.blue} style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</span>
-                    <span style={{ fontSize: '0.68rem', color: C.muted }}>{pct}%</span>
+                    <span style={{ width: 40, height: 3, borderRadius: 2, background: '#22252e', overflow: 'hidden', flexShrink: 0 }}><span style={{ display: 'block', width: `${pct}%`, height: '100%', background: g.color ?? C.blue }} /></span>
+                    <span style={{ fontSize: '0.66rem', color: C.muted, flexShrink: 0, width: 26, textAlign: 'right' }}>{pct}%</span>
                   </button>
                 );
               })}
@@ -651,15 +695,12 @@ export function Notebook() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
                 {saveState !== 'idle' && <span style={{ fontSize: 11, color: saveState === 'saving' ? C.muted : C.blue, marginRight: 2 }}>{saveState === 'saving' ? 'Guardando…' : 'Guardado ✓'}</span>}
-                {!activeNote.cover && (
-                  <button onClick={() => setCoverPickerOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '6px 12px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: fontBody }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}><ImagePlus size={14} /> Añadir portada</button>
-                )}
                 <button onClick={() => setShareOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '6px 12px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: fontBody }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}><Share2 size={14} /> Compartir</button>
                 <IconBtn onClick={() => toggleFavorite(activeNote.id)} active={!!activeNote.favorite} title="Favorito"><Star size={16} fill={activeNote.favorite ? C.blue : 'none'} /></IconBtn>
+                <IconBtn onClick={() => setFocusMode(f => !f)} title="Modo foco (Cmd+Shift+F)"><Minimize2 size={16} /></IconBtn>
+                <IconBtn onClick={() => setFullscreen(true)} title="Pantalla completa"><Maximize2 size={16} /></IconBtn>
                 <IconBtn onClick={e => { e.stopPropagation(); setNoteMenuOpen(o => !o); setMovePickerOpen(false); }} title="Más"><MoreHorizontal size={16} /></IconBtn>
                 {noteMenuOpen && (
                   <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 40, right: 0, zIndex: 40, background: C.card, border: `1px solid ${C.borderEl}`, borderRadius: 10, padding: 4, minWidth: 210, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
@@ -679,12 +720,9 @@ export function Notebook() {
               </div>
             </div>
 
-            {/* scrollable editor: cover + content | sidebar */}
+            {/* scrollable editor: content | sidebar (cover lives inside content) */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              {activeNote.cover && (
-                <CoverBar cover={activeNote.cover} onReposition={repositionCover} onChange={() => setCoverPickerOpen(true)} onRemove={removeCover} />
-              )}
-              <div className="nb-editor-grid" style={{ maxWidth: 1180, margin: '0 auto', padding: activeNote.cover ? '24px 56px 56px' : '0 56px 56px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 40, alignItems: 'start' }}>
+              <div className="nb-editor-grid" style={{ maxWidth: 1200, margin: '0 auto', padding: '8px 48px 56px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 32, alignItems: 'start' }}>
                 <div style={{ minWidth: 0 }}>{editorInner}</div>
                 <div className="nb-sidebar">
                   <NoteSidebar
@@ -706,6 +744,22 @@ export function Notebook() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 150, background: C.bg, overflowY: 'auto' }}>
           <button onClick={() => setFocusMode(false)} style={{ position: 'fixed', top: 20, right: 24, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 7, background: C.card, border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '8px 14px', fontSize: '0.8rem', cursor: 'pointer', fontFamily: fontBody }}>✕ Salir de foco</button>
           <div style={{ maxWidth: 720, margin: '0 auto', padding: '72px 24px 64px' }}>{editorInner}</div>
+        </div>
+      )}
+
+      {/* ── FULLSCREEN overlay (editor + sidebar, full viewport) ── */}
+      {fullscreen && activeNote && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 150, background: C.bg, overflowY: 'auto' }}>
+          <button onClick={() => setFullscreen(false)} style={{ position: 'fixed', top: 20, right: 24, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 7, background: C.card, border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '8px 14px', fontSize: '0.8rem', cursor: 'pointer', fontFamily: fontBody }}><Minimize2 size={14} /> Salir (Esc)</button>
+          <div className="nb-editor-grid" style={{ maxWidth: 1280, margin: '0 auto', padding: '56px 48px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 32, alignItems: 'start' }}>
+            <div style={{ minWidth: 0 }}>{editorInner}</div>
+            <div className="nb-sidebar">
+              <NoteSidebar note={activeNote} folders={folders}
+                onUpdate={patch => updateNote(activeNote.id, patch)}
+                onMove={fid => { moveNoteStore(activeNote.id, fid); if (view !== 'all' && view !== 'favorites') setView(fid); }}
+                onOpenAttachment={openAttachment} onToast={(kind, text) => push({ kind, text })} />
+            </div>
+          </div>
         </div>
       )}
 
