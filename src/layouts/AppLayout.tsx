@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LogoMark } from '../components/UI/LogoMark';
+import { BackgroundNoise } from '../components/UI/BackgroundNoise';
 import { AddTradeModal } from '../components/Modals/AddTradeModal';
 import { useAuthStore } from '../store/authStore';
 import { useUserTrades } from '../store/tradeStore';
@@ -222,7 +223,7 @@ export function AppLayout() {
 
   return (
     <div className="trace-app" style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.5 }}>
-      <aside style={{ width: collapsed ? 64 : 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.18s ease' }}>
+      <aside style={{ position: 'relative', zIndex: 1, width: collapsed ? 64 : 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.18s ease' }}>
         <div style={{ padding: collapsed ? '18px 0 14px' : '18px 16px 14px', flexShrink: 0, borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between' }}>
             {collapsed
@@ -387,7 +388,7 @@ export function AppLayout() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {(
-        <header style={{ height: 50, flexShrink: 0, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header style={{ position: 'relative', zIndex: 1, height: 50, flexShrink: 0, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#fff', letterSpacing: '-0.01em' }}>{pageTitle}</div>
             <div style={{ fontSize: '0.68rem', color: '#33334a' }}>{syncLabel(latestCreatedAt, t)}</div>
@@ -470,8 +471,18 @@ export function AppLayout() {
         </header>
         )}
 
-        <main style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
-          <Outlet />
+        {/* Page base: soft radial depth + grain. Content sits above (z 1) so cards
+            stay untouched; sidebar/header are lifted above this layer too. */}
+        <main style={{
+          flex: 1, overflowY: 'auto', position: 'relative', zIndex: 0,
+          backgroundColor: 'var(--bg)',
+          backgroundImage: 'radial-gradient(ellipse 1200px 800px at 50% -200px, rgba(79,143,255,0.04), transparent 70%), radial-gradient(ellipse 800px 600px at 85% 20%, rgba(120,97,255,0.025), transparent 60%)',
+          backgroundRepeat: 'no-repeat',
+        }}>
+          <BackgroundNoise />
+          <div style={{ position: 'relative', zIndex: 1, minHeight: '100%' }}>
+            <Outlet />
+          </div>
         </main>
       </div>
 
