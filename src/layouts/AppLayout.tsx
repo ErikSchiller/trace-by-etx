@@ -224,7 +224,13 @@ export function AppLayout() {
   };
 
   return (
-    <div className="trace-app" style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.5 }}>
+    <>
+    {/* Grain sits between the body's radial gradients and the app shell. */}
+    <BackgroundNoise />
+    {/* The whole shell — sidebar, header, page content and every modal — is one
+        z-index 2 layer, so internal stacking (page modals over the sidebar,
+        etc.) is unchanged. Transparent so the body depth shows through. */}
+    <div className="trace-app" style={{ position: 'relative', zIndex: 2, display: 'flex', height: '100vh', overflow: 'hidden', background: 'transparent', color: 'var(--text)', fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.5 }}>
       <aside style={{ width: collapsed ? 64 : 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.18s ease' }}>
         <div style={{ padding: collapsed ? '18px 0 14px' : '18px 16px 14px', flexShrink: 0, borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between' }}>
@@ -473,25 +479,10 @@ export function AppLayout() {
         </header>
         )}
 
-        {/* Page base: soft radial depth + grain, confined to <main>. The grain
-            lives in a zero-height sticky layer sized to the visible viewport;
-            content follows it in DOM order so it paints on top. No z-index is
-            set anywhere here, so page-level modals are never trapped below the
-            sidebar/header. Cards (#111113) cover the grain. */}
-        <main style={{
-          flex: 1, overflowY: 'auto',
-          backgroundColor: 'var(--bg)',
-          backgroundImage: 'radial-gradient(ellipse 1200px 800px at 50% -200px, rgba(79,143,255,0.04), transparent 70%), radial-gradient(ellipse 800px 600px at 85% 20%, rgba(120,97,255,0.025), transparent 60%)',
-          backgroundRepeat: 'no-repeat',
-        }}>
-          <div aria-hidden style={{ position: 'sticky', top: 0, height: 0, pointerEvents: 'none' }}>
-            <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(100vh - 50px)' }}>
-              <BackgroundNoise />
-            </div>
-          </div>
-          <div style={{ position: 'relative' }}>
-            <Outlet />
-          </div>
+        {/* Transparent: the page base (body gradients + grain) shows through.
+            Only cards and panels paint solid backgrounds. */}
+        <main style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
+          <Outlet />
         </main>
       </div>
 
@@ -515,6 +506,7 @@ export function AppLayout() {
       <CommandPalette />
       <Suspense fallback={null}><ChartInsightPanel /></Suspense>
     </div>
+    </>
   );
 }
 

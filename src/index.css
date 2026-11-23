@@ -51,16 +51,29 @@
 
 html, body, #root {
   height: 100%;
-  background-color: var(--bg);
   color: var(--text);
   font-family: 'Space Grotesk', sans-serif;
   font-size: 14px;
 }
 
+html { background-color: var(--bg); }
+
+/* Page depth: three very soft radial washes, fixed to the viewport.
+   Everything above (#root, the app shell, <main>, page roots) is transparent
+   so this shows through; only cards and panels paint solid backgrounds. */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 1400px 900px at 50% -300px, rgba(79, 143, 255, 0.055), transparent 70%),
+    radial-gradient(ellipse 900px 700px at 90% 15%, rgba(120, 97, 255, 0.035), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 10% 80%, rgba(79, 143, 255, 0.025), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
+
+#root { background: transparent; }
 
 .syne { font-family: 'Syne', sans-serif; }
 .font-syne { font-family: 'Syne', sans-serif; }

@@ -78,7 +78,7 @@ export function Calendar() {
   const openNote = (id: string) => { navigate('/notebook'); setTimeout(() => window.dispatchEvent(new CustomEvent('trace:open-note', { detail: { id } })), 120); };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: C.bg, minHeight: 0, fontFamily: fontBody }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'transparent', minHeight: 0, fontFamily: fontBody }}>
       {/* top bar */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 28px', borderBottom: `1px solid ${C.border}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>

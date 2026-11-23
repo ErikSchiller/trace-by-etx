@@ -503,7 +503,7 @@ export function Notebook() {
   );
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', height: '100%', minHeight: 0, overflow: 'hidden', background: C.bg }}
+    <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', height: '100%', minHeight: 0, overflow: 'hidden', background: 'transparent' }}
       onClick={() => { setCtxMenu(null); setNoteMenuOpen(false); setNoteCtx(null); }}>
       <style>{`
         .nb-block:hover .nb-block-gutter { opacity: 1 !important; }
@@ -677,7 +677,7 @@ export function Notebook() {
       </div>
 
       {/* ── EDITOR COLUMN ── */}
-      <div style={{ background: C.bg, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ background: 'transparent', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         {activeGoalId ? (
           <GoalDetail goalId={activeGoalId} notes={notes}
             onOpenNote={id => { setActiveGoalId(null); setActiveNoteId(id); }}
