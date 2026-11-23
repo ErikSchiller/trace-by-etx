@@ -15,6 +15,7 @@ import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
 import { TraceScorePanel } from '../../components/Dashboard/TraceScorePanel';
 import { DailyFlowWidget } from '../../components/Dashboard/DailyFlowWidget';
+import { StreaksPanel } from '../../components/Dashboard/StreaksPanel';
 import { EquityCurvePanel } from '../../components/Dashboard/EquityCurvePanel';
 import { PRESET_LABEL } from '../../store/dateRangeStore';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
@@ -287,6 +288,7 @@ export function Dashboard() {
         </div>
         {/* Daily Flow works without trades — keep it reachable from day one. */}
         <DailyFlowWidget trades={trades} />
+        <StreaksPanel />
       </div>
     );
   }
@@ -504,6 +506,9 @@ export function Dashboard() {
 
       {/* ── PROP FIRM ACCOUNTS — grouped by firm ── */}
       <PropFirmGroupsPanel trades={trades} />
+
+      {/* ── STREAKS — journalling + discipline ── */}
+      <StreaksPanel />
 
       {/* Row 2 — analytical panels */}
       <div className="dash-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1fr', gap: 12 }}>
