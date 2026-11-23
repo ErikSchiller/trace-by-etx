@@ -225,7 +225,7 @@ export function AppLayout() {
 
   return (
     <div className="trace-app" style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1.5 }}>
-      <aside style={{ position: 'relative', zIndex: 1, width: collapsed ? 64 : 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.18s ease' }}>
+      <aside style={{ width: collapsed ? 64 : 210, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.18s ease' }}>
         <div style={{ padding: collapsed ? '18px 0 14px' : '18px 16px 14px', flexShrink: 0, borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', alignItems: collapsed ? 'center' : 'stretch', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between' }}>
             {collapsed
@@ -390,7 +390,7 @@ export function AppLayout() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {(
-        <header style={{ position: 'relative', zIndex: 1, height: 50, flexShrink: 0, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header style={{ height: 50, flexShrink: 0, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#fff', letterSpacing: '-0.01em' }}>{pageTitle}</div>
             <div style={{ fontSize: '0.68rem', color: '#33334a' }}>{syncLabel(latestCreatedAt, t)}</div>
@@ -473,16 +473,23 @@ export function AppLayout() {
         </header>
         )}
 
-        {/* Page base: soft radial depth + grain. Content sits above (z 1) so cards
-            stay untouched; sidebar/header are lifted above this layer too. */}
+        {/* Page base: soft radial depth + grain, confined to <main>. The grain
+            lives in a zero-height sticky layer sized to the visible viewport;
+            content follows it in DOM order so it paints on top. No z-index is
+            set anywhere here, so page-level modals are never trapped below the
+            sidebar/header. Cards (#111113) cover the grain. */}
         <main style={{
-          flex: 1, overflowY: 'auto', position: 'relative', zIndex: 0,
+          flex: 1, overflowY: 'auto',
           backgroundColor: 'var(--bg)',
           backgroundImage: 'radial-gradient(ellipse 1200px 800px at 50% -200px, rgba(79,143,255,0.04), transparent 70%), radial-gradient(ellipse 800px 600px at 85% 20%, rgba(120,97,255,0.025), transparent 60%)',
           backgroundRepeat: 'no-repeat',
         }}>
-          <BackgroundNoise />
-          <div style={{ position: 'relative', zIndex: 1, minHeight: '100%' }}>
+          <div aria-hidden style={{ position: 'sticky', top: 0, height: 0, pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(100vh - 50px)' }}>
+              <BackgroundNoise />
+            </div>
+          </div>
+          <div style={{ position: 'relative' }}>
             <Outlet />
           </div>
         </main>
