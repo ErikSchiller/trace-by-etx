@@ -6,6 +6,7 @@ import {
 } from '../../store/dailyFlowStore';
 import { StepCard, DF } from '../../components/DailyFlow/StepCard';
 import { STEP_META, describeStep } from '../../components/DailyFlow/steps';
+import { PreMarketModal, DisciplineModal, TradeRecapModal, DayWrapModal } from '../../components/DailyFlow/StepModals';
 
 const fontHead = "'Syne', sans-serif";
 const fontBody = "'Space Grotesk', sans-serif";
@@ -17,7 +18,8 @@ export function DailyFlow() {
   const day = useDailyFlowDay(today);
   const skipPreMarket = useDailyFlowStore(s => s.skipPreMarket);
   const trades = useUserTrades();
-  const todayTradeIds = useMemo(() => trades.filter(t => t.date === today).map(t => t.id), [trades, today]);
+  const todayTrades = useMemo(() => trades.filter(t => t.date === today).sort((a, b) => a.time.localeCompare(b.time)), [trades, today]);
+  const todayTradeIds = useMemo(() => todayTrades.map(t => t.id), [todayTrades]);
   const [openStep, setOpenStep] = useState<StepId | null>(null);
 
   const completed = STEP_ORDER.filter(s => stepComplete(day, s)).length;
@@ -31,6 +33,8 @@ export function DailyFlow() {
         .df-step-card:hover { border-color: rgba(79,143,255,0.3) !important; transform: translateY(-2px); }
         @keyframes dfPulse { 0%, 100% { opacity: 0.9; } 50% { opacity: 1; } }
         .df-next-badge { animation: dfPulse 2s ease-in-out infinite; }
+        .df-item .df-item-x { opacity: 0; transition: opacity 0.12s; }
+        .df-item:hover .df-item-x { opacity: 1; }
         @media (max-width: 1000px) { .df-grid { grid-template-columns: 1fr !important; } }
       `}</style>
 
@@ -67,8 +71,10 @@ export function DailyFlow() {
         })}
       </div>
 
-      {/* Step modals are mounted here (see components/DailyFlow). */}
-      {openStep && null}
+      {openStep === 'pre_market' && <PreMarketModal date={today} onClose={() => setOpenStep(null)} onContinue={() => setOpenStep('discipline')} />}
+      {openStep === 'discipline' && <DisciplineModal date={today} onClose={() => setOpenStep(null)} />}
+      {openStep === 'trade_recap' && <TradeRecapModal date={today} trades={todayTrades} onClose={() => setOpenStep(null)} />}
+      {openStep === 'day_wrap' && <DayWrapModal date={today} onClose={() => setOpenStep(null)} />}
     </div>
   );
 }
