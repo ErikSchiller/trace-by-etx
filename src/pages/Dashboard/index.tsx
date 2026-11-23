@@ -14,6 +14,7 @@ import { tradingDaysLast7 } from '../../utils/recap';
 import { ProLock } from '../../components/UI/ProLock';
 import { LineChart } from '../../components/Charts/LineChart';
 import { TraceScorePanel } from '../../components/Dashboard/TraceScorePanel';
+import { DailyFlowWidget } from '../../components/Dashboard/DailyFlowWidget';
 import { EquityCurvePanel } from '../../components/Dashboard/EquityCurvePanel';
 import { PRESET_LABEL } from '../../store/dateRangeStore';
 import { TradeDetailModal } from '../../components/Modals/TradeDetailModal';
@@ -284,6 +285,8 @@ export function Dashboard() {
             </div>
           ))}
         </div>
+        {/* Daily Flow works without trades — keep it reachable from day one. */}
+        <DailyFlowWidget trades={trades} />
       </div>
     );
   }
@@ -412,6 +415,9 @@ export function Dashboard() {
         </div>
         <Watermark />
       </div>
+
+      {/* ── DAILY FLOW — today's ritual progress ── */}
+      <DailyFlowWidget trades={trades} />
 
       {/* ── MONTHLY CALENDAR — hero (main focal point) ── */}
       <div style={{ ...card, padding: '24px 28px' }}>
