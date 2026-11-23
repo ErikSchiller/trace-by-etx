@@ -30,6 +30,7 @@ const Icon = {
   Journal: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="12" rx="1.8" stroke="currentColor" strokeWidth="1.2"/><line x1="4" y1="5" x2="11" y2="5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><line x1="4" y1="7.5" x2="11" y2="7.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><line x1="4" y1="10" x2="8" y2="10" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/></svg>),
   Trades: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><polyline points="1.5,7.5 5,3.5 9,10 12,6 13.5,7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><line x1="1.5" y1="12.5" x2="13.5" y2="12.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/></svg>),
   Notebook: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 1.5h6.5l3 3V13a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5V2a.5.5 0 01.5-.5z" stroke="currentColor" strokeWidth="1.2"/><polyline points="9.5,1.5 9.5,4.5 12.5,4.5" stroke="currentColor" strokeWidth="1.1"/><line x1="4.5" y1="7.5" x2="10.5" y2="7.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/><line x1="4.5" y1="10" x2="8.5" y2="10" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>),
+  DailyFlow: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><polyline points="1.5,3.5 2.7,4.7 4.8,2.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="1.5,8 2.7,9.2 4.8,6.9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><line x1="7" y1="3.5" x2="13.5" y2="3.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><line x1="7" y1="8" x2="13.5" y2="8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><line x1="7" y1="12.5" x2="13.5" y2="12.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><circle cx="3.1" cy="12.5" r="1.3" stroke="currentColor" strokeWidth="1.1"/></svg>),
   Calendar: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><line x1="1.5" y1="5.5" x2="13.5" y2="5.5" stroke="currentColor" strokeWidth="1.1"/><line x1="4.5" y1="1" x2="4.5" y2="3.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><line x1="10.5" y1="1" x2="10.5" y2="3.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/></svg>),
   Reports: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="8.5" width="3" height="5" rx=".8" stroke="currentColor" strokeWidth="1.1"/><rect x="6" y="5.5" width="3" height="8" rx=".8" stroke="currentColor" strokeWidth="1.1"/><rect x="10.5" y="2.5" width="3" height="11" rx=".8" stroke="currentColor" strokeWidth="1.1"/></svg>),
   Progress: () => (<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.2"/><polyline points="7.5,3.5 10.5,9.5 7.5,8.5 4.5,9.5" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/></svg>),
@@ -47,6 +48,7 @@ interface NavItem { to: string; label: string; tKey: string; icon: React.Compone
 const sections: { title: string; tKey: string; items: NavItem[] }[] = [
   { title: 'PRINCIPAL', tKey: 'section.principal', items: [
     { to: '/dashboard', label: 'Dashboard',     tKey: 'nav.dashboard', icon: Icon.Dashboard },
+    { to: '/daily-flow', label: 'Daily Flow',   tKey: 'nav.dailyFlow', icon: Icon.DailyFlow },
     { to: '/journal',   label: 'Diario Diario', tKey: 'nav.journal',   icon: Icon.Journal },
     { to: '/trades',    label: 'Operaciones',   tKey: 'nav.trades',    icon: Icon.Trades },
     { to: '/notebook',  label: 'Notebook',      tKey: 'nav.notebook',  icon: Icon.Notebook },
@@ -68,8 +70,8 @@ const sections: { title: string; tKey: string; items: NavItem[] }[] = [
 
 // Path → nav translation key (page title mirrors the sidebar label).
 const PATH_NAV: Record<string, string> = {
-  '/dashboard': 'nav.dashboard', '/journal': 'nav.journal', '/trades': 'nav.trades',
-  '/notebook': 'nav.notebook', '/reports': 'nav.reports', '/progress': 'nav.progress',
+  '/dashboard': 'nav.dashboard', '/daily-flow': 'nav.dailyFlow', '/journal': 'nav.journal', '/trades': 'nav.trades',
+  '/notebook': 'nav.notebook', '/calendar': 'nav.calendar', '/reports': 'nav.reports', '/progress': 'nav.progress',
   '/replay': 'nav.replay', '/simulator': 'nav.simulator', '/prop-firms': 'nav.propFirms',
   '/gallery': 'nav.gallery', '/brokers': 'nav.brokers', '/settings': 'nav.settings',
 };

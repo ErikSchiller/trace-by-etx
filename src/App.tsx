@@ -20,6 +20,7 @@ const Journal = lazy(() => import('./pages/Journal'));
 const Trades = lazy(() => import('./pages/Trades'));
 const Notebook = lazy(() => import('./pages/Notebook'));
 const Calendar = lazy(() => import('./pages/Calendar'));
+const DailyFlow = lazy(() => import('./pages/DailyFlow'));
 const Brokers = lazy(() => import('./pages/Brokers'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Reportes = lazy(() => import('./pages/Reportes'));
@@ -94,6 +95,7 @@ export default function App() {
             <Route path="/trades" element={<Trades />} />
             <Route path="/notebook" element={<Notebook />} />
             <Route path="/calendar" element={<Calendar />} />
+            <Route path="/daily-flow" element={<DailyFlow />} />
             <Route path="/reports" element={<Reportes />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/replay" element={<Replay />} />
