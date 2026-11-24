@@ -258,7 +258,7 @@ export function Dashboard() {
 
   if (empty) {
     return (
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, background: 'transparent' }}>
         <div style={{ ...card, padding: 40, textAlign: 'center' }}>
           <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 18, color: '#fff', marginBottom: 8 }}>
             Aún no tienes operaciones registradas
@@ -294,7 +294,7 @@ export function Dashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', background: 'transparent' }}>
       {/* Daily loss alert */}
       {lossSeverity !== 'ok' && (
         <div style={{
